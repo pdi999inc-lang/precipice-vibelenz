@@ -30,11 +30,6 @@ SIGNALS = [
             r"\b(gift\s?card|wire transfer|western union|moneygram|zelle|cashapp|venmo)\b",
             r"\bmy (bank account|routing number|wallet address)\b",
             r"\bneed.{0,20}(financial|money|funds|help paying)\b",
-            # Dollar amounts — catches "$40", "$1,000", "40 dollars" etc.
-            r"\$\d[\d,]*",
-            r"\b\d[\d,]*\s*(dollars|usd|bucks)\b",
-            # OCR-tolerant: loaned/owed with any amount nearby
-            r"\b(loan[e]?d|owe[d]?|borrow[e]?d|repay|paid back)\b.{0,40}\b(you|me|him|her|them)\b",
         ],
         "label": "Financial Request",
     },
