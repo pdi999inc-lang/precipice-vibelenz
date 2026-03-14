@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibeLenz — Analysis Result</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0d0d;
+      color: #e8e8e8;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
+    .sub { color: #555; font-size: 0.78rem; margin-bottom: 2rem; }
+
+    .risk-badge {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+    .risk-low { background: #064e3b; color: #6ee7b7; }
+    .risk-medium { background: #78350f; color: #fbbf24; }
+    .risk-high { background: #7f1d1d; color: #fca5a5; }
+
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .score-num {
+      font-size: 3rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .score-low { color: #6ee7b7; }
+    .score-medium { color: #fbbf24; }
+    .score-high { color: #fca5a5; }
+
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      background: #222;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s ease;
+    }
+    .fill-low { background: #6ee7b7; }
+    .fill-medium { background: #fbbf24; }
+    .fill-high { background: #fca5a5; }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2d2d2d;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 { font-size: 0.8rem; text-transform: uppercase; color: #666; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+    .card p { font-size: 0.95rem; color: #ccc; line-height: 1.6; }
+
+    .flags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .flag {
+      padding: 0.3rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #2d1a1a;
+      color: #fca5a5;
+      border: 1px solid #4b1a1a;
+    }
+    .flag-none { color: #6ee7b7; background: #0d2a1f; border-color: #0d4a2f; }
+
+    .action-box {
+      background: #1e2a1a;
+      border: 1px solid #2d4a2d;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .action-box h2 { font-size: 0.8rem; text-transform: uppercase; color: #6ee7b7; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+    .action-box p { color: #a7f3d0; font-size: 0.95rem; line-height: 1.6; }
+
+    .extracted {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      color: #666;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 0.5rem;
+    }
+
+    .degraded-warning {
+      background: #2d1f00;
+      border: 1px solid #78350f;
+      border-radius: 8px;
+      padding: 1rem;
+      color: #fbbf24;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .confidence { color: #666; font-size: 0.78rem; margin-top: 0.5rem; }
+    .back-link {
+      display: inline-block;
+      margin-top: 1.5rem;
+      color: #60a5fa;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .back-link:hover { text-decoration: underline; }
+    .meta { color: #333; font-size: 0.72rem; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>VibeLenz Analysis</h1>
+    <p class="sub">Request ID: {{ request_id }}</p>
+
+    {% if degraded %}
+    <div class="degraded-warning">
+      ⚠️ System is operating in degraded mode. This result may be incomplete. Do not rely on this output.
+    </div>
+    {% endif %}
+
+    <div class="score-row">
+      <div class="score-num score-{{ risk_label | lower }}">{{ risk_score }}</div>
+      <div style="flex:1">
+        <div class="risk-badge risk-{{ risk_label | lower }}">{{ risk_label }} Risk</div>
+        <div class="bar-track" style="margin-top:0.5rem">
+          <div class="bar-fill fill-{{ risk_label | lower }}" style="width: {{ risk_score }}%"></div>
+        </div>
+        <div class="confidence">Confidence: {{ "%.0f" | format(confidence * 100) }}%</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Signals Detected</h2>
+      <div class="flags">
+        {% for flag in flags %}
+          {% if flag == "No signals detected" %}
+            <span class="flag flag-none">{{ flag }}</span>
+          {% else %}
+            <span class="flag">{{ flag }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Summary</h2>
+      <p>{{ summary }}</p>
+    </div>
+
+    <div class="action-box">
+      <h2>Suggested Action</h2>
+      <p>{{ recommended_action }}</p>
+    </div>
+
+    <div class="card">
+      <h2>Extracted Text</h2>
+      <div class="extracted">{{ extracted_text }}</div>
+    </div>
+
+    <a href="/" class="back-link">← Analyze another conversation</a>
+    <p class="meta">VibeLenz by Precipice Social Intelligence LLC · Analysis is informational only</p>
+  </div>
+</body>
+</html>
