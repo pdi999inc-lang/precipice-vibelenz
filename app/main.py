@@ -36,6 +36,16 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+@app.get("/pitch", response_class=HTMLResponse)
+async def pitch(request: Request):
+    return templates.TemplateResponse("pitch.html", {"request": request})
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about(request: Request):
+    return templates.TemplateResponse("about.html", {"request": request})
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -125,5 +135,8 @@ async def analyze_screenshots(
             "confidence": result["confidence"],
             "degraded": result.get("degraded", False),
             "request_id": request_id,
+            "phase": result.get("phase", "NONE"),
+            "vie_action": result.get("vie_action", "NONE"),
+            "active_combos": result.get("active_combos", []),
         },
     )
