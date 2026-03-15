@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.analyzer import analyze_text
+from app.audit import write_audit_record
 from app.ocr import extract_text_from_images
 from app.schemas import AnalysisResponse, ErrorResponse
 
@@ -51,6 +52,12 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/audit/stats")
+async def audit_stats():
+    from app.audit import get_session_stats
+    return get_session_stats()
+
+
 @app.post("/analyze-screenshots")
 async def analyze_screenshots(
     request: Request,
@@ -58,6 +65,8 @@ async def analyze_screenshots(
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
+    import time
+    timestamp_start = time.time()
 
     logger.info(f"[{request_id}] Received {len(files)} file(s) at {ts}")
 
@@ -110,6 +119,16 @@ async def analyze_screenshots(
 
     logger.info(
         f"[{request_id}] Risk={result['risk_score']} Flags={result['flags']} Degraded={result.get('degraded', False)}"
+    )
+
+    # Write structured audit record
+    write_audit_record(
+        request_id=request_id,
+        timestamp_start=timestamp_start,
+        image_count=len(files),
+        ocr_char_count=len(extracted_text),
+        result=result,
+        degraded=result.get("degraded", False),
     )
 
     accept = request.headers.get("accept", "")
