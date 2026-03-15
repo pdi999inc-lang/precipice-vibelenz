@@ -95,6 +95,11 @@ When these signal combinations appear together, increase risk score by 10-15 poi
 ## OCR NOISE TOLERANCE
 OCR text may have artifacts (| for I, garbled words). Interpret intent from context, not literal characters.
 
+## EVIDENCE LINKER
+For each detected signal, extract the shortest exact quote from the conversation that triggered it.
+Quote must be verbatim text from the conversation — not paraphrased. Keep quotes under 20 words.
+If OCR noise makes exact quoting impossible, use the closest clean approximation.
+
 ## OUTPUT
 Respond with ONLY valid JSON, no markdown fences, no preamble:
 {
@@ -102,6 +107,7 @@ Respond with ONLY valid JSON, no markdown fences, no preamble:
   "phase": "<GROOMING|ESCALATION|COERCION|ENDGAME|VICTIM_STATE|NONE>",
   "vie_action": "<BLOCK|WARN|MONITOR|SOFT_FLAG|LAW_ENFORCEMENT_REFERRAL|NONE>",
   "flags": ["<signal label strings>"],
+  "evidence": {"<signal_id>": "<exact quote from conversation that triggered this signal>"},
   "active_combos": ["<combo description if triggered>"],
   "confidence": <float 0.0-1.0>,
   "summary": "<plain language risk summary including phase and pattern identification>",
@@ -109,7 +115,7 @@ Respond with ONLY valid JSON, no markdown fences, no preamble:
   "degraded": false
 }
 
-If no signals detected return risk_score 0, phase NONE, vie_action NONE, flags ["No signals detected"]."""
+If no signals detected return risk_score 0, phase NONE, vie_action NONE, flags ["No signals detected"], evidence {}."""
 
 
 def analyze_text(text: str) -> Dict[str, Any]:
@@ -170,6 +176,10 @@ def _run_analysis(text: str) -> Dict[str, Any]:
         flags = ["No signals detected"]
     confidence = max(0.0, min(1.0, float(result.get("confidence", 0.5))))
 
+    evidence = result.get("evidence", {})
+    if not isinstance(evidence, dict):
+        evidence = {}
+
     return {
         "risk_score": risk_score,
         "flags": flags,
@@ -180,4 +190,5 @@ def _run_analysis(text: str) -> Dict[str, Any]:
         "phase": result.get("phase", "NONE"),
         "vie_action": result.get("vie_action", "NONE"),
         "active_combos": result.get("active_combos", []),
+        "evidence": evidence,
     }
