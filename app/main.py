@@ -138,5 +138,6 @@ async def analyze_screenshots(
             "phase": result.get("phase", "NONE"),
             "vie_action": result.get("vie_action", "NONE"),
             "active_combos": result.get("active_combos", []),
+            "evidence": result.get("evidence", {}),
         },
     )
