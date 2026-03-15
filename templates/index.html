@@ -118,7 +118,7 @@
       }
       emailError.style.display = 'none';
       // Store email in sessionStorage so it persists during session
-      try { await fetch('https://formspree.io/f/xdawladd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ email: val, source: 'vibelenz-landing' }) }); } catch(e) {}
+      try { await  } catch(e) {}
       sessionStorage.setItem('vl_email', val);
       emailGate.style.display = 'none';
       uploadCard.style.display = 'block';
