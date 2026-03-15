@@ -151,6 +151,16 @@
       </div>
     </div>
 
+    {% if phase and phase != "NONE" %}
+    <div class="card" style="border-color: #2d3a4a;">
+      <h2>Conversation Phase</h2>
+      <p style="color: #60a5fa; font-weight: 600;">{{ phase }}</p>
+      {% if vie_action and vie_action != "NONE" %}
+      <p style="color: #888; font-size: 0.85rem; margin-top: 0.25rem;">VIE Action: <span style="color: #fbbf24;">{{ vie_action }}</span></p>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <div class="card">
       <h2>Signals Detected</h2>
       <div class="flags">
@@ -163,6 +173,15 @@
         {% endfor %}
       </div>
     </div>
+
+    {% if active_combos and active_combos|length > 0 %}
+    <div class="card" style="border-color: #4b1a1a;">
+      <h2>Active Signal Combinations</h2>
+      {% for combo in active_combos %}
+      <p style="color: #fca5a5; font-size: 0.85rem; margin-bottom: 0.4rem;">⚠ {{ combo }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
 
     <div class="card">
       <h2>Summary</h2>
