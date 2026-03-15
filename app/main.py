@@ -31,6 +31,11 @@ ALLOWED_TYPES = {"image/png", "image/jpeg", "image/jpg"}
 MAX_FILES = 5
 
 
+@app.get("/pitch", response_class=HTMLResponse)
+async def pitch(request: Request):
+    return templates.TemplateResponse("pitch.html", {"request": request})
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
