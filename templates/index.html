@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VibeLenz — Conversation Safety Check</title>
+  <title>VibeLenz — Know the Vibe Before You Invest Your Heart</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -16,101 +16,124 @@
       justify-content: center;
       padding: 2rem;
     }
-    .card {
-      background: #1a1a1a;
-      border: 1px solid #2d2d2d;
-      border-radius: 12px;
-      padding: 2.5rem;
-      max-width: 520px;
-      width: 100%;
-    }
-    h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      color: #ffffff;
-      margin-bottom: 0.4rem;
-    }
-    .tagline {
-      color: #888;
-      font-size: 0.9rem;
-      margin-bottom: 2rem;
-    }
-    label {
-      display: block;
-      font-size: 0.85rem;
-      color: #aaa;
-      margin-bottom: 0.5rem;
-    }
-    .upload-zone {
-      border: 2px dashed #333;
-      border-radius: 8px;
-      padding: 2rem;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.2s;
-      margin-bottom: 1.5rem;
-    }
+    .wrapper { max-width: 520px; width: 100%; }
+    .pitch { margin-bottom: 2.5rem; text-align: center; }
+    .logo { font-size: 1.6rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+    .logo span { color: #60a5fa; }
+    .tagline { font-size: 1.35rem; font-weight: 600; color: #c9d8f0; line-height: 1.4; margin-bottom: 1rem; }
+    .subline { font-size: 0.95rem; color: #7a9cc4; line-height: 1.7; margin-bottom: 1.5rem; }
+    .proof-row { display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; }
+    .proof-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: #5580aa; }
+    .proof-dot { width: 6px; height: 6px; border-radius: 50%; background: #60a5fa; flex-shrink: 0; }
+    .card { background: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 12px; padding: 2rem; }
+    .card-label { font-size: 0.85rem; color: #aaa; margin-bottom: 0.5rem; text-align: center; }
+    .upload-zone { border: 2px dashed #2d2d2d; border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; transition: border-color 0.2s; margin-bottom: 1.25rem; }
     .upload-zone:hover { border-color: #555; }
-    .upload-zone input[type="file"] {
-      display: none;
-    }
+    .upload-zone input[type="file"] { display: none; }
     .upload-icon { font-size: 2rem; margin-bottom: 0.5rem; }
     .upload-text { color: #888; font-size: 0.9rem; }
     .upload-text span { color: #60a5fa; cursor: pointer; }
-    #file-list {
-      margin-bottom: 1.5rem;
-      font-size: 0.85rem;
-      color: #aaa;
-    }
-    #file-list li { padding: 0.25rem 0; }
-    .btn {
-      width: 100%;
-      padding: 0.85rem;
-      background: #2563eb;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
+    #file-list { margin-bottom: 1.25rem; font-size: 0.85rem; color: #aaa; }
+    #file-list li { padding: 0.25rem 0; list-style: none; }
+    .btn { width: 100%; padding: 0.85rem; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
     .btn:hover { background: #1d4ed8; }
-    .btn:disabled { background: #374151; cursor: not-allowed; }
-    .note {
-      margin-top: 1rem;
-      font-size: 0.78rem;
-      color: #555;
-      text-align: center;
+    .btn:disabled { background: #1e2a3a; color: #3a5070; cursor: not-allowed; }
+    .note { margin-top: 1rem; font-size: 0.75rem; color: #444; text-align: center; }
+    .spinner { display: none; text-align: center; margin-top: 1rem; color: #555; font-size: 0.85rem; }
+    .email-input {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
     }
-    .spinner { display: none; text-align: center; margin-top: 1rem; color: #888; }
+    .email-input:focus { border-color: #2563eb; }
+    .email-label { font-size: 1rem; color: #ccc; margin-bottom: 1.25rem; text-align: center; display: block; }
+    .error-msg { color: #f87171; font-size: 0.8rem; text-align: center; margin-top: 0.5rem; display: none; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>VibeLenz</h1>
-    <p class="tagline">Upload conversation screenshots for a safety analysis.</p>
-
-    <form id="upload-form" method="post" action="/analyze-screenshots" enctype="multipart/form-data">
-      <label>Screenshots (up to 5 images)</label>
-      <div class="upload-zone" id="drop-zone">
-        <div class="upload-icon">📁</div>
-        <div class="upload-text">
-          Drop images here or <span id="browse-link">browse</span>
-        </div>
-        <input type="file" name="files" id="file-input" accept=".png,.jpg,.jpeg" multiple />
+  <div class="wrapper">
+    <div class="pitch">
+      <div class="logo">Vibe<span>Lenz</span></div>
+      <p class="tagline">You know when you first start talking to someone and the vibe just isn't clear?</p>
+      <p class="subline">We bring it into focus.<br><br>Upload a screenshot of any conversation — dating app, text, DM — and VibeLenz tells you exactly what's happening before you invest your time, your trust, or your money.</p>
+      <div class="proof-row">
+        <div class="proof-item"><div class="proof-dot"></div>Financial pressure</div>
+        <div class="proof-item"><div class="proof-dot"></div>Manipulation tactics</div>
+        <div class="proof-item"><div class="proof-dot"></div>Scam patterns</div>
+        <div class="proof-item"><div class="proof-dot"></div>Romance fraud</div>
+        <div class="proof-item"><div class="proof-dot"></div>Free to use</div>
       </div>
+    </div>
 
-      <ul id="file-list"></ul>
+    <!-- Email gate -->
+    <div class="card" id="email-gate">
+      <span class="email-label">Enter your email to get your free analysis</span>
+      <input type="email" id="email-input" class="email-input" placeholder="your@email.com" />
+      <button id="email-btn" class="btn">Continue →</button>
+      <p class="error-msg" id="email-error">Please enter a valid email address.</p>
+      <p class="note">No account needed. No spam. Ever.</p>
+    </div>
 
-      <button type="submit" class="btn" id="submit-btn" disabled>Analyze Conversation</button>
-    </form>
-
-    <div class="spinner" id="spinner">Analyzing… this may take a few seconds.</div>
-    <p class="note">Max 5 images · PNG, JPG, JPEG · No data stored</p>
+    <!-- Upload form (hidden until email entered) -->
+    <div class="card" id="upload-card" style="display:none;">
+      <p class="card-label">Upload 1–5 conversation screenshots</p>
+      <form id="upload-form" method="post" action="/analyze-screenshots" enctype="multipart/form-data">
+        <div class="upload-zone" id="drop-zone">
+          <div class="upload-icon">📎</div>
+          <div class="upload-text">Drop screenshots here or <span id="browse-link">browse</span></div>
+          <input type="file" name="files" id="file-input" accept=".png,.jpg,.jpeg" multiple />
+        </div>
+        <ul id="file-list"></ul>
+        <button type="submit" class="btn" id="submit-btn" disabled>Analyze This Conversation</button>
+      </form>
+      <div class="spinner" id="spinner">Analyzing your conversation…</div>
+      <p class="note">Max 5 images · PNG, JPG · No data stored · Results in seconds</p>
+    </div>
   </div>
 
   <script>
+    // Email gate
+    const emailGate = document.getElementById('email-gate');
+    const uploadCard = document.getElementById('upload-card');
+    const emailInput = document.getElementById('email-input');
+    const emailBtn = document.getElementById('email-btn');
+    const emailError = document.getElementById('email-error');
+
+    function isValidEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    emailBtn.addEventListener('click', () => {
+      const val = emailInput.value.trim();
+      if (!isValidEmail(val)) {
+        emailError.style.display = 'block';
+        return;
+      }
+      emailError.style.display = 'none';
+      // Store email in sessionStorage so it persists during session
+      sessionStorage.setItem('vl_email', val);
+      emailGate.style.display = 'none';
+      uploadCard.style.display = 'block';
+    });
+
+    emailInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') emailBtn.click();
+    });
+
+    // If already entered email this session, skip gate
+    if (sessionStorage.getItem('vl_email')) {
+      emailGate.style.display = 'none';
+      uploadCard.style.display = 'block';
+    }
+
+    // Upload form
     const input = document.getElementById('file-input');
     const browseLink = document.getElementById('browse-link');
     const dropZone = document.getElementById('drop-zone');
@@ -121,12 +144,11 @@
 
     browseLink.addEventListener('click', () => input.click());
     dropZone.addEventListener('click', (e) => { if (e.target !== browseLink) input.click(); });
-
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#60a5fa'; });
-    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#333'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#2d2d2d'; });
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
-      dropZone.style.borderColor = '#333';
+      dropZone.style.borderColor = '#2d2d2d';
       const dt = new DataTransfer();
       Array.from(e.dataTransfer.files).slice(0, 5).forEach(f => dt.items.add(f));
       input.files = dt.files;
@@ -140,7 +162,7 @@
       const files = Array.from(input.files).slice(0, 5);
       files.forEach(f => {
         const li = document.createElement('li');
-        li.textContent = `✓ ${f.name}`;
+        li.textContent = '✓ ' + f.name;
         fileList.appendChild(li);
       });
       submitBtn.disabled = files.length === 0;
