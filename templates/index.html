@@ -87,7 +87,14 @@
             <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;">
               <input type="radio" name="relationship_type" value="friend" style="accent-color:#2563eb;"> Friend
             </label>
+            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;grid-column:span 2;">
+              <input type="radio" name="relationship_type" value="business" style="accent-color:#2563eb;"> Business contact (vendor, client, recruiter)
+            </label>
           </div>
+        </div>
+        <div style="margin-bottom:1.25rem;">
+          <label style="display:block;font-size:0.85rem;color:#aaa;margin-bottom:0.6rem;">Context <span style="color:#555;">(optional)</span></label>
+          <input type="text" name="context_note" maxlength="120" placeholder="e.g. Met on Hinge last week, asked me for money" style="width:100%;padding:0.7rem 0.9rem;background:#111;border:1px solid #333;border-radius:8px;color:#ccc;font-size:0.85rem;outline:none;" />
         </div>
         <div class="upload-zone" id="drop-zone">
           <div class="upload-icon">📎</div>
