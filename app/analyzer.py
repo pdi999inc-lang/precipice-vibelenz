@@ -95,6 +95,18 @@ When these signal combinations appear together, increase risk score by 10-15 poi
 ## OCR NOISE TOLERANCE
 OCR text may have artifacts (| for I, garbled words). Interpret intent from context, not literal characters.
 
+
+## POSITIVE SIGNAL LIBRARY
+Also detect these trust-building signals and return them in positive_signals list:
+- consistent_identity: Story details coherent and consistent
+- reciprocal_engagement: Genuine two-way interest asks questions
+- boundary_respect: Accepts limits without escalating
+- transparent_intentions: Clear about who they are
+- no_financial_topics: Money never comes up unsolicited
+- meeting_willingness: Open to video calls or in-person
+- patient_pacing: Does not rush intimacy
+- verifiable_details: Provides specific checkable information
+
 ## EVIDENCE LINKER
 For each detected signal, extract the shortest exact quote from the conversation that triggered it.
 Quote must be verbatim text from the conversation — not paraphrased. Keep quotes under 20 words.
