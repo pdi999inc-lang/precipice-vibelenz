@@ -62,6 +62,7 @@ async def audit_stats():
 async def analyze_screenshots(
     request: Request,
     files: List[UploadFile] = File(...),
+    relationship_type: str = "stranger",
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
@@ -100,7 +101,7 @@ async def analyze_screenshots(
 
     # --- Analysis ---
     try:
-        result = analyze_text(extracted_text)
+        result = analyze_text(extracted_text, relationship_type=relationship_type)
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
@@ -154,6 +155,7 @@ async def analyze_screenshots(
             "confidence": result["confidence"],
             "degraded": result.get("degraded", False),
             "request_id": request_id,
+            "relationship_type": relationship_type,
             "phase": result.get("phase", "NONE"),
             "vie_action": result.get("vie_action", "NONE"),
             "active_combos": result.get("active_combos", []),
