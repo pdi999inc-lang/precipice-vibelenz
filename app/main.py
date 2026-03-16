@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.analyzer import analyze_text
 from app.audit import write_audit_record
+from app.degradation import assess_degradation, apply_degradation
 from app.ocr import extract_text_from_images
 from app.schemas import AnalysisResponse, ErrorResponse
 
@@ -121,6 +122,15 @@ async def analyze_screenshots(
     logger.info(
         f"[{request_id}] Risk={result['risk_score']} Flags={result['flags']} Degraded={result.get('degraded', False)}"
     )
+
+    # Assess degradation
+    assessment = assess_degradation(
+        ocr_char_count=len(extracted_text),
+        confidence=result.get("confidence", 0.5),
+        processing_time_ms=int((time.time() - timestamp_start) * 1000),
+        result_degraded=result.get("degraded", False),
+    )
+    result = apply_degradation(result, assessment)
 
     # Write structured audit record
     write_audit_record(
