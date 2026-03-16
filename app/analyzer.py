@@ -118,13 +118,56 @@ Respond with ONLY valid JSON, no markdown fences, no preamble:
 If no signals detected return risk_score 0, phase NONE, vie_action NONE, flags ["No signals detected"], evidence {}."""
 
 
-def analyze_text(text: str) -> Dict[str, Any]:
+RELATIONSHIP_PROMPT = """You are VibeLenz, a communication safety and dynamics analyzer.
+
+You analyze conversation text to identify harmful communication patterns in ongoing personal relationships.
+This is NOT a fraud/scam analysis. This is a behavioral dynamics analysis.
+
+SIGNAL LIBRARY — RELATIONSHIP DYNAMICS:
+
+HIGH CONCERN (weight 0.8):
+- guilt_induction: making other person responsible for speaker feelings; "after everything I've done", "you never", "I always"
+- blame_shifting: deflecting all accountability to circumstances or the other party
+- gaslighting: denying events, rewriting history, making other person question their perception
+- DARVO: Deny Attack Reverse Victim and Offender — accused becomes the accuser
+- victimhood_framing: positioning as wronged party regardless of context
+- emotional_leverage: using children, shared history, or love as pressure
+
+MEDIUM CONCERN (weight 0.5):
+- love_bombing_cycle: excessive warmth before a request; coldness after compliance
+- triangulation: introducing third parties to create guilt or pressure
+- moving_goalposts: changing expectations after they have been met
+- stonewalling_as_punishment: withdrawal used as control
+- minimization: dismissing the other person's feelings as overreactions
+- false_equivalence: comparing unrelated situations to deflect concerns
+
+LOW CONCERN (weight 0.3):
+- passive_aggression: indirect hostility through sarcasm or deliberate inefficiency
+- catastrophizing: escalating minor issues to gain compliance
+- boundary_violations: ignoring stated limits repeatedly
+
+PHASE DETECTION:
+- TENSION_BUILDING: Low-level friction, minor blame
+- INCIDENT: Active manipulation, direct pressure
+- RECONCILIATION: Warmth cycle, love bombing, promises
+- CALM: Normal interaction
+
+SCORING: 0-29 healthy, 30-59 concerning, 60-79 significant manipulation, 80-100 severe
+
+Respond with ONLY valid JSON, no markdown:
+{"risk_score": <0-100>, "phase": "<TENSION_BUILDING|INCIDENT|RECONCILIATION|CALM|NONE>", "vie_action": "<WARN|MONITOR|SOFT_FLAG|NONE>", "flags": ["signal labels"], "evidence": {"signal_id": "exact quote"}, "active_combos": ["combo descriptions"], "confidence": <0.0-1.0>, "summary": "<dynamic summary>", "recommended_action": "<practical guidance>", "degraded": false}
+
+If no concerning patterns: risk_score 0, phase CALM, flags ["No concerning patterns detected"]."""
+
+
+def analyze_text(text: str, relationship_type: str = "stranger") -> Dict[str, Any]:
     """
-    Analyze conversation text using Claude API with full VIE 30-signal library.
+    Analyze conversation text using Claude API.
+    relationship_type: "stranger" | "dating" | "family" | "friend"
     Fail-closed: any exception returns degraded result with score=100.
     """
     try:
-        return _run_analysis(text)
+        return _run_analysis(text, relationship_type)
     except Exception as e:
         logger.error(f"Analysis failure: {e}")
         return {
@@ -137,7 +180,7 @@ def analyze_text(text: str) -> Dict[str, Any]:
         }
 
 
-def _run_analysis(text: str) -> Dict[str, Any]:
+def _run_analysis(text: str, relationship_type: str = "stranger") -> Dict[str, Any]:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY not configured")
@@ -147,14 +190,22 @@ def _run_analysis(text: str) -> Dict[str, Any]:
     if len(text) > 8000:
         text = text[:8000] + "\n[truncated]"
 
+    # Route to appropriate system prompt
+    if relationship_type in ("dating", "family", "friend"):
+        active_prompt = RELATIONSHIP_PROMPT
+        user_content = f"Relationship type: {relationship_type}\n\nAnalyze this conversation:\n\n{text}"
+    else:
+        active_prompt = SYSTEM_PROMPT
+        user_content = f"Analyze this conversation:\n\n{text}"
+
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=1024,
-        system=SYSTEM_PROMPT,
+        system=active_prompt,
         messages=[
             {
                 "role": "user",
-                "content": f"Analyze this conversation:\n\n{text}"
+                "content": user_content
             }
         ]
     )
