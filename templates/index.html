@@ -40,23 +40,12 @@
     .btn:disabled { background: #1e2a3a; color: #3a5070; cursor: not-allowed; }
     .note { margin-top: 1rem; font-size: 0.75rem; color: #444; text-align: center; }
     .spinner { display: none; text-align: center; margin-top: 1rem; color: #555; font-size: 0.85rem; }
-    .email-input {
-      width: 100%;
-      padding: 0.8rem 1rem;
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 1rem;
-      margin-bottom: 1rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
+    .email-input { width: 100%; padding: 0.8rem 1rem; background: #111; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 1rem; margin-bottom: 1rem; outline: none; transition: border-color 0.2s; }
     .email-input:focus { border-color: #2563eb; }
     .email-label { font-size: 1rem; color: #ccc; margin-bottom: 1.25rem; text-align: center; display: block; }
     .error-msg { color: #f87171; font-size: 0.8rem; text-align: center; margin-top: 0.5rem; display: none; }
   </style>
-<script async src='https://www.googletagmanager.com/gtag/js?id=G-E4TDZ5JEQ7'></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-E4TDZ5JEQ7');</script></head>
+</head>
 <body>
   <div class="wrapper">
     <div class="pitch">
@@ -72,19 +61,34 @@
       </div>
     </div>
 
-    <!-- Email gate -->
     <div class="card" id="email-gate">
       <span class="email-label">Enter your email to get your free analysis</span>
       <input type="email" id="email-input" class="email-input" placeholder="your@email.com" />
-      <button id="email-btn" class="btn">Continue →</button>
+      <button id="email-btn" class="btn">Continue</button>
       <p class="error-msg" id="email-error">Please enter a valid email address.</p>
       <p class="note">No account needed. No spam. Ever.</p>
     </div>
 
-    <!-- Upload form (hidden until email entered) -->
     <div class="card" id="upload-card" style="display:none;">
-      <p class="card-label">Upload 1–5 conversation screenshots</p>
+      <p class="card-label">Upload 1-5 conversation screenshots</p>
       <form id="upload-form" method="post" action="/analyze-screenshots" enctype="multipart/form-data">
+        <div style="margin-bottom:1.25rem;">
+          <label style="display:block;font-size:0.85rem;color:#aaa;margin-bottom:0.6rem;">Who is this conversation with?</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;">
+              <input type="radio" name="relationship_type" value="stranger" checked style="accent-color:#2563eb;"> New contact
+            </label>
+            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;">
+              <input type="radio" name="relationship_type" value="dating" style="accent-color:#2563eb;"> Dating
+            </label>
+            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;">
+              <input type="radio" name="relationship_type" value="family" style="accent-color:#2563eb;"> Family / Co-parent
+            </label>
+            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;">
+              <input type="radio" name="relationship_type" value="friend" style="accent-color:#2563eb;"> Friend
+            </label>
+          </div>
+        </div>
         <div class="upload-zone" id="drop-zone">
           <div class="upload-icon">📎</div>
           <div class="upload-text">Drop screenshots here or <span id="browse-link">browse</span></div>
@@ -93,65 +97,61 @@
         <ul id="file-list"></ul>
         <button type="submit" class="btn" id="submit-btn" disabled>Analyze This Conversation</button>
       </form>
-      <div class="spinner" id="spinner">Analyzing your conversation…</div>
+      <div class="spinner" id="spinner">Analyzing your conversation...</div>
       <p class="note">Max 5 images · PNG, JPG · No data stored · Results in seconds</p>
     </div>
   </div>
 
   <script>
-    // Email gate
     const emailGate = document.getElementById('email-gate');
     const uploadCard = document.getElementById('upload-card');
     const emailInput = document.getElementById('email-input');
     const emailBtn = document.getElementById('email-btn');
     const emailError = document.getElementById('email-error');
 
-    function isValidEmail(email) {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    function isValidEmail(e) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
     }
 
-    emailBtn.addEventListener('click', () => {
-      const val = emailInput.value.trim();
+    emailBtn.addEventListener('click', async function() {
+      var val = emailInput.value.trim();
       if (!isValidEmail(val)) {
         emailError.style.display = 'block';
         return;
       }
       emailError.style.display = 'none';
-      // Store email in sessionStorage so it persists during session
-      try { await  } catch(e) {}
       sessionStorage.setItem('vl_email', val);
       emailGate.style.display = 'none';
       uploadCard.style.display = 'block';
+      fetch('https://formspree.io/f/xdawladd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ email: val, source: 'vibelenz-landing' }) }).catch(function(){});
     });
 
-    emailInput.addEventListener('keydown', (e) => {
+    emailInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') emailBtn.click();
     });
 
-    // If already entered email this session, skip gate
     if (sessionStorage.getItem('vl_email')) {
       emailGate.style.display = 'none';
       uploadCard.style.display = 'block';
     }
 
-    // Upload form
-    const input = document.getElementById('file-input');
-    const browseLink = document.getElementById('browse-link');
-    const dropZone = document.getElementById('drop-zone');
-    const fileList = document.getElementById('file-list');
-    const submitBtn = document.getElementById('submit-btn');
-    const form = document.getElementById('upload-form');
-    const spinner = document.getElementById('spinner');
+    var input = document.getElementById('file-input');
+    var browseLink = document.getElementById('browse-link');
+    var dropZone = document.getElementById('drop-zone');
+    var fileList = document.getElementById('file-list');
+    var submitBtn = document.getElementById('submit-btn');
+    var form = document.getElementById('upload-form');
+    var spinner = document.getElementById('spinner');
 
-    browseLink.addEventListener('click', () => input.click());
-    dropZone.addEventListener('click', (e) => { if (e.target !== browseLink) input.click(); });
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#60a5fa'; });
-    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#2d2d2d'; });
-    dropZone.addEventListener('drop', (e) => {
+    browseLink.addEventListener('click', function() { input.click(); });
+    dropZone.addEventListener('click', function(e) { if (e.target !== browseLink) input.click(); });
+    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.style.borderColor = '#60a5fa'; });
+    dropZone.addEventListener('dragleave', function() { dropZone.style.borderColor = '#2d2d2d'; });
+    dropZone.addEventListener('drop', function(e) {
       e.preventDefault();
       dropZone.style.borderColor = '#2d2d2d';
-      const dt = new DataTransfer();
-      Array.from(e.dataTransfer.files).slice(0, 5).forEach(f => dt.items.add(f));
+      var dt = new DataTransfer();
+      Array.from(e.dataTransfer.files).slice(0, 5).forEach(function(f) { dt.items.add(f); });
       input.files = dt.files;
       updateList();
     });
@@ -160,16 +160,16 @@
 
     function updateList() {
       fileList.innerHTML = '';
-      const files = Array.from(input.files).slice(0, 5);
-      files.forEach(f => {
-        const li = document.createElement('li');
-        li.textContent = '✓ ' + f.name;
+      var files = Array.from(input.files).slice(0, 5);
+      files.forEach(function(f) {
+        var li = document.createElement('li');
+        li.textContent = 'check ' + f.name;
         fileList.appendChild(li);
       });
       submitBtn.disabled = files.length === 0;
     }
 
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', function() {
       submitBtn.disabled = true;
       spinner.style.display = 'block';
     });
