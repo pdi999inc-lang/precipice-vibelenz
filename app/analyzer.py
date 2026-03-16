@@ -121,6 +121,7 @@ Respond with ONLY valid JSON, no markdown fences, no preamble:
   "flags": ["<signal label strings>"],
   "evidence": {"<signal_id>": "<exact quote from conversation that triggered this signal>"},
   "active_combos": ["<combo description if triggered>"],
+  "positive_signals": ["reciprocal_engagement", "no_financial_topics"],  // list ALL observed trust signals here, never leave empty if trust signals present
   "confidence": <float 0.0-1.0>,
   "summary": "<plain language risk summary including phase and pattern identification>",
   "recommended_action": "<specific action — if LAW_ENFORCEMENT_REFERRAL, state this explicitly>",
