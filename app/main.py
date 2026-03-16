@@ -160,5 +160,6 @@ async def analyze_screenshots(
             "vie_action": result.get("vie_action", "NONE"),
             "active_combos": result.get("active_combos", []),
             "evidence": result.get("evidence", {}),
+            "positive_signals": result.get("positive_signals", []),
         },
     )
