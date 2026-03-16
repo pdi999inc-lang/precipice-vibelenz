@@ -21,7 +21,7 @@ You analyze conversation text extracted from screenshots using the full VIE 30-s
 
 ## PHASE DETECTION
 First identify the conversation phase:
-- GROOMING: Building trust, establishing connection, mirroring emotions
+- GROOMING: Stranger building trust with suspicious patterns. ONLY use for unknown contacts with red flags. NEVER use GROOMING for established relationships - use NONE instead
 - ESCALATION: Moving off platform, increasing intimacy, introducing financial topics
 - COERCION: Direct financial asks, urgency pressure, isolation tactics
 - ENDGAME: Large financial request, withdrawal barriers, document fabrication
