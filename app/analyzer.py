@@ -173,14 +173,14 @@ Respond with ONLY valid JSON, no markdown:
 If no concerning patterns: risk_score 0, phase CALM, flags ["No concerning patterns detected"]."""
 
 
-def analyze_text(text: str, relationship_type: str = "stranger") -> Dict[str, Any]:
+def analyze_text(text: str, relationship_type: str = "stranger", context_note: str = "") -> Dict[str, Any]:
     """
     Analyze conversation text using Claude API.
     relationship_type: "stranger" | "dating" | "family" | "friend"
     Fail-closed: any exception returns degraded result with score=100.
     """
     try:
-        return _run_analysis(text, relationship_type)
+        return _run_analysis(text, relationship_type, context_note)
     except Exception as e:
         logger.error(f"Analysis failure: {e}")
         return {
@@ -193,7 +193,7 @@ def analyze_text(text: str, relationship_type: str = "stranger") -> Dict[str, An
         }
 
 
-def _run_analysis(text: str, relationship_type: str = "stranger") -> Dict[str, Any]:
+def _run_analysis(text: str, relationship_type: str = "stranger", context_note: str = "") -> Dict[str, Any]:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY not configured")
@@ -204,7 +204,7 @@ def _run_analysis(text: str, relationship_type: str = "stranger") -> Dict[str, A
         text = text[:8000] + "\n[truncated]"
 
     # Route to appropriate system prompt
-    if relationship_type in ("dating", "family", "friend"):
+    if relationship_type in ("dating", "family", "friend", "business"):
         active_prompt = RELATIONSHIP_PROMPT
         user_content = f"Relationship type: {relationship_type}\n\nAnalyze this conversation:\n\n{text}"
     else:
