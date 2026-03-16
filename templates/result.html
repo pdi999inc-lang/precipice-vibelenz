@@ -179,6 +179,8 @@
       </div>
     </div>
 
+    <div class="card" style="border-color: #1a3a2a;"><h2 style="color: #6ee7b7;">Positive Signals</h2>{% if positive_signals and positive_signals|length > 0 %}<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem;">{% for ps in positive_signals %}<span style="background:#0d2a1a;color:#6ee7b7;border:1px solid #1a4a2a;border-radius:6px;padding:0.25rem 0.65rem;font-size:0.78rem;">{{ ps }}</span>{% endfor %}</div>{% else %}<p style="color:#555;font-size:0.85rem;margin-top:0.5rem;">No positive signals detected.</p>{% endif %}</div>
+
     {% if active_combos and active_combos|length > 0 %}
     <div class="card" style="border-color: #4b1a1a;">
       <h2>Active Signal Combinations</h2>
