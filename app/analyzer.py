@@ -127,7 +127,7 @@ Respond with ONLY valid JSON, no markdown fences, no preamble:
   "degraded": false
 }
 
-If no signals detected return risk_score 0, phase NONE, vie_action NONE, flags ["No signals detected"], evidence {}."""
+If no risk signals detected return risk_score 0, phase NONE, vie_action NONE, flags ["No signals detected"], evidence {}. However always populate positive_signals with any trust indicators you observed even when risk is 0. A score of 0 with positive signals is the ideal result for a healthy conversation."""
 
 
 RELATIONSHIP_PROMPT = """You are VibeLenz, a communication safety and dynamics analyzer.
