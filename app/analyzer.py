@@ -226,11 +226,8 @@ def _run_analysis(text: str, relationship_type: str = "stranger") -> Dict[str, A
     raw = message.content[0].text.strip()
     logger.info(f"Claude response: {raw[:300]}")
 
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
+    if "```" in raw:
+        raw = raw.replace("```json", "").replace("```", "").strip()
 
     result = json.loads(raw)
 
@@ -255,4 +252,5 @@ def _run_analysis(text: str, relationship_type: str = "stranger") -> Dict[str, A
         "vie_action": result.get("vie_action", "NONE"),
         "active_combos": result.get("active_combos", []),
         "evidence": evidence,
+        "positive_signals": result.get("positive_signals", []),
     }
