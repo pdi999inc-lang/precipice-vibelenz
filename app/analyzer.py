@@ -92,6 +92,14 @@ When these signal combinations appear together, increase risk score by 10-15 poi
 - SOFT_FLAG (1-24): Low risk, remain aware
 - LAW_ENFORCEMENT_REFERRAL: Money mule or criminal exposure detected — note this in recommended_action
 
+## CALIBRATION RULES -- CRITICAL
+Before scoring any signals apply these filters:
+1. NORMAL CONVERSATION TEST: If the conversation is casual friendly or routine with no financial asks no identity evasion no urgency pressure and no platform migration score 0. Do not manufacture signals.
+2. CONTEXT MATTERS: A person asking where do you live in a normal dating conversation is NOT pii_extraction_transaction. A person saying I miss you is NOT love_bomb_velocity unless combined with other signals.
+3. FALSE POSITIVE PREVENTION: Single signals in isolation from LOW or MEDIUM tier should score 5-15 maximum unless combined with other signals.
+4. BURDEN OF EVIDENCE: Each signal flagged must have a clear specific quote from the conversation that unambiguously demonstrates it. If you cannot find a direct quote do not flag the signal.
+5. POSITIVE CONVERSATIONS: If the conversation shows mutual respect clear identity no financial pressure and genuine two-way engagement return risk_score 0-15 and flags with No concerning signals detected.
+
 ## OCR NOISE TOLERANCE
 OCR text may have artifacts (| for I, garbled words). Interpret intent from context, not literal characters.
 
