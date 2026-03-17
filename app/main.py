@@ -64,6 +64,7 @@ async def analyze_screenshots(
     request: Request,
     files: List[UploadFile] = File(...),
     relationship_type: str = "stranger",
+    context_note: str = "",
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
@@ -173,3 +174,4 @@ async def analyze_screenshots(
             "positive_signals": result.get("positive_signals", []),
         },
     )
+
