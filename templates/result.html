@@ -147,7 +147,7 @@
         <div class="bar-track" style="margin-top:0.5rem">
           <div class="bar-fill fill-{{ risk_label | lower }}" style="width: {{ risk_score }}%"></div>
         </div>
-        <div class="confidence">Confidence: {{ "%.0f" | format(confidence * 100) }}%</div>
+        <div class="confidence">Confidence: {{ "%.0f" | format(confidence * 100) }}% &nbsp;&middot;&nbsp; <span style="color:#444;font-size:0.72rem;">Reflects how clearly the visible conversation matches this assessment</span></div>
       </div>
     </div>
 
@@ -162,7 +162,7 @@
     {% endif %}
 
     <div class="card">
-      <h2>Signals Detected</h2>
+      <h2>Risk Signals</h2>
       <div class="flags" style="flex-direction: column; align-items: flex-start; gap: 0.75rem;">
         {% for flag in flags %}
           {% if flag == "No signals detected" %}
