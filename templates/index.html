@@ -1,185 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VibeLenz — Know the Vibe Before You Invest Your Heart</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #0d0d0d;
-      color: #e8e8e8;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-    .wrapper { max-width: 520px; width: 100%; }
-    .pitch { margin-bottom: 2.5rem; text-align: center; }
-    .logo { font-size: 1.6rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin-bottom: 0.25rem; }
-    .logo span { color: #60a5fa; }
-    .tagline { font-size: 1.35rem; font-weight: 600; color: #c9d8f0; line-height: 1.4; margin-bottom: 1rem; }
-    .subline { font-size: 0.95rem; color: #7a9cc4; line-height: 1.7; margin-bottom: 1.5rem; }
-    .proof-row { display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; }
-    .proof-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: #5580aa; }
-    .proof-dot { width: 6px; height: 6px; border-radius: 50%; background: #60a5fa; flex-shrink: 0; }
-    .card { background: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 12px; padding: 2rem; }
-    .card-label { font-size: 0.85rem; color: #aaa; margin-bottom: 0.5rem; text-align: center; }
-    .upload-zone { border: 2px dashed #2d2d2d; border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; transition: border-color 0.2s; margin-bottom: 1.25rem; }
-    .upload-zone:hover { border-color: #555; }
-    .upload-zone input[type="file"] { display: none; }
-    .upload-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-    .upload-text { color: #888; font-size: 0.9rem; }
-    .upload-text span { color: #60a5fa; cursor: pointer; }
-    #file-list { margin-bottom: 1.25rem; font-size: 0.85rem; color: #aaa; }
-    #file-list li { padding: 0.25rem 0; list-style: none; }
-    .btn { width: 100%; padding: 0.85rem; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-    .btn:hover { background: #1d4ed8; }
-    .btn:disabled { background: #1e2a3a; color: #3a5070; cursor: not-allowed; }
-    .note { margin-top: 1rem; font-size: 0.75rem; color: #444; text-align: center; }
-    .spinner { display: none; text-align: center; margin-top: 1rem; color: #555; font-size: 0.85rem; }
-    .email-input { width: 100%; padding: 0.8rem 1rem; background: #111; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 1rem; margin-bottom: 1rem; outline: none; transition: border-color 0.2s; }
-    .email-input:focus { border-color: #2563eb; }
-    .email-label { font-size: 1rem; color: #ccc; margin-bottom: 1.25rem; text-align: center; display: block; }
-    .error-msg { color: #f87171; font-size: 0.8rem; text-align: center; margin-top: 0.5rem; display: none; }
-  </style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VibeLenz</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#0b1020;
+color:white;
+}
+
+.page{
+max-width:1100px;
+margin:auto;
+padding:30px;
+}
+
+.layout{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:30px;
+}
+
+.panel{
+background:#121a31;
+border-radius:14px;
+padding:25px;
+}
+
+h1{
+font-size:2.8rem;
+}
+
+input,select{
+width:100%;
+padding:12px;
+margin-top:6px;
+margin-bottom:14px;
+border-radius:8px;
+border:1px solid #30456f;
+background:#0e162b;
+color:white;
+}
+
+button{
+width:100%;
+padding:14px;
+background:#2563eb;
+border:none;
+border-radius:8px;
+color:white;
+font-weight:bold;
+}
+
+@media(max-width:768px){
+
+.layout{
+grid-template-columns:1fr;
+}
+
+h1{
+font-size:2rem;
+}
+
+}
+
+</style>
 </head>
+
 <body>
-  <div class="wrapper">
-    <div class="pitch">
-      <div class="logo">Vibe<span>Lenz</span></div>
-      <p class="tagline">You know when you first start talking to someone and the vibe just isn't clear?</p>
-      <p class="subline">Bring their intentions into focus.<br><br>Upload a screenshot of any conversation — dating app, text, DM — and VibeLenz helps you see what may be happening before you invest your time, your trust, or your money.</p>
-      <div class="proof-row">
-        <div class="proof-item"><div class="proof-dot"></div>Financial pressure</div>
-        <div class="proof-item"><div class="proof-dot"></div>Manipulation tactics</div>
-        <div class="proof-item"><div class="proof-dot"></div>Scam patterns</div>
-        <div class="proof-item"><div class="proof-dot"></div>Romance fraud</div>
-        
-      </div>
-    </div>
 
-    <!-- email gate removed -->
-      <span class="email-label">Get your first analysis free</span>
-      <input type="email" id="email-input" class="email-input" placeholder="your@email.com" />
-      <button id="email-btn" class="btn">Continue</button>
-      <p class="error-msg" id="email-error">Please enter a valid email address.</p>
-      <p class="note">No account needed. No spam. Ever. Built to highlight risk signals and conversation patterns, not replace your judgment.</p>
-    </div>
+<div class="page">
 
-    <div class="card" id="upload-card" >
-      <p class="card-label">Upload 1-5 conversation screenshots</p>
-      <form id="upload-form" method="post" action="/analyze-screenshots" enctype="multipart/form-data">
-        <div style="margin-bottom:1.25rem;">
-          <label style="display:block;font-size:0.85rem;color:#aaa;margin-bottom:0.6rem;">Who is this conversation with?</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
-            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;">
-              <input type="radio" name="relationship_type" value="stranger" checked style="accent-color:#2563eb;"> New contact
-            </label>
-            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;">
-              <input type="radio" name="relationship_type" value="dating" style="accent-color:#2563eb;"> Dating
-            </label>
-            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;">
-              <input type="radio" name="relationship_type" value="family" style="accent-color:#2563eb;"> Family / Co-parent
-            </label>
-            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;">
-              <input type="radio" name="relationship_type" value="friend" style="accent-color:#2563eb;"> Friend
-            </label>
-            <label style="display:flex;align-items:center;gap:0.5rem;background:#111;border:1px solid #333;border-radius:8px;padding:0.6rem 0.75rem;cursor:pointer;font-size:0.85rem;color:#ccc;grid-column:span 2;">
-              <input type="radio" name="relationship_type" value="business" style="accent-color:#2563eb;"> Business contact (vendor, client, recruiter)
-            </label>
-          </div>
-        </div>
-        <div style="margin-bottom:1.25rem;">
-          <label style="display:block;font-size:0.85rem;color:#aaa;margin-bottom:0.6rem;">Context <span style="color:#555;">(optional)</span></label>
-          <input type="text" name="context_note" maxlength="120" placeholder="e.g. Met on Hinge last week, asked me for money" style="width:100%;padding:0.7rem 0.9rem;background:#111;border:1px solid #333;border-radius:8px;color:#ccc;font-size:0.85rem;outline:none;" />
-        </div>
-        <div class="upload-zone" id="drop-zone">
-          <div class="upload-icon">📎</div>
-          <div class="upload-text">Drop screenshots here or <span id="browse-link">browse</span></div>
-          <input type="file" name="files" id="file-input" accept=".png,.jpg,.jpeg" multiple />
-        </div>
-        <ul id="file-list"></ul>
-        <button type="submit" class="btn" id="submit-btn" disabled>Analyze This Conversation</button>
-      </form>
-      <div class="spinner" id="spinner">Analyzing your conversation...</div>
-      <p class="note">Max 5 images · PNG, JPG · No data stored · Results in seconds</p>
-    </div>
-  </div>
+<div class="layout">
 
-  <script>
-    const emailGate = document.getElementById('email-gate');
-    const uploadCard = document.getElementById('upload-card');
-    const emailInput = document.getElementById('email-input');
-    const emailBtn = document.getElementById('email-btn');
-    const emailError = document.getElementById('email-error');
+<div class="panel">
 
-    function isValidEmail(e) {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-    }
+<h1>Bring Their Intentions Into Focus</h1>
 
-    emailBtn.addEventListener('click', async function() {
-      var val = emailInput.value.trim();
-      if (!isValidEmail(val)) {
-        emailError.style.display = 'block';
-        return;
-      }
-      emailError.style.display = 'none';
-      sessionStorage.setItem('vl_email', val);
-      emailGate.style.display = 'none';
-      uploadCard.style.display = 'block';
-      fetch('https://formspree.io/f/xdawladd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ email: val, source: 'vibelenz-landing' }) }).catch(function(){});
-    });
+<p>
+Upload screenshots of a conversation and VibeLenz will analyze
+behavior patterns, manipulation signals, and risk indicators.
+</p>
 
-    emailInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') emailBtn.click();
-    });
+</div>
 
-    if (sessionStorage.getItem('vl_email')) {
-      emailGate.style.display = 'none';
-      uploadCard.style.display = 'block';
-    }
+<div class="panel">
 
-    var input = document.getElementById('file-input');
-    var browseLink = document.getElementById('browse-link');
-    var dropZone = document.getElementById('drop-zone');
-    var fileList = document.getElementById('file-list');
-    var submitBtn = document.getElementById('submit-btn');
-    var form = document.getElementById('upload-form');
-    var spinner = document.getElementById('spinner');
+<form action="/analyze-screenshots" method="post" enctype="multipart/form-data">
 
-    browseLink.addEventListener('click', function() { input.click(); });
-    dropZone.addEventListener('click', function(e) { if (e.target !== browseLink) input.click(); });
-    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.style.borderColor = '#60a5fa'; });
-    dropZone.addEventListener('dragleave', function() { dropZone.style.borderColor = '#2d2d2d'; });
-    dropZone.addEventListener('drop', function(e) {
-      e.preventDefault();
-      dropZone.style.borderColor = '#2d2d2d';
-      var dt = new DataTransfer();
-      Array.from(e.dataTransfer.files).slice(0, 5).forEach(function(f) { dt.items.add(f); });
-      input.files = dt.files;
-      updateList();
-    });
+<label>Who is this conversation with?</label>
 
-    input.addEventListener('change', updateList);
+<select name="relationship_type">
+<option value="stranger">New contact</option>
+<option value="dating">Dating</option>
+<option value="family">Family</option>
+<option value="friend">Friend</option>
+<option value="business">Business</option>
+</select>
 
-    function updateList() {
-      fileList.innerHTML = '';
-      var files = Array.from(input.files).slice(0, 5);
-      files.forEach(function(f) {
-        var li = document.createElement('li');
-        li.textContent = 'check ' + f.name;
-        fileList.appendChild(li);
-      });
-      submitBtn.disabled = files.length === 0;
-    }
+<label>Optional context</label>
+<input name="context_note" type="text">
 
-    form.addEventListener('submit', function() {
-      submitBtn.disabled = true;
-      spinner.style.display = 'block';
-    });
-  </script>
+<label>Upload screenshots</label>
+<input type="file" name="screenshots" multiple required>
+
+<button type="submit">Analyze conversation</button>
+
+</form>
+
+</div>
+
+</div>
+
+</div>
+
 </body>
 </html>
