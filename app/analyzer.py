@@ -455,7 +455,7 @@ def _run_analysis(text: str, relationship_type: str = "stranger", context_note: 
     if "```" in raw:
         raw = raw.replace("```json", "").replace("```", "").strip()
 
-    result = json.loads(raw)
+    result = _extract_first_json_object(raw)
 
     risk_score = max(0, min(100, int(result.get("risk_score", 0))))
     flags = result.get("flags", ["No signals detected"])
@@ -480,3 +480,4 @@ def _run_analysis(text: str, relationship_type: str = "stranger", context_note: 
         "evidence": evidence,
         "positive_signals": result.get("positive_signals", []),
     }
+
