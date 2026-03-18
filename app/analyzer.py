@@ -349,6 +349,56 @@ def _apply_relationship_guardrails(result, relationship_type="stranger"):
     return result
 
 
+
+def _extract_first_json_object(raw_text: str):
+    import json
+    import re
+
+    if raw_text is None:
+        raise ValueError("Claude response was empty")
+
+    s = str(raw_text).strip()
+
+    s = re.sub(r"^\s*```(?:json)?\s*", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s*```\s*$", "", s)
+
+    try:
+        return json.loads(s)
+    except Exception:
+        pass
+
+    start = s.find("{")
+    if start == -1:
+        raise ValueError("No JSON object found in Claude response")
+
+    depth = 0
+    in_string = False
+    escape = False
+
+    for i in range(start, len(s)):
+        ch = s[i]
+
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = s[start:i + 1]
+                    return json.loads(candidate)
+
+    raise ValueError("No complete balanced JSON object found in Claude response")
+
+
 def analyze_text(text: str, relationship_type: str = "stranger", context_note: str = "") -> Dict[str, Any]:
     """
     Analyze conversation text using Claude API.
