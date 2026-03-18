@@ -29,26 +29,34 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+
 def _downgrade_false_positive_grooming(result: dict, relationship_type: str) -> dict:
     relationship_type = str(relationship_type or "").lower()
     if relationship_type not in {"dating", "family", "friend", "business"}:
         return result
 
-    flags = [str(x).strip().lower() for x in (result.get("flags") or [])]
-    summary = str(result.get("summary") or "").lower()
+    flags = result.get("flags") or []
+    active_combos = result.get("active_combos") or []
+    evidence = result.get("evidence") or {}
+    summary = str(result.get("summary") or "")
     phase = str(result.get("phase") or "").upper()
-    combos = " ".join(str(x) for x in (result.get("active_combos") or [])).lower()
-    evidence_text = " ".join(str(v) for v in (result.get("evidence") or {}).values()).lower()
 
-    combined = " ".join(flags) + " " + summary + " " + combos + " " + evidence_text
+    def norm_text(x):
+        return str(x).strip().lower()
+
+    norm_flags = [norm_text(x) for x in flags]
+    combos_text = " ".join(norm_text(x) for x in active_combos)
+    evidence_text = " ".join(norm_text(v) for v in evidence.values()) if isinstance(evidence, dict) else norm_text(evidence)
+    combined = " ".join(norm_flags) + " " + combos_text + " " + evidence_text + " " + summary.lower() + " " + phase.lower()
 
     hard_indicators = [
-        "money", "gift", "wire", "venmo", "paypal", "cashapp", "bitcoin", "crypto",
+        "money", "gift card", "wire", "paypal", "venmo", "cashapp", "bitcoin", "crypto",
         "blackmail", "threat", "coerc", "isolation", "secrecy", "minor", "underage",
-        "age gap", "power imbalance", "exploit", "extort", "emergency", "travel fee"
+        "age gap", "power imbalance", "extort", "exploit", "emergency", "travel fee",
+        "dependency", "conditioning", "repeated manipulation"
     ]
 
-    soft_pattern = {
+    soft_flags = {
         "accidental_contact_opener",
         "platform_migration_early",
         "love_bomb_velocity",
@@ -56,12 +64,23 @@ def _downgrade_false_positive_grooming(result: dict, relationship_type: str) -> 
     }
 
     has_hard = any(word in combined for word in hard_indicators)
-    only_soft = len(flags) > 0 and set(flags).issubset(soft_pattern)
+    has_grooming_surface = (
+        phase == "GROOMING" or
+        "groom" in combined or
+        "predat" in combined or
+        "romance scam early stage" in combined
+    )
 
-    if (phase == "GROOMING" or "groom" in combined) and only_soft and not has_hard:
+    flags_are_soft_only = len(norm_flags) > 0 and set(norm_flags).issubset(soft_flags)
+
+    if has_grooming_surface and flags_are_soft_only and not has_hard:
         result["phase"] = "NONE"
         result["vie_action"] = "MONITOR"
-        result["risk_score"] = min(int(result.get("risk_score", 0) or 0), 24)
+        try:
+            result["risk_score"] = min(int(result.get("risk_score", 0) or 0), 24)
+        except Exception:
+            result["risk_score"] = 24
+
         result["flags"] = ["uncertain_identity", "rapid_flirtation", "needs_verification"]
         result["active_combos"] = []
         result["summary"] = "Conversation shows identity ambiguity and quick flirtation escalation, but no clear financial coercion or exploitative behavior in the visible exchange."
