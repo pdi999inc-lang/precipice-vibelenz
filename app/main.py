@@ -29,6 +29,77 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+def _estimate_interest(result: dict, extracted_text: str) -> dict:
+    text = (extracted_text or "").lower()
+
+    score = 50
+
+    positive_keywords = [
+        "haha", "lol", "lmao", "cute", "handsome", "beautiful", "miss you",
+        "want to see you", "when can i see you", "what about you", "you?",
+        "😊", "😉", "😘", "😍", "❤️"
+    ]
+
+    negative_keywords = [
+        "k", "ok", "sure", "yeah", "whatever", "idk"
+    ]
+
+    low_interest_phrases = [
+        "busy", "can't", "cant", "maybe", "we'll see", "well see", "not sure"
+    ]
+
+    if any(k in text for k in positive_keywords):
+        score += 15
+
+    if text.count("?") >= 2:
+        score += 12
+    elif "?" in text:
+        score += 6
+
+    if "what about you" in text or "you?" in text:
+        score += 10
+
+    if any(k in text for k in negative_keywords):
+        score -= 8
+
+    if any(k in text for k in low_interest_phrases):
+        score -= 10
+
+    if len(text.strip()) < 80:
+        score -= 8
+
+    positive_signals = result.get("positive_signals") or []
+    if "reciprocal_engagement" in positive_signals:
+        score += 12
+    if "boundary_respect" in positive_signals:
+        score += 4
+    if "transparent_intentions" in positive_signals:
+        score += 5
+
+    flags = [str(x).lower() for x in (result.get("flags") or [])]
+    if "stonewalling_as_punishment" in flags:
+        score -= 18
+    if "passive_aggression" in flags:
+        score -= 10
+    if "moving_goalposts" in flags:
+        score -= 12
+    if "verification_avoidance" in flags:
+        score -= 6
+
+    score = max(0, min(100, int(score)))
+
+    if score >= 70:
+        label = "High interest"
+    elif score >= 45:
+        label = "Moderate interest"
+    else:
+        label = "Low interest"
+
+    result["interest_score"] = score
+    result["interest_label"] = label
+    return result
+
+
 
 def _downgrade_false_positive_grooming(result: dict, relationship_type: str) -> dict:
     relationship_type = str(relationship_type or "").lower()
@@ -168,7 +239,7 @@ async def analyze_screenshots(
     # --- Analysis ---
     try:
         result = analyze_text(extracted_text, relationship_type=relationship_type)
-        result = _downgrade_false_positive_grooming(result, relationship_type)
+        result = _downgrade_false_positive_grooming(result, relationship_type)`r`n        result = _estimate_interest(result, extracted_text)
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
@@ -237,6 +308,8 @@ async def analyze_screenshots(
             "active_combos": result.get("active_combos", []),
             "evidence": result.get("evidence", {}),
             "positive_signals": result.get("positive_signals", []),
+              "interest_score": result.get("interest_score"),
+              "interest_label": result.get("interest_label"),
         },
     )
 

@@ -162,6 +162,18 @@
     {% endif %}
 
     <div class="card">
+
+    {% if interest_score is not none %}
+    <div class="card" style="border-color:#1d4ed8;">
+      <h2 style="margin-bottom:0.5rem;">Interest Level</h2>
+      <div style="font-size:1.8rem;font-weight:700;color:#93c5fd;">{{ interest_label }}</div>
+      <div style="margin-top:0.35rem;color:#cbd5e1;">Score: {{ interest_score }}/100</div>
+      <p style="margin-top:0.75rem;color:#94a3b8;font-size:0.92rem;">
+        This is an engagement estimate based on reciprocity, tone, question-asking, effort, and visible conversation behavior.
+      </p>
+    </div>
+    {% endif %}
+
       <h2>Risk Signals</h2>
       <div class="flags" style="flex-direction: column; align-items: flex-start; gap: 0.75rem;">
         {% for flag in flags %}
