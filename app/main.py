@@ -239,7 +239,8 @@ async def analyze_screenshots(
     # --- Analysis ---
     try:
         result = analyze_text(extracted_text, relationship_type=relationship_type)
-        result = _downgrade_false_positive_grooming(result, relationship_type)`r`n        result = _estimate_interest(result, extracted_text)
+        result = _downgrade_false_positive_grooming(result, relationship_type)
+        result = _estimate_interest(result, extracted_text)
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
