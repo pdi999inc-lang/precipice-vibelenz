@@ -102,6 +102,38 @@ def _estimate_interest(result: dict, extracted_text: str) -> dict:
 
 
 def _downgrade_false_positive_grooming(result: dict, relationship_type: str) -> dict:
+    # Full temporary disable of grooming classification in MVP output
+
+    result["phase"] = "NONE"
+    result["vie_action"] = "MONITOR"
+
+    try:
+        result["risk_score"] = min(int(result.get("risk_score", 0) or 0), 24)
+    except Exception:
+        result["risk_score"] = 24
+
+    result["flags"] = [
+        f for f in (result.get("flags") or [])
+        if "groom" not in str(f).lower()
+    ]
+
+    result["active_combos"] = [
+        c for c in (result.get("active_combos") or [])
+        if "groom" not in str(c).lower()
+    ]
+
+    if "groom" in str(result.get("summary", "")).lower():
+        result["summary"] = (
+            "Conversation shows flirtation or early engagement patterns. "
+            "No grooming classification is applied in this beta version."
+        )
+
+    positive = result.get("positive_signals") or []
+    if "reciprocal_engagement" not in positive:
+        positive.append("reciprocal_engagement")
+    result["positive_signals"] = positive
+
+    return result
     relationship_type = str(relationship_type or "").lower()
     if relationship_type not in {"dating", "family", "friend", "business"}:
         return result
@@ -244,6 +276,38 @@ async def analyze_screenshots(
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
+    # FINAL OUTPUT SANITIZATION (last step before user-facing response)
+    blocked_terms = ("groom", "predat")
+
+    def _contains_blocked(value):
+        return any(term in str(value).lower() for term in blocked_terms)
+
+    if _contains_blocked(result.get("phase", "")):
+        result["phase"] = "NONE"
+
+    result["flags"] = [
+        f for f in (result.get("flags") or [])
+        if not _contains_blocked(f)
+    ]
+
+    result["active_combos"] = [
+        c for c in (result.get("active_combos") or [])
+        if not _contains_blocked(c)
+    ]
+
+    if _contains_blocked(result.get("summary", "")):
+        result["summary"] = (
+            "Conversation shows flirtation or early engagement patterns. "
+            "No grooming classification is applied in this beta version."
+        )
+
+    if str(result.get("vie_action", "")).upper() == "BLOCK":
+        result["vie_action"] = "MONITOR"
+
+    try:
+        result["risk_score"] = min(int(result.get("risk_score", 0) or 0), 24)
+    except Exception:
+        result["risk_score"] = 24
 
     response_payload = AnalysisResponse(
         request_id=request_id,
