@@ -1,129 +1,284 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VibeLenz</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VibeLenz — Bring Their Intentions Into Focus</title>
+  <style>
+    * { box-sizing: border-box; }
 
-<style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #0b1020;
+      color: #ffffff;
+    }
 
-body{
-margin:0;
-font-family:Arial,Helvetica,sans-serif;
-background:#0b1020;
-color:white;
-}
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 18px 40px;
+    }
 
-.page{
-max-width:1100px;
-margin:auto;
-padding:30px;
-}
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      gap: 12px;
+    }
 
-.layout{
-display:grid;
-grid-template-columns:1fr 1fr;
-gap:30px;
-}
+    .brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      text-decoration: none;
+    }
 
-.panel{
-background:#121a31;
-border-radius:14px;
-padding:25px;
-}
+    .toplink {
+      color: #93c5fd;
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
 
-h1{
-font-size:2.6rem;
-margin-bottom:12px;
-}
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
 
-input,select{
-width:100%;
-padding:12px;
-margin-top:6px;
-margin-bottom:14px;
-border-radius:8px;
-border:1px solid #30456f;
-background:#0e162b;
-color:white;
-}
+    .panel {
+      background: #121a31;
+      border: 1px solid #22304f;
+      border-radius: 16px;
+      padding: 24px;
+    }
 
-button{
-width:100%;
-padding:14px;
-background:#2563eb;
-border:none;
-border-radius:8px;
-color:white;
-font-weight:bold;
-cursor:pointer;
-}
+    h1 {
+      margin: 0 0 12px;
+      font-size: 2.8rem;
+      line-height: 1.02;
+    }
 
-button:hover{
-background:#1e4ed8;
-}
+    .subtitle {
+      color: #c7d2e5;
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
 
-@media(max-width:768px){
-.layout{
-grid-template-columns:1fr;
-}
-h1{
-font-size:2rem;
-}
-}
+    .trust {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: #0e162b;
+      border: 1px solid #243456;
+      border-radius: 12px;
+      color: #9db0d3;
+      font-size: 0.93rem;
+      line-height: 1.5;
+    }
 
-</style>
+    .bullet-list {
+      list-style: none;
+      padding: 0;
+      margin: 20px 0 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .bullet-list li {
+      background: #0e162b;
+      border: 1px solid #243456;
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: #dbe6f7;
+      line-height: 1.45;
+    }
+
+    .pill {
+      display: inline-block;
+      margin-bottom: 16px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #16325f;
+      border: 1px solid #2c4f87;
+      color: #d9e8ff;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+    }
+
+    .form-subtitle {
+      margin: 0 0 18px;
+      color: #b7c4dd;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 8px;
+      font-size: 0.94rem;
+      font-weight: 600;
+      color: #eaf1fb;
+    }
+
+    select, input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 13px 14px;
+      border-radius: 12px;
+      border: 1px solid #30456f;
+      background: #0e162b;
+      color: #ffffff;
+      font-size: 0.96rem;
+      outline: none;
+    }
+
+    input[type="file"] {
+      padding: 12px;
+    }
+
+    .file-help {
+      margin-top: 8px;
+      font-size: 0.84rem;
+      color: #8fa2c8;
+      line-height: 1.45;
+    }
+
+    .submit-btn {
+      width: 100%;
+      margin-top: 22px;
+      padding: 15px 18px;
+      border: none;
+      border-radius: 12px;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .submit-btn:hover {
+      background: #1f56cd;
+    }
+
+    .small-note {
+      margin-top: 14px;
+      font-size: 0.83rem;
+      line-height: 1.5;
+      color: #8fa2c8;
+    }
+
+    .footer-note {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 0.84rem;
+      color: #7f91b3;
+    }
+
+    @media (max-width: 768px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      h1 {
+        font-size: 2.1rem;
+      }
+
+      .page {
+        padding: 20px 14px 32px;
+      }
+    }
+  </style>
 </head>
-
 <body>
+  <div class="page">
+    <div class="topbar">
+      <a href="/" class="brand">VibeLenz</a>
+      <a href="/pitch" class="toplink">How it works</a>
+    </div>
 
-<div class="page">
+    <div class="layout">
+      <section class="panel">
+        <h1>Bring Their Intentions Into Focus</h1>
+        <p class="subtitle">
+          Upload conversation screenshots and get a structured analysis of risk signals,
+          conversation patterns, and likely intent.
+        </p>
+        <p class="subtitle">
+          VibeLenz helps you see what may be happening in the interaction. It is built to
+          highlight patterns, not replace your judgment.
+        </p>
 
-<div class="layout">
+        <div class="trust">
+          Built to highlight risk signals and conversation patterns, not replace your judgment.
+        </div>
 
-<div class="panel">
+        <ul class="bullet-list">
+          <li>Detects pressure, inconsistency, escalation, and trust signals.</li>
+          <li>Works across new contacts, dating, family, friends, and business conversations.</li>
+          <li>Returns a readable result page with risk score, evidence, and suggested action.</li>
+        </ul>
+      </section>
 
-<h1>Bring Their Intentions Into Focus</h1>
+      <section class="panel">
+        <div class="pill">Get your first analysis free</div>
+        <h2>Analyze a conversation</h2>
+        <p class="form-subtitle">
+          Upload screenshots to get your first free analysis.
+        </p>
 
-<p>
-Upload screenshots of a conversation and VibeLenz will analyze the
-interaction for manipulation signals, escalation patterns, and risk indicators.
-</p>
+        <form action="/analyze-screenshots" method="post" enctype="multipart/form-data">
+          <label for="relationship_type">Who is this conversation with?</label>
+          <select id="relationship_type" name="relationship_type" required>
+            <option value="stranger">New contact</option>
+            <option value="dating">Dating</option>
+            <option value="family">Family / Co-parent</option>
+            <option value="friend">Friend</option>
+            <option value="business">Business contact</option>
+          </select>
 
-</div>
+          <label for="context_note">Optional context</label>
+          <input
+            id="context_note"
+            name="context_note"
+            type="text"
+            maxlength="160"
+            placeholder="Example: We met on Facebook Marketplace yesterday"
+          />
 
-<div class="panel">
+          <label for="files">Upload screenshots</label>
+          <input
+            id="files"
+            name="files"
+            type="file"
+            accept="image/*"
+            multiple
+            required
+          />
 
-<form action="/analyze-screenshots" method="post" enctype="multipart/form-data">
+          <div class="file-help">
+            Upload up to 5 screenshots. Clear, full-screen captures work best.
+          </div>
 
-<label>Who is this conversation with?</label>
+          <button class="submit-btn" type="submit">Analyze conversation</button>
 
-<select name="relationship_type" required>
-<option value="stranger">New contact</option>
-<option value="dating">Dating</option>
-<option value="family">Family</option>
-<option value="friend">Friend</option>
-<option value="business">Business</option>
-</select>
+          <div class="small-note">
+            This beta provides pattern-based analysis and may be conservative under uncertainty.
+          </div>
+        </form>
+      </section>
+    </div>
 
-<label>Optional context</label>
-
-<input name="context_note" type="text" placeholder="Example: Met on Facebook Marketplace">
-
-<label>Upload screenshots</label>
-
-<input type="file" name="files" accept="image/*" multiple required>
-
-<button type="submit">Analyze conversation</button>
-
-</form>
-
-</div>
-
-</div>
-
-</div>
-
+    <div class="footer-note">VibeLenz beta</div>
+  </div>
 </body>
 </html>
-
