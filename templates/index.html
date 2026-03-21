@@ -179,14 +179,20 @@
       color: #7f91b3;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
       .layout {
-        grid-template-columns: 1fr;
+        display: block !important;
+        grid-template-columns: 1fr !important;
+      }
+
+      .panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-bottom: 18px;
       }
 
       .topbar {
-        flex-direction: column;
-        align-items: flex-start;
+        display: block !important;
       }
 
       h1 {
@@ -282,3 +288,4 @@
   </div>
 </body>
 </html>
+
