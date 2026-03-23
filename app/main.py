@@ -219,7 +219,7 @@ async def about(request: Request):
 async def og_image():
     from fastapi.responses import FileResponse
     import os
-    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "og-image.svg")
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "og-image.svg")
     return FileResponse(path, media_type="image/svg+xml")
 
 
