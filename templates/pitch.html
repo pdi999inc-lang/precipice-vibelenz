@@ -3,11 +3,555 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta property="og:title" content="VibeLenz — Bring Their Intentions Into Focus" />
+  <meta property="og:description" content="Upload a screenshot of any conversation. We'll tell you exactly what's happening before you get hurt." />
   <title>VibeLenz — Know the Vibe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <meta name="color-scheme" content="dark">
+  <style>
+    :root { color-scheme: dark; }
+    :root {
+      --bg: #080a0f;
+      --surface: #0f1218;
+      --border: #1a1f2e;
+      --accent: #4f8ef7;
+      --accent-dim: #1e3a6e;
+      --danger: #e05555;
+      --danger-dim: #3a1515;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #334155;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    html { background: #080a0f; }
+    body {
+      background: #080a0f !important;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(8,10,15,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.4rem; color: #fff; text-decoration: none; }
+    .nav-logo span { color: var(--accent); font-style: italic; }
+    .nav-cta {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.55rem 1.25rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .nav-cta:hover { opacity: 0.85; }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8rem 2rem 4rem;
+      position: relative;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(ellipse, rgba(79,142,247,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+      border-radius: 999px;
+      padding: 0.35rem 1rem;
+      margin-bottom: 2rem;
+      animation: fadeUp 0.6s ease both;
+    }
+    .hero h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      line-height: 1.1;
+      color: #fff;
+      max-width: 800px;
+      margin-bottom: 1.5rem;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+    .hero h1 em { color: var(--accent); font-style: italic; }
+    .hero-sub {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: #94a3b8;
+      max-width: 520px;
+      margin-bottom: 2.5rem;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.875rem 2rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.15s, opacity 0.15s;
+      display: inline-block;
+    }
+    .btn-primary:hover { transform: translateY(-1px); opacity: 0.9; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.875rem 2rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+      display: inline-block;
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* SCROLL INDICATOR */
+    .scroll-hint {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      animation: fadeUp 1s 0.8s ease both;
+    }
+    .scroll-line {
+      width: 1px;
+      height: 40px;
+      background: linear-gradient(to bottom, var(--accent), transparent);
+      animation: scrollPulse 2s ease infinite;
+    }
+
+    /* SECTION BASE */
+    section { padding: 6rem 2rem; }
+    .container { max-width: 960px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(1.75rem, 4vw, 2.75rem);
+      color: #fff;
+      line-height: 1.2;
+      margin-bottom: 1.25rem;
+    }
+    .section-body {
+      font-size: 1.05rem;
+      color: #94a3b8;
+      max-width: 560px;
+    }
+
+    /* HOW IT WORKS */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.5rem;
+      margin-top: 3rem;
+    }
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+    .step:hover { border-color: var(--accent-dim); }
+    .step-num {
+      font-family: 'DM Serif Display', serif;
+      font-size: 3rem;
+      color: var(--accent-dim);
+      line-height: 1;
+      margin-bottom: 1rem;
+    }
+    .step h3 { font-size: 1.1rem; font-weight: 500; color: #fff; margin-bottom: 0.5rem; }
+    .step p { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; }
+
+    /* WHAT IT CATCHES */
+    .catches-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 3rem;
+    }
+    .catch-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      transition: border-color 0.2s;
+    }
+    .catch-card:hover { border-color: var(--danger); }
+    .catch-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: var(--danger-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .catch-card h4 { font-size: 0.95rem; font-weight: 500; color: #fff; margin-bottom: 0.3rem; }
+    .catch-card p { font-size: 0.83rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* EXAMPLE RESULT */
+    .result-preview {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-top: 3rem;
+      max-width: 560px;
+    }
+    .result-score-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+    .result-score { font-family: 'DM Serif Display', serif; font-size: 3.5rem; color: var(--danger); line-height: 1; }
+    .result-badge { background: var(--danger-dim); color: var(--danger); border-radius: 999px; padding: 0.3rem 0.85rem; font-size: 0.8rem; font-weight: 500; }
+    .result-bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .result-bar-fill { height: 100%; width: 78%; background: var(--danger); border-radius: 3px; }
+    .result-flags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem; }
+    .result-flag { background: var(--danger-dim); color: #fca5a5; border: 1px solid rgba(224,85,85,0.2); border-radius: 6px; padding: 0.25rem 0.65rem; font-size: 0.78rem; }
+    .result-summary { font-size: 0.9rem; color: #94a3b8; line-height: 1.6; border-top: 1px solid var(--border); padding-top: 1.25rem; }
+    .result-action { margin-top: 1rem; font-size: 0.85rem; color: #6ee7b7; }
+
+    /* PRIVACY */
+    .privacy-strip {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .privacy-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+    .privacy-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+    .privacy-dot { width: 8px; height: 8px; border-radius: 50%; background: #6ee7b7; flex-shrink: 0; }
+
+    /* SHARE */
+    .share-section { text-align: center; }
+    .share-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
+    .share-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      text-decoration: none;
+    }
+    .share-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .copy-btn { border-color: var(--accent-dim); color: var(--accent); }
+    .copy-btn:hover { background: var(--accent-dim); }
+
+    /* CTA BOTTOM */
+    .cta-bottom {
+      text-align: center;
+      padding: 6rem 2rem;
+      position: relative;
+    }
+    .cta-bottom::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 400px;
+      height: 300px;
+      background: radial-gradient(ellipse, rgba(79,142,247,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-bottom h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      color: #fff;
+      margin-bottom: 1rem;
+    }
+    .cta-bottom p { color: #64748b; margin-bottom: 2rem; font-size: 1.05rem; }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes scrollPulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    /* MOBILE */
+    @media (max-width: 600px) {
+      nav { padding: 1rem; }
+      .hero { padding: 7rem 1.5rem 4rem; }
+      section { padding: 4rem 1.5rem; }
+      .steps, .catches-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+  <meta property="og:title" content="VibeLenz — Are they genuinely interested or just going through the motions?" />
+  <meta property="og:description" content="Upload a conversation screenshot. Get a clear read on what's really happening — positive signals and red flags both. Free during beta." />
+  <meta property="og:image" content="https://appvibelenz.com/static/og-image.svg" />
+  <meta property="og:url" content="https://appvibelenz.com/pitch" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="VibeLenz — Bring Their Intentions Into Focus" />
+  <meta name="twitter:description" content="Upload a conversation screenshot. Get a clear read on what's really happening." />
+  <meta name="twitter:image" content="https://appvibelenz.com/static/og-image.svg" />
 </head>
-<body style="background:#0d0d0d;color:#fff;font-family:sans-serif;text-align:center;padding:4rem 2rem;">
-  <h1 style="font-size:2.5rem;margin-bottom:1rem;">VibeLenz</h1>
-  <p style="font-size:1.2rem;color:#94a3b8;margin-bottom:2rem;">Know the vibe before you invest your heart.</p>
-  <a href="/" style="background:#2563eb;color:#fff;padding:0.875rem 2rem;border-radius:8px;text-decoration:none;font-size:1rem;">Try It Free →</a>
+<body>
+
+  <nav>
+    <a href="/" class="nav-logo">Vibe<span>Lenz</span></a>
+    <a href="/" class="nav-cta">Try It Free</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">Free · No account needed · Results in seconds</div>
+    <h1>You know when the vibe just <em>isn't clear?</em></h1>
+    <p class="hero-sub">Upload a screenshot of any conversation. VibeLenz tells you exactly what's happening — before you get hurt.</p>
+    <div class="hero-actions">
+      <a href="/" class="btn-primary">Analyze a Conversation →</a>
+      <a href="#how" class="btn-ghost">See How It Works</a>
+    </div>
+    <div class="scroll-hint">
+      <span>scroll</span>
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how">
+    <div class="container">
+      <div class="section-label">How it works</div>
+      <h2 class="section-title">Three steps. Ten seconds.</h2>
+      <p class="section-body">No account. No signup. No data stored. Just answers.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">01</div>
+          <h3>Screenshot the conversation</h3>
+          <p>Dating app, text, DM — any platform. Just take a screenshot of the exchange that's giving you pause.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">02</div>
+          <h3>Upload it to VibeLenz</h3>
+          <p>Drop up to 5 screenshots at once. Our engine reads the conversation and analyzes every message for risk signals.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">03</div>
+          <h3>Get a clear answer</h3>
+          <p>Risk score, detected signals, plain-language summary, and a specific recommended action. In seconds.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHAT IT CATCHES -->
+  <section id="catches" style="background: #0f1218; border-top: 1px solid #1a1f2e; border-bottom: 1px solid #1a1f2e;">
+    <div class="container">
+      <div class="section-label">What it catches</div>
+      <h2 class="section-title">The patterns you feel but can't name.</h2>
+      <p class="section-body">VibeLenz is trained on real fraud transcripts, romance scam cases, and manipulation research.</p>
+      <div class="catches-grid">
+        <div class="catch-card">
+          <div class="catch-icon">💬</div>
+          <div>
+            <h4>Moving Too Fast</h4>
+            <p>"I've never felt this way so quickly." Intense declarations of love or commitment before you've even met in person.</p>
+          </div>
+        </div>
+        <div class="catch-card">
+          <div class="catch-icon">🚫</div>
+          <div>
+            <h4>Always Has an Excuse Not to Meet</h4>
+            <p>Every plan falls through. Too busy, traveling, camera broken. Someone who wants to date you will find a way to show up.</p>
+          </div>
+        </div>
+        <div class="catch-card">
+          <div class="catch-icon">🎭</div>
+          <div>
+            <h4>Story Doesn't Add Up</h4>
+            <p>Details change. Claims to be a doctor, engineer, or military — overseas. Won't video call or always looks different.</p>
+          </div>
+        </div>
+        <div class="catch-card">
+          <div class="catch-icon">🔒</div>
+          <div>
+            <h4>Wants to Keep It Secret</h4>
+            <p>"Don't tell your friends about us yet." Isolation from the people who would tell you something feels off.</p>
+          </div>
+        </div>
+        <div class="catch-card">
+          <div class="catch-icon">💸</div>
+          <div>
+            <h4>Financial Pressure</h4>
+            <p>Starts small — a bill, an emergency, a favor. Escalates. Any ask for money from someone you haven't met is a red flag.</p>
+          </div>
+        </div>
+        <div class="catch-card">
+          <div class="catch-icon">⏱️</div>
+          <div>
+            <h4>Urgency and Pressure</h4>
+            <p>"I need to know now." Deadlines and pressure to act fast are designed to stop you from thinking clearly.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Example result -->
+      <div class="result-preview">
+        <p style="font-size:0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.25rem;">Example analysis output</p>
+        <div class="result-score-row">
+          <div class="result-score">78</div>
+          <div>
+            <div class="result-badge">High Risk</div>
+            <div class="result-bar-track" style="margin-top:0.5rem; width:200px;">
+              <div class="result-bar-fill"></div>
+            </div>
+            <div style="font-size:0.75rem; color: var(--text-dim); margin-top:0.3rem;">Confidence: 92%</div>
+          </div>
+        </div>
+        <div class="result-flags">
+          <span class="result-flag">Financial Request</span>
+          <span class="result-flag">Sob Story</span>
+          <span class="result-flag">Urgency Pressure</span>
+          <span class="result-flag">Escalating Requests</span>
+          <span class="result-flag">Romance Bait</span>
+        </div>
+        <div class="result-summary">
+          Unknown sender uses escalating sob stories — food insecurity, phone bill due, losing housing — to solicit money. Introduces romantic incentive to lower your guard. Requests escalate from vague help to an explicit dollar amount. Classic grooming-to-financial-exploitation sequence.
+        </div>
+        <div class="result-action">→ Do not send money. Block and report immediately.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRIVACY -->
+  <div class="privacy-strip">
+    <div class="privacy-items">
+      <div class="privacy-item"><div class="privacy-dot"></div>No account required</div>
+      <div class="privacy-item"><div class="privacy-dot"></div>Screenshots are never stored</div>
+      <div class="privacy-item"><div class="privacy-dot"></div>No data sold or shared</div>
+      <div class="privacy-item"><div class="privacy-dot"></div>Analysis happens in real time and is discarded</div>
+      <div class="privacy-item"><div class="privacy-dot"></div>Free to use</div>
+    </div>
+  </div>
+
+  <!-- SHARE -->
+  <section class="share-section">
+    <div class="container">
+      <div class="section-label">Share VibeLenz</div>
+      <h2 class="section-title">Know someone who needs this?</h2>
+      <p class="section-body" style="margin: 0 auto;">Send them the link. It could save them from a painful — or expensive — mistake.</p>
+      <div class="share-buttons">
+        <a href="https://www.facebook.com/sharer/sharer.php?u=https://web-production-3600cf.up.railway.app" target="_blank" class="share-btn">
+          <span>📘</span> Share on Facebook
+        </a>
+        <a href="https://reddit.com/submit?url=https://web-production-3600cf.up.railway.app&title=Free tool that analyzes dating app conversations for red flags" target="_blank" class="share-btn">
+          <span>🔶</span> Post on Reddit
+        </a>
+        <button class="share-btn copy-btn" onclick="navigator.clipboard.writeText('https://web-production-3600cf.up.railway.app').then(function(){ this.textContent = 'Copied!'; }.bind(this))">
+          <span>🔗</span> Copy Link
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-bottom">
+    <div class="container">
+      <h2>Trust your instincts.<br>Let us confirm them.</h2>
+      <p>Free. Anonymous. No signup required.</p>
+      <a href="/" class="btn-primary">Analyze a Conversation →</a>
+    </div>
+  </section>
+
+  <footer>
+    <p>VibeLenz by Precipice Social Intelligence LLC &nbsp;·&nbsp; Analysis is informational only &nbsp;·&nbsp; <a href="/" style="color: var(--accent); text-decoration: none;">Try it free</a></p>
+  </footer>
+
 </body>
 </html>
