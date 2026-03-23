@@ -217,10 +217,9 @@ async def about(request: Request):
 
 @app.get("/static/og-image.svg")
 async def og_image():
-    from fastapi.responses import FileResponse
-    import os
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "og-image.svg")
-    return FileResponse(path, media_type="image/svg+xml")
+    from fastapi.responses import Response
+    svg = """<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="630" fill="#0a0a0f"/><rect width="1200" height="5" fill="#2563eb"/><text x="80" y="112" font-family="Segoe UI,sans-serif" font-size="48" font-weight="800" fill="#ffffff">Vibe</text><text x="178" y="112" font-family="Segoe UI,sans-serif" font-size="48" font-weight="800" fill="#60a5fa">Lenz</text><text x="80" y="190" font-family="Segoe UI,sans-serif" font-size="56" font-weight="700" fill="#ffffff">Are they genuinely interested</text><text x="80" y="258" font-family="Segoe UI,sans-serif" font-size="56" font-weight="700" fill="#60a5fa">or just going through the motions?</text><text x="80" y="312" font-family="Segoe UI,sans-serif" font-size="22" fill="#7a9cc4">Upload a screenshot. Get a clear read on what is really happening.</text><rect x="80" y="492" width="520" height="96" rx="12" fill="#2563eb"/><text x="340" y="548" font-family="Segoe UI,sans-serif" font-size="34" font-weight="700" fill="#ffffff" text-anchor="middle">appvibelenz.com</text></svg>"""
+    return Response(content=svg, media_type="image/svg+xml")
 
 
 @app.get("/health")
