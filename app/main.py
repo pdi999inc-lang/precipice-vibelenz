@@ -215,6 +215,14 @@ async def about(request: Request):
     return templates.TemplateResponse("about.html", {"request": request})
 
 
+@app.get("/static/og-image.svg")
+async def og_image():
+    from fastapi.responses import FileResponse
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "og-image.svg")
+    return FileResponse(path, media_type="image/svg+xml")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
