@@ -3,223 +3,392 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VibeLenz — Analysis Result</title>
+  <title>VibeLenz Analysis</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2b;
+      --panel-2: #0f1727;
+      --border: #24324d;
+      --text: #f3f6fb;
+      --muted: #a9b4c8;
+      --low: #25c281;
+      --med: #e0a100;
+      --high: #e45454;
+      --accent: #6aa3ff;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      background: #0d0d0d;
-      color: #e8e8e8;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      padding: 2rem;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.5;
     }
-    .container { max-width: 640px; margin: 0 auto; }
-    h1 { font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
-    .sub { color: #555; font-size: 0.78rem; margin-bottom: 2rem; }
 
-    .risk-badge {
-      display: inline-block;
-      padding: 0.4rem 1rem;
-      border-radius: 999px;
-      font-weight: 700;
-      font-size: 0.9rem;
-      margin-bottom: 0.5rem;
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
     }
-    .risk-low { background: #064e3b; color: #6ee7b7; }
-    .risk-medium { background: #78350f; color: #fbbf24; }
-    .risk-high { background: #7f1d1d; color: #fca5a5; }
 
-    .score-row {
+    .topbar {
       display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .title {
+      font-size: 30px;
+      font-weight: 700;
+      margin: 0 0 6px;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .low { background: rgba(37,194,129,0.18); color: var(--low); }
+    .medium { background: rgba(224,161,0,0.18); color: var(--med); }
+    .high { background: rgba(228,84,84,0.18); color: var(--high); }
+
+    .hero {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 18px;
       align-items: center;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
     }
-    .score-num {
-      font-size: 3rem;
-      font-weight: 800;
+
+    .score-block {
+      text-align: center;
+      border-right: 1px solid var(--border);
+      padding-right: 18px;
+    }
+
+    .score-number {
+      font-size: 60px;
+      font-weight: 700;
       line-height: 1;
+      margin-bottom: 8px;
     }
-    .score-low { color: #6ee7b7; }
-    .score-medium { color: #fbbf24; }
-    .score-high { color: #fca5a5; }
 
-    .bar-track {
-      flex: 1;
-      height: 8px;
-      background: #222;
-      border-radius: 4px;
-      overflow: hidden;
+    .score-label {
+      font-size: 14px;
+      color: var(--muted);
     }
-    .bar-fill {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 0.6s ease;
-    }
-    .fill-low { background: #6ee7b7; }
-    .fill-medium { background: #fbbf24; }
-    .fill-high { background: #fca5a5; }
 
-    .card {
-      background: #1a1a1a;
-      border: 1px solid #2d2d2d;
-      border-radius: 10px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
+    .hero-meta h2 {
+      margin: 0 0 10px;
+      font-size: 24px;
     }
-    .card h2 { font-size: 0.8rem; text-transform: uppercase; color: #666; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
-    .card p { font-size: 0.95rem; color: #ccc; line-height: 1.6; }
 
-    .flags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .flag {
-      padding: 0.3rem 0.75rem;
-      border-radius: 6px;
-      font-size: 0.8rem;
+    .hero-meta p {
+      margin: 0 0 10px;
+      color: var(--muted);
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .meta-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .section {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    .section h3 {
+      margin: 0 0 14px;
+      font-size: 22px;
+    }
+
+    .section p {
+      margin: 0;
+      color: var(--text);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(106,163,255,0.12);
+      border: 1px solid rgba(106,163,255,0.3);
+      color: #dbe8ff;
+      font-size: 13px;
       font-weight: 600;
-      background: #2d1a1a;
-      color: #fca5a5;
-      border: 1px solid #4b1a1a;
     }
-    .flag-none { color: #6ee7b7; background: #0d2a1f; border-color: #0d4a2f; }
 
-    .action-box {
-      background: #1e2a1a;
-      border: 1px solid #2d4a2d;
-      border-radius: 10px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
+    .chip.good {
+      background: rgba(37,194,129,0.12);
+      border-color: rgba(37,194,129,0.3);
+      color: #b7f1d8;
     }
-    .action-box h2 { font-size: 0.8rem; text-transform: uppercase; color: #6ee7b7; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
-    .action-box p { color: #a7f3d0; font-size: 0.95rem; line-height: 1.6; }
 
-    .extracted {
-      background: #111;
-      border: 1px solid #222;
-      border-radius: 8px;
-      padding: 1rem;
-      font-family: 'Courier New', monospace;
-      font-size: 0.8rem;
-      color: #666;
+    .chip.warn {
+      background: rgba(228,84,84,0.12);
+      border-color: rgba(228,84,84,0.3);
+      color: #ffc6c6;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    pre {
       white-space: pre-wrap;
       word-break: break-word;
-      max-height: 200px;
-      overflow-y: auto;
-      margin-top: 0.5rem;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
     }
 
-    .degraded-warning {
-      background: #2d1f00;
-      border: 1px solid #78350f;
-      border-radius: 8px;
-      padding: 1rem;
-      color: #fbbf24;
-      font-size: 0.85rem;
-      margin-bottom: 1rem;
-    }
-
-    .confidence { color: #666; font-size: 0.78rem; margin-top: 0.5rem; }
-    .back-link {
+    .footer-link {
       display: inline-block;
-      margin-top: 1.5rem;
-      color: #60a5fa;
+      margin-top: 8px;
+      color: var(--accent);
       text-decoration: none;
-      font-size: 0.9rem;
+      font-size: 14px;
     }
-    .back-link:hover { text-decoration: underline; }
-    .meta { color: #333; font-size: 0.72rem; margin-top: 2rem; }
+
+    .danger-note {
+      color: #ffd5d5;
+      background: rgba(228,84,84,0.08);
+      border: 1px solid rgba(228,84,84,0.25);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .hero-grid,
+      .grid-2,
+      .meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .score-block {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding-right: 0;
+        padding-bottom: 16px;
+      }
+
+      .title {
+        font-size: 24px;
+      }
+
+      .score-number {
+        font-size: 48px;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>VibeLenz Analysis</h1>
-    <p class="sub">Request ID: {{ request_id }}</p>
-
-    {% if degraded %}
-    <div class="degraded-warning">
-      ⚠️ System is operating in degraded mode. This result may be incomplete. Do not rely on this output.
+  <div class="page">
+    {% set risk_badge = (risk_level or risk_label or 'LOW')|lower %}
+    <div class="topbar">
+      <div>
+        <h1 class="title">VibeLenz Analysis</h1>
+        <div class="subtle">Request ID: {{ request_id }}</div>
+        <div class="subtle">Lane: {{ lane or 'Unknown' }} · Label: {{ primary_label or 'Unknown' }}</div>
+      </div>
+      <div>
+        <span class="badge {% if risk_badge.startswith('high') %}high{% elif risk_badge.startswith('med') %}medium{% else %}low{% endif %}">
+          {{ risk_level or risk_label or 'LOW' }}
+        </span>
+      </div>
     </div>
-    {% endif %}
 
-    <div class="score-row">
-      <div class="score-num score-{{ risk_label | lower }}">{{ risk_score }}</div>
-      <div style="flex:1">
-        <div class="risk-badge risk-{{ risk_label | lower }}">{{ risk_label }} Risk</div>
-        <div class="bar-track" style="margin-top:0.5rem">
-          <div class="bar-fill fill-{{ risk_label | lower }}" style="width: {{ risk_score }}%"></div>
+    <div class="hero">
+      <div class="hero-grid">
+        <div class="score-block">
+          <div class="score-number">{{ final_risk_score if final_risk_score is not none else risk_score }}</div>
+          <div class="score-label">Risk Score</div>
         </div>
-        <div class="confidence">Confidence: {{ "%.0f" | format(confidence * 100) }}% &nbsp;&middot;&nbsp; <span style="color:#444;font-size:0.72rem;">Reflects how clearly the visible conversation matches this assessment</span></div>
-      </div>
-    </div>
+        <div class="hero-meta">
+          <h2>{{ diagnosis or summary or "Analysis complete." }}</h2>
+          <p>{{ reasoning or summary_logic or "No additional reasoning available." }}</p>
 
-    {% if phase and phase != "NONE" %}
-    <div class="card" style="border-color: #2d3a4a;">
-      <h2>Conversation Phase</h2>
-      <p style="color: #60a5fa; font-weight: 600;">{{ phase }}</p>
-      {% if vie_action and vie_action != "NONE" %}
-      <p style="color: #888; font-size: 0.85rem; margin-top: 0.25rem;">VIE Action: <span style="color: #fbbf24;">{{ vie_action }}</span></p>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    <div class="card">
-
-    {% if interest_score is not none %}
-    <div class="card" style="border-color:#1d4ed8;">
-      <h2 style="margin-bottom:0.5rem;">Interest Level</h2>
-      <div style="font-size:1.8rem;font-weight:700;color:#93c5fd;">{{ interest_label }}</div>
-      <div style="margin-top:0.35rem;color:#cbd5e1;">Score: {{ interest_score }}/100</div>
-      <p style="margin-top:0.75rem;color:#94a3b8;font-size:0.92rem;">
-        This is an engagement estimate based on reciprocity, tone, question-asking, effort, and visible conversation behavior.
-      </p>
-    </div>
-    {% endif %}
-
-      <h2>Risk Signals</h2>
-      <div class="flags" style="flex-direction: column; align-items: flex-start; gap: 0.75rem;">
-        {% for flag in flags %}
-          {% if flag == "No signals detected" %}
-            <span class="flag flag-none">{{ flag }}</span>
-          {% else %}
-            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-              <span class="flag">{{ flag }}</span>
-              {% if evidence and flag in evidence %}
-                <span style="font-size: 0.78rem; color: #888; font-style: italic; padding-left: 0.5rem; border-left: 2px solid #333;">"{{ evidence[flag] }}"</span>
-              {% endif %}
+          <div class="meta-grid">
+            <div class="meta-card">
+              <div class="meta-label">Domain</div>
+              <div class="meta-value">{{ domain_mode or "Unknown" }}</div>
             </div>
-          {% endif %}
-        {% endfor %}
+            <div class="meta-card">
+              <div class="meta-label">Analysis Mode</div>
+              <div class="meta-value">{{ analysis_mode or "Unknown" }}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Confidence</div>
+              <div class="meta-value">{{ confidence }}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Intent Horizon</div>
+              <div class="meta-value">{{ intent_horizon or "UNCLEAR" }}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="card" style="border-color: #1a3a2a;"><h2 style="color: #6ee7b7;">Positive Signals</h2>{% if positive_signals and positive_signals|length > 0 %}<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem;">{% for ps in positive_signals %}<span style="background:#0d2a1a;color:#6ee7b7;border:1px solid #1a4a2a;border-radius:6px;padding:0.25rem 0.65rem;font-size:0.78rem;">{{ ps }}</span>{% endfor %}</div>{% else %}<p style="color:#555;font-size:0.85rem;margin-top:0.5rem;">No positive signals detected.</p>{% endif %}</div>
+    <div class="grid-2">
+      <div class="section">
+        <h3>Diagnosis</h3>
+        <p>{{ diagnosis or "No diagnosis available." }}</p>
+      </div>
 
-    {% if active_combos and active_combos|length > 0 %}
-    <div class="card" style="border-color: #4b1a1a;">
-      <h2>Active Signal Combinations</h2>
-      {% for combo in active_combos %}
-      <p style="color: #fca5a5; font-size: 0.85rem; margin-bottom: 0.4rem;">⚠ {{ combo }}</p>
-      {% endfor %}
+      <div class="section">
+        <h3>Reasoning</h3>
+        <p>{{ reasoning or summary_logic or "No reasoning available." }}</p>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="section">
+        <h3>Practical next steps</h3>
+        <p>{{ practical_next_steps or recommended_action or "No next steps available." }}</p>
+      </div>
+
+      <div class="section">
+        <h3>Accountability</h3>
+        <p>{{ accountability or "No accountability guidance available." }}</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Key signals</h3>
+      <div class="chips">
+        {% if key_signals %}
+          {% for item in key_signals %}
+            <span class="chip warn">{{ item }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="chip">No signals detected</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Key dampeners</h3>
+      <div class="chips">
+        {% if key_dampeners %}
+          {% for item in key_dampeners %}
+            <span class="chip good">{{ item }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="chip">None</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Alternative explanations</h3>
+      <div class="chips">
+        {% if alternative_explanations %}
+          {% for item in alternative_explanations %}
+            <span class="chip">{{ item }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="chip">None</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="section">
+        <h3>Risk controls</h3>
+        <div class="chips">
+          <span class="chip {% if pressure_present %}warn{% else %}good{% endif %}">pressure_present: {{ pressure_present }}</span>
+          <span class="chip {% if extraction_present %}warn{% else %}good{% endif %}">extraction_present: {{ extraction_present }}</span>
+          <span class="chip">reciprocity_level: {{ reciprocity_level or "Unknown" }}</span>
+          <span class="chip">narrative_integrity_score: {{ narrative_integrity_score }}</span>
+          <span class="chip">vie_action: {{ vie_action or "NONE" }}</span>
+        </div>
+        {% if contradiction_signals %}
+          <div style="margin-top:14px" class="danger-note">
+            <strong>Contradiction signals:</strong><br />
+            {% for item in contradiction_signals %}
+              {{ item.type }}{% if not loop.last %}, {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="section">
+        <h3>Research patch</h3>
+        <pre>{{ research_patch | tojson(indent=2) }}</pre>
+      </div>
+    </div>
+
+    {% if analysis_mode == "social_interest" %}
+    <div class="section">
+      <h3>Interest estimate</h3>
+      <div class="chips">
+        <span class="chip">interest_score: {{ interest_score }}</span>
+        <span class="chip">{{ interest_label }}</span>
+      </div>
     </div>
     {% endif %}
 
-    <div class="card">
-      <h2>Summary</h2>
-      <p>{{ summary }}</p>
+    <div class="section">
+      <h3>Extracted text</h3>
+      <pre>{{ extracted_text }}</pre>
     </div>
 
-    <div class="action-box">
-      <h2>Suggested Action</h2>
-      <p>{{ recommended_action }}</p>
-    </div>
-
-    <div class="card">
-      <h2>Extracted Text</h2>
-      <div class="extracted">{{ extracted_text }}</div>
-    </div>
-
-    <div class="card" style="border-color:#1e3a5f;margin-top:1.5rem;"><h2 style="color:#60a5fa;">Free beta access</h2><p style="color:#888;font-size:0.88rem;margin-top:0.4rem;margin-bottom:1rem;">Enter your email to stay updated. Beta ends April 7. No spam.</p><div style="display:flex;gap:0.5rem;flex-wrap:wrap;"><input type="email" id="result-email" placeholder="your@email.com" style="flex:1;min-width:200px;padding:0.7rem 0.9rem;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-size:0.875rem;outline:none;" /><button onclick="submitResultEmail()" style="padding:0.7rem 1.25rem;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:0.875rem;font-weight:600;cursor:pointer;">Save Result</button></div><p id="email-confirm" style="color:#6ee7b7;font-size:0.8rem;margin-top:0.5rem;display:none;">Got it. We will be in touch before April 7.</p><p style="font-size:0.72rem;color:#333;margin-top:0.5rem;">Built to highlight risk signals, not replace your judgment.</p></div><script>function submitResultEmail(){var val=document.getElementById("result-email").value.trim();if(val.indexOf("@")<0)return;fetch("https://formspree.io/f/xdawladd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:val,source:"vibelenz-result"})}).catch(function(){});document.getElementById("email-confirm").style.display="block";}</script>
-    <a href="/" class="back-link">← Analyze another conversation</a>
-    <p class="meta">VibeLenz by Precipice Social Intelligence LLC · Analysis is informational only</p>
+    <a class="footer-link" href="/">← Analyze another conversation</a>
   </div>
 </body>
 </html>
