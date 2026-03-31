@@ -17,6 +17,8 @@ Preprocessing pipeline:
 
 import io
 import logging
+import os
+import statistics
 from typing import List
 
 logger = logging.getLogger("vibelenz.ocr")
@@ -24,6 +26,10 @@ logger = logging.getLogger("vibelenz.ocr")
 try:
     import pytesseract
     from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+
+    if os.name == "nt":
+        pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
     TESSERACT_AVAILABLE = True
     logger.info("pytesseract loaded successfully")
 except ImportError:
@@ -68,35 +74,27 @@ def _preprocess(image: "Image.Image") -> "Image.Image":
     Preprocess image for maximum Tesseract accuracy on chat screenshots.
     Handles both light and dark UI themes.
     """
-    # Convert to RGB first to handle any mode (RGBA, P, etc.)
     image = image.convert("RGB")
 
-    # Upscale if image is too small — Tesseract accuracy degrades below ~150dpi
     w, h = image.size
     if min(w, h) < MIN_DIMENSION:
         scale = UPSCALE_FACTOR
         image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
         logger.debug(f"Upscaled image from {w}x{h} to {image.size}")
 
-    # Convert to grayscale
     gray = image.convert("L")
 
-    # Detect dark UI by checking mean brightness
-    import statistics
     pixels = list(gray.getdata())
     mean_brightness = statistics.mean(pixels)
     logger.debug(f"Mean brightness: {mean_brightness:.1f}")
 
     if mean_brightness < DARK_UI_THRESHOLD:
-        # Dark UI (e.g. dark mode chat) — invert so text is dark on light
         gray = ImageOps.invert(gray)
         logger.debug("Dark UI detected — inverted image")
 
-    # Enhance contrast to make text pop
     enhancer = ImageEnhance.Contrast(gray)
     gray = enhancer.enhance(2.0)
 
-    # Sharpen slightly to improve edge definition
     gray = gray.filter(ImageFilter.SHARPEN)
 
     return gray
@@ -111,8 +109,6 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
     image = Image.open(io.BytesIO(image_bytes))
     processed = _preprocess(image)
 
-    # PSM 6: assume uniform block of text — best for chat screenshots
-    # OEM 3: default engine (LSTM neural net)
     config = "--psm 6 --oem 3"
     text = pytesseract.image_to_string(processed, config=config)
     logger.info(f"Image {idx}: extracted {len(text)} chars")

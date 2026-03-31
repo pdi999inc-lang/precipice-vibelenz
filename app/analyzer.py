@@ -89,6 +89,90 @@ def _detect_intent_horizon(text: str, domain_mode: str) -> str:
     return "UNCLEAR"
 
 
+def _detect_connection_signals(text: str) -> Dict[str, Any]:
+    """
+    Detects positive connection signals across any domain.
+    Returns a dict of detected signal flags and a suggested primary label.
+    """
+    t = _norm(text)
+
+    # Confusion-then-repair markers
+    confusion_markers = [
+        "who is this", "who are you", "i don't know you", "i do not know you",
+        "wrong number", "new phone", "got a new phone", "all my stuff got deleted",
+        "all my contacts", "lost my contacts", "don't have your number",
+        "do not have your number", "i forgot", "i don't remember", "i do not remember"
+    ]
+
+    repair_markers = [
+        "i remember", "i remember you", "oh i remember", "oh right",
+        "my bad", "i'm sorry", "i am sorry", "so sorry", "my apologies",
+        "it was random", "i apologize", "oh okay", "oh ok", "never mind",
+        "wait i know", "that makes sense now"
+    ]
+
+    # Playful / flirtatious reciprocity markers
+    playful_markers = [
+        "i still do", "i want your", "your genes", "yay", "haha", "lol",
+        "you're cute", "you are cute", "miss you", "liked your", "can have them",
+        "let me see", "send me", "you're funny", "you are funny"
+    ]
+
+    # Warm receptivity markers
+    warm_markers = [
+        "that's so cool", "that is so cool", "that's awesome", "that is awesome",
+        "good app", "great app", "amazing", "wow", "impressed", "love that",
+        "so cool", "really cool", "that's great", "that is great"
+    ]
+
+    # Sexual reciprocity markers
+    sexual_reciprocity_markers = [
+        "i want your baby", "i want your genes", "i still do", "you're hot",
+        "you are hot", "you're sexy", "you are sexy", "come over", "hook up"
+    ]
+
+    confusion_count = _count_any(t, confusion_markers)
+    repair_count = _count_any(t, repair_markers)
+    playful_count = _count_any(t, playful_markers)
+    warm_count = _count_any(t, warm_markers)
+    sexual_count = _count_any(t, sexual_reciprocity_markers)
+
+    signals = []
+    if warm_count >= 1:
+        signals.append("warm_reception_present")
+    if playful_count >= 1:
+        signals.append("playful_engagement_present")
+    if sexual_count >= 1:
+        signals.append("sexual_reciprocity_present")
+    if repair_count >= 1:
+        signals.append("repair_attempt_present")
+    if confusion_count >= 1:
+        signals.append("initial_confusion_present")
+
+    # Determine best connection label
+    label = None
+    if confusion_count >= 1 and repair_count >= 1 and playful_count >= 1:
+        label = "playful_reengagement"
+    elif confusion_count >= 1 and repair_count >= 1:
+        label = "confusion_then_repair"
+    elif sexual_count >= 1 and playful_count >= 1:
+        label = "light_sexual_reciprocity"
+    elif warm_count >= 2:
+        label = "warm_receptivity"
+    elif playful_count >= 1:
+        label = "casual_flirtation"
+
+    return {
+        "connection_signals": signals,
+        "connection_label": label,
+        "confusion_count": confusion_count,
+        "repair_count": repair_count,
+        "playful_count": playful_count,
+        "warm_count": warm_count,
+        "sexual_count": sexual_count,
+    }
+
+
 def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
     t = _norm(text)
     signals: List[str] = []
@@ -186,6 +270,7 @@ def _assign_lane(
     key_signals: List[str],
     relationship_type: str,
     text: str,
+    connection_label: str = None,
 ) -> Dict[str, Any]:
     housing_cluster = sum(
         1 for s in key_signals if s in {
@@ -217,6 +302,10 @@ def _assign_lane(
 
     if relationship_type in {"dating", "family", "friend"} and not extraction_present and not pressure_present:
         return {"lane": "RELATIONSHIP_NORMAL", "primary_label": "relationship_context"}
+
+    # Connection label detection — fires for general_unknown domain
+    if connection_label and not extraction_present and not pressure_present:
+        return {"lane": "BENIGN", "primary_label": connection_label}
 
     return {"lane": "BENIGN", "primary_label": "routine_message"}
 
@@ -347,6 +436,9 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
 
     extracted = _extract_key_signals(normalized_text, domain["domain_mode"])
 
+    # Run connection signal detection on all domains
+    connection_data = _detect_connection_signals(normalized_text)
+
     lane_info = _assign_lane(
         domain_mode=domain["domain_mode"],
         reciprocity_level=reciprocity_level,
@@ -357,6 +449,7 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
         key_signals=extracted["signals"],
         relationship_type=relationship_type,
         text=normalized_text,
+        connection_label=connection_data["connection_label"],
     )
 
     dampeners = _build_dampeners(
@@ -402,7 +495,11 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
         interest_label = "Moderate" if reciprocity_level == "HIGH" else "Low"
 
     flags = extracted["signals"][:] if extracted["signals"] else ["No signals detected"]
-    positive_signals = [] if analysis_mode == "safety_only" else (["reciprocal_engagement"] if reciprocity_level == "HIGH" else [])
+
+    # Build positive signals from connection detection — fires on all domains
+    positive_signals = connection_data["connection_signals"][:]
+    if reciprocity_level == "HIGH" and "reciprocal_engagement" not in positive_signals:
+        positive_signals.append("reciprocal_engagement")
 
     if lane_info["lane"] == "BENIGN" and domain["domain_mode"] == "housing_rental":
         summary_logic = "Routine transactional hospitality/logistics message without extraction, pressure, or contradiction."

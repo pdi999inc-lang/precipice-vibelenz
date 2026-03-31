@@ -58,7 +58,9 @@ def _build_response_payload(
     payload["extracted_text"] = extracted_text
     payload["summary"] = narrative["diagnosis"]
     payload["recommended_action"] = narrative["practical_next_steps"]
-    payload["risk_label"] = payload.get("risk_label") or _risk_label_from_score(int(payload.get("final_risk_score", payload.get("risk_score", 0))))
+    payload["risk_label"] = payload.get("risk_label") or _risk_label_from_score(
+        int(payload.get("final_risk_score", payload.get("risk_score", 0)))
+    )
     return payload
 
 
@@ -110,12 +112,13 @@ async def analyze_screenshots(
     files: List[UploadFile] = File(...),
     relationship_type: str = "stranger",
     context_note: str = "",
+    requested_mode: str = "risk",
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
     timestamp_start = time.time()
 
-    logger.info(f"[{request_id}] Received {len(files)} file(s) at {ts}")
+    logger.info(f"[{request_id}] Received {len(files)} file(s), mode={requested_mode} at {ts}")
 
     if len(files) > MAX_FILES:
         raise HTTPException(
@@ -131,7 +134,9 @@ async def analyze_screenshots(
         content_type = (f.content_type or "").lower()
 
         allowed_by_type = content_type in ALLOWED_TYPES
-        allowed_octet_stream_image = content_type == "application/octet-stream" and ext in allowed_exts
+        allowed_octet_stream_image = (
+            content_type == "application/octet-stream" and ext in allowed_exts
+        )
 
         if not (allowed_by_type or allowed_octet_stream_image):
             raise HTTPException(
@@ -155,7 +160,7 @@ async def analyze_screenshots(
             relationship_type=relationship_type,
             context_note=context_note,
         )
-        narrative = interpret_analysis(analysis)
+        narrative = interpret_analysis(analysis, requested_mode=requested_mode)
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
@@ -169,7 +174,9 @@ async def analyze_screenshots(
     )
 
     logger.info(
-        f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} Degraded={payload.get('degraded', False)} TookMs={int((time.time() - timestamp_start) * 1000)}"
+        f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "
+        f"Mode={requested_mode} Degraded={payload.get('degraded', False)} "
+        f"TookMs={int((time.time() - timestamp_start) * 1000)}"
     )
 
     accept = request.headers.get("accept", "")
