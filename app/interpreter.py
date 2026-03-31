@@ -198,40 +198,20 @@ def _connection_copy(out: Dict[str, Any]) -> Dict[str, Any]:
         accountability = "Not every good thing needs to be analyzed into the ground. Sometimes easy is just easy."
 
     else:
-        diagnosis = "She was confused, embarrassed, and trying to recover — and once she did, the energy came back. This is not a rejection. It is a messy reconnection."
+        diagnosis = "This is a real human interaction — low stakes, not a threat, just still early."
         reasoning = (
-            "She probably did not have you placed at first. Then pieces started coming back. "
-            "Then the screenshot or context scrambled things again. "
-            "Then once she fully realized who you were, she settled down and tried to repair it. "
-            "That arc — confusion, embarrassment, recovery — is not what rejection looks like. "
-            "A girl who is genuinely turned off does not come back with 'I still do' and 'I want your genes' and 'Yay.' "
-            "That is not rejection energy. That is someone who was caught off guard, got embarrassed, and came back around. "
-            "The new phone excuse is believable enough — not guaranteed true, but believable. "
-            "The more important signal is what she did after the confusion cleared. She apologized. She called the app good. She tried to repair it. "
-            "People who want out do not do that. "
-            "So the real read is: she is not locked in, she is not super consistent, but she is not shutting you down either. "
-            "She feels more like someone who is messy and in-the-moment than someone who is clearly done. "
-            "Honest probability: still open to talking at 60 to 70 percent. "
-            "Genuinely into you in a stable way, more like 35 to 45. "
-            "Was rejecting you: low. Was confused and trying to recover: high."
+            "Nothing here points to pressure, danger, or bad intent. "
+            "It reads like a normal exchange between two people who are still figuring out the dynamic. "
+            "That is not a bad thing — it just means the picture is not complete yet. "
+            "A few more exchanges will tell you more than any analysis of what you already have."
         )
         next_steps = (
-            "Do not make this heavier than it is. "
-            "Do not ask her why she said it was gross, or whether she actually remembers you, or what she meant. "
-            "That will make it worse. "
-            "Treat it like a slightly awkward reconnection that already repaired itself. "
-            "Something like 'You're good. I'll allow the new phone excuse.' "
-            "or 'We'll call it temporary memory loss.' "
-            "That keeps it easy and puts you back in control of the tone."
+            "Treat it lightly. Let the next few exchanges do the work "
+            "instead of trying to force a conclusion from limited data."
         )
         accountability = (
-            "You are at risk of overanalyzing her confusion instead of seeing the obvious middle-ground answer: "
-            "she was confused, embarrassed, then receptive again. This was not a strong win, but it was not a loss either. "
-            "Your bigger mistake was trying to get personal connection and app validation out of the same exchange. "
-            "That is messy. It gives you fake signal on both ends. "
-            "Flirt if you are flirting. Pitch if you are pitching. Mixing them weakens both. "
-            "She does not look uninterested — she looks disorganized. "
-            "You still have room. Stop making it a case file and keep it light."
+            "Stop trying to solve it before it has had time to develop. "
+            "You do not have enough information yet to make a hard call — and that is okay."
         )
 
     if "self_pitch_present" in coaching and primary_label in {"playful_reengagement", "light_sexual_reciprocity", "warm_receptivity"}:
