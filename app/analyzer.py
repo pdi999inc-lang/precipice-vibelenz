@@ -18,6 +18,138 @@ def _count_any(text: str, phrases: List[str]) -> int:
     return sum(1 for p in phrases if p in t)
 
 
+# ---------------------------------------------------------------------------
+# Evidence Signal Registry
+# Maps signal IDs to tier, weight, and plain-English explanation
+# Used by risk mode evidence scoring display
+# ---------------------------------------------------------------------------
+
+SIGNAL_REGISTRY = {
+    "payment_before_verification": {
+        "tier": "CRITICAL",
+        "weight": 0.90,
+        "label": "Payment before verification",
+        "explanation": "A deposit or payment was requested before you could view or verify the property. This is the single strongest fraud indicator in rental scams.",
+    },
+    "withheld_owner_verification": {
+        "tier": "CRITICAL",
+        "weight": 0.85,
+        "label": "Owner identity withheld",
+        "explanation": "Contact information or identity verification was conditioned on you committing first. Legitimate landlords identify themselves upfront.",
+    },
+    "owner_identity_shift": {
+        "tier": "CRITICAL",
+        "weight": 0.82,
+        "label": "Owner identity shifted",
+        "explanation": "The person claiming to own or manage the property changed their story about who the owner is. Identity instability is a hallmark of rental fraud.",
+    },
+    "property_identity_shift": {
+        "tier": "HIGH",
+        "weight": 0.75,
+        "label": "Property identity shifted",
+        "explanation": "The listing details changed mid-conversation — different address, wrong property sent, or story about the property shifted. Scammers often manage multiple fake listings and mix them up.",
+    },
+    "verification_path_shift": {
+        "tier": "HIGH",
+        "weight": 0.72,
+        "label": "Verification path reversed",
+        "explanation": "The normal sequence was inverted — approval or payment was requested before a showing. In legitimate rentals, you see it first.",
+    },
+    "money_request": {
+        "tier": "HIGH",
+        "weight": 0.60,
+        "label": "Money mentioned early",
+        "explanation": "Financial terms appeared before basic trust was established. Not automatically fraudulent, but worth tracking how the conversation develops.",
+    },
+    "credential_or_sensitive_info_signal": {
+        "tier": "CRITICAL",
+        "weight": 0.88,
+        "label": "Sensitive information requested",
+        "explanation": "SSN, passwords, verification codes, or login credentials were requested. Legitimate landlords never need this information before a showing.",
+    },
+    "pressure_present": {
+        "tier": "HIGH",
+        "weight": 0.65,
+        "label": "Urgency or pressure detected",
+        "explanation": "Language designed to rush a decision appeared — urgency, deadlines, or 'act now' framing. Pressure is a manipulation tool used to prevent you from thinking clearly.",
+    },
+    "sexual_directness": {
+        "tier": "MEDIUM",
+        "weight": 0.35,
+        "label": "Direct sexual framing",
+        "explanation": "Explicit sexual content or requests appeared. In a dating context this is not automatically a risk signal, but the timing and direction matter.",
+    },
+    "boundary_language_present": {
+        "tier": "HIGH",
+        "weight": 0.70,
+        "label": "Boundary violation language",
+        "explanation": "Language indicating you asked them to stop or felt uncomfortable appeared. Continued contact after a boundary signal is a coercion indicator.",
+    },
+}
+
+
+def _score_evidence(signals: List[str]) -> Dict[str, Any]:
+    """
+    Score detected signals against the registry.
+    Returns enriched signal list with tier, weight, explanation,
+    and a cumulative evidence score.
+    """
+    enriched = []
+    cumulative = 0.0
+    tier_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+
+    for sig_id in signals:
+        entry = SIGNAL_REGISTRY.get(sig_id)
+        if entry:
+            enriched.append({
+                "id": sig_id,
+                "tier": entry["tier"],
+                "weight": entry["weight"],
+                "label": entry["label"],
+                "explanation": entry["explanation"],
+            })
+            cumulative += entry["weight"]
+            tier_counts[entry["tier"]] = tier_counts.get(entry["tier"], 0) + 1
+        else:
+            # Unknown signal — include without enrichment
+            enriched.append({
+                "id": sig_id,
+                "tier": "MEDIUM",
+                "weight": 0.30,
+                "label": sig_id.replace("_", " ").title(),
+                "explanation": "Signal detected. See machine detail for context.",
+            })
+            cumulative += 0.30
+
+    # Cap cumulative at 1.0
+    cumulative = round(min(cumulative, 1.0), 3)
+
+    # Overall evidence verdict
+    if tier_counts["CRITICAL"] >= 2:
+        evidence_verdict = "STRONG"
+        evidence_summary = "Multiple critical signals detected. The pattern is consistent with a known fraud structure."
+    elif tier_counts["CRITICAL"] >= 1:
+        evidence_verdict = "ELEVATED"
+        evidence_summary = "At least one critical signal detected. Treat this as a serious warning until independently verified."
+    elif tier_counts["HIGH"] >= 2:
+        evidence_verdict = "MODERATE"
+        evidence_summary = "Several high-severity signals detected. The risk is real but not yet conclusive."
+    elif len(enriched) > 0:
+        evidence_verdict = "WEAK"
+        evidence_summary = "Some signals present but individually inconclusive. Watch for escalation."
+    else:
+        evidence_verdict = "NONE"
+        evidence_summary = "No risk signals detected in this conversation."
+
+    return {
+        "enriched_signals": enriched,
+        "cumulative_evidence_score": cumulative,
+        "evidence_verdict": evidence_verdict,
+        "evidence_summary": evidence_summary,
+        "tier_counts": tier_counts,
+    }
+
+
 def _detect_domain_mode(text: str) -> Dict[str, Any]:
     t = _norm(text)
 
@@ -486,6 +618,9 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
     if reciprocity_level == "HIGH" and "reciprocal_engagement" not in positive_signals:
         positive_signals.append("reciprocal_engagement")
 
+    # Evidence scoring — risk mode only
+    evidence = _score_evidence(extracted["signals"])
+
     if lane_info["lane"] == "BENIGN" and domain["domain_mode"] == "housing_rental":
         summary_logic = "Routine transactional hospitality/logistics message without extraction, pressure, or contradiction."
     elif lane_info["lane"] == "DATING_AMBIGUOUS":
@@ -527,6 +662,7 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
         "vie_action": "BLOCK" if risk["risk_score"] >= 85 else ("WARN" if risk["risk_score"] >= 50 else ("MONITOR" if risk["risk_score"] >= 25 else "NONE")),
         "interest_score": interest_score,
         "interest_label": interest_label,
+        "evidence": evidence,
         "research_patch": {
             "style_markers": {
                 "scope": "message_batch_only",
@@ -542,30 +678,16 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
 
 
 def _turn_risk_score(text: str, relationship_type: str = "stranger") -> int:
-    """Quick risk score for a single turn chunk. Used by analyze_turns."""
     result = analyze_text(text, relationship_type=relationship_type)
     return result.get("risk_score", 0)
 
 
 def _turn_label(text: str, relationship_type: str = "stranger") -> str:
-    """Quick primary label for a single turn chunk."""
     result = analyze_text(text, relationship_type=relationship_type)
     return result.get("primary_label", "routine_message")
 
 
 def _arc_label(scores: List[int], labels: List[str]) -> Dict[str, Any]:
-    """
-    Compute conversation arc from per-turn scores and labels.
-
-    Arc types:
-    - escalating: risk score rises significantly across turns
-    - de_escalating: risk score drops significantly
-    - repair: starts high or confused, ends warm or low risk
-    - flat_low: consistently low risk throughout
-    - flat_high: consistently high risk throughout
-    - volatile: large swings between turns
-    - single_turn: only one turn provided
-    """
     if len(scores) <= 1:
         return {
             "arc": "single_turn",
@@ -581,7 +703,6 @@ def _arc_label(scores: List[int], labels: List[str]) -> Dict[str, Any]:
     min_score = min(scores)
     swing = max_score - min_score
 
-    # Check for repair pattern — confusion/high early, warm/low late
     early_confused = any(l in {"routine_message", "confusion_then_repair", "playful_reengagement"}
                          for l in labels[:max(1, len(labels) // 2)])
     late_warm = any(l in {"warm_receptivity", "casual_flirtation", "playful_reengagement",
@@ -629,17 +750,6 @@ def analyze_turns(
     text_chunks: List[str],
     relationship_type: str = "stranger",
 ) -> Dict[str, Any]:
-    """
-    Analyze a conversation as ordered turns (one chunk per screenshot).
-    Returns per-turn scores plus an overall arc analysis.
-
-    Args:
-        text_chunks: List of OCR text strings, one per screenshot in order
-        relationship_type: Relationship context
-
-    Returns:
-        Dict with turn_scores, arc, and summary
-    """
     if not text_chunks:
         return {
             "turn_count": 0,
@@ -667,7 +777,6 @@ def analyze_turns(
         scores.append(score)
         labels.append(label)
 
-        # Human-readable turn summary
         if score >= 70:
             turn_verdict = "High concern"
             turn_color = "high"
