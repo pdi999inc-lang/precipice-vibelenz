@@ -103,7 +103,6 @@
       color: var(--muted);
     }
 
-    /* ── RISK MODE hero layout (score left, text right) ── */
     .hero-top {
       display: grid;
       grid-template-columns: 150px 1fr;
@@ -111,7 +110,6 @@
       align-items: start;
     }
 
-    /* ── CONNECTION MODE hero layout (full width, no score box) ── */
     .hero-top-connection {
       display: block;
     }
@@ -253,7 +251,6 @@
       color: var(--text);
     }
 
-    /* Connection mode section overrides — softer, story-style */
     .section.connection-section h3 {
       font-size: 13px;
       font-weight: 800;
@@ -368,6 +365,171 @@
       font-size: 14px;
     }
 
+    /* ── MULTI-TURN TIMELINE ──────────────────────────── */
+    .arc-section {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 22px 24px;
+      margin-bottom: 18px;
+    }
+
+    .arc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .arc-eyebrow {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: #4a6a96;
+      margin-bottom: 4px;
+    }
+
+    .arc-label {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .arc-direction-pill {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .arc-direction-pill.improving {
+      background: rgba(61,220,151,0.14);
+      border: 1px solid rgba(61,220,151,0.3);
+      color: #3ddc97;
+    }
+
+    .arc-direction-pill.worsening {
+      background: rgba(255,113,113,0.14);
+      border: 1px solid rgba(255,113,113,0.3);
+      color: #ff7171;
+    }
+
+    .arc-direction-pill.mixed {
+      background: rgba(242,178,77,0.14);
+      border: 1px solid rgba(242,178,77,0.3);
+      color: #f2b24d;
+    }
+
+    .arc-direction-pill.neutral {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: var(--muted);
+    }
+
+    .arc-direction-pill.concerning {
+      background: rgba(255,113,113,0.14);
+      border: 1px solid rgba(255,113,113,0.3);
+      color: #ff7171;
+    }
+
+    .turn-timeline {
+      display: flex;
+      gap: 0;
+      align-items: stretch;
+      margin-top: 4px;
+    }
+
+    .turn-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .turn-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 28px;
+      right: -1px;
+      width: 100%;
+      height: 2px;
+      background: rgba(255,255,255,0.06);
+      z-index: 0;
+    }
+
+    .turn-dot {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 800;
+      border: 2px solid transparent;
+      position: relative;
+      z-index: 1;
+      margin-bottom: 10px;
+    }
+
+    .turn-dot.low {
+      background: rgba(61,220,151,0.14);
+      border-color: rgba(61,220,151,0.4);
+      color: #3ddc97;
+    }
+
+    .turn-dot.medium {
+      background: rgba(242,178,77,0.14);
+      border-color: rgba(242,178,77,0.4);
+      color: #f2b24d;
+    }
+
+    .turn-dot.high {
+      background: rgba(255,113,113,0.14);
+      border-color: rgba(255,113,113,0.4);
+      color: #ff7171;
+    }
+
+    .turn-meta {
+      text-align: center;
+    }
+
+    .turn-num {
+      font-size: 11px;
+      color: #4a6a96;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+
+    .turn-verdict {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .turn-label-text {
+      font-size: 12px;
+      color: #3a5070;
+      margin-top: 2px;
+    }
+
+    .arc-connector {
+      flex: 0 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-bottom: 40px;
+    }
+
+    .arc-connector-line {
+      width: 100%;
+      height: 2px;
+      background: rgba(255,255,255,0.08);
+    }
+
     @media (max-width: 860px) {
       .hero-top,
       .meta-grid,
@@ -376,20 +538,32 @@
         grid-template-columns: 1fr;
       }
 
-      .title {
-        font-size: 26px;
+      .title { font-size: 26px; }
+      .hero h2 { font-size: 24px; }
+      .score-num { font-size: 46px; }
+      .connection-headline { font-size: 22px; }
+
+      .turn-timeline {
+        flex-direction: column;
+        gap: 12px;
       }
 
-      .hero h2 {
-        font-size: 24px;
+      .turn-item::after { display: none; }
+      .arc-connector { display: none; }
+
+      .turn-item {
+        flex-direction: row;
+        gap: 14px;
+        align-items: center;
       }
 
-      .score-num {
-        font-size: 46px;
+      .turn-dot {
+        margin-bottom: 0;
+        flex-shrink: 0;
       }
 
-      .connection-headline {
-        font-size: 22px;
+      .turn-meta {
+        text-align: left;
       }
     }
   </style>
@@ -412,7 +586,7 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════
-         CONNECTION MODE HERO — narrative leads, scores follow
+         CONNECTION MODE HERO
          ═══════════════════════════════════════════════ -->
     {% if presentation_mode == "connection" %}
     <div class="hero">
@@ -426,7 +600,6 @@
         <div class="note">{{ mode_override_note }}</div>
         {% endif %}
 
-        <!-- Scores de-emphasized at the bottom -->
         <div class="connection-scores-row">
           <div class="conn-score-chip">
             <div class="csc-label">Chemistry read</div>
@@ -450,7 +623,37 @@
       </div>
     </div>
 
-    <!-- CONNECTION sections — story style -->
+    <!-- MULTI-TURN ARC — connection mode -->
+    {% if turn_analysis and turn_analysis.multi_turn %}
+    <div class="arc-section">
+      <div class="arc-header">
+        <div>
+          <div class="arc-eyebrow">Conversation arc — {{ turn_analysis.turn_count }} screenshots</div>
+          <div class="arc-label">{{ turn_analysis.arc_label }}</div>
+        </div>
+        <div class="arc-direction-pill {{ turn_analysis.direction }}">
+          {{ turn_analysis.direction | capitalize }}
+        </div>
+      </div>
+      <div class="turn-timeline">
+        {% for turn in turn_analysis.turns %}
+          <div class="turn-item">
+            <div class="turn-dot {{ turn.color }}">{{ turn.risk_score }}</div>
+            <div class="turn-meta">
+              <div class="turn-num">Screenshot {{ turn.turn_number }}</div>
+              <div class="turn-verdict">{{ turn.verdict }}</div>
+              <div class="turn-label-text">{{ turn.label }}</div>
+            </div>
+          </div>
+          {% if not loop.last %}
+          <div class="arc-connector"><div class="arc-connector-line"></div></div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- CONNECTION sections -->
     <div class="grid-2">
       <div class="section connection-section next-steps">
         <h3>What to do next</h3>
@@ -516,7 +719,7 @@
 
     {% else %}
     <!-- ═══════════════════════════════════════════════
-         RISK MODE HERO — score leads, analytical layout
+         RISK MODE HERO
          ═══════════════════════════════════════════════ -->
     <div class="hero">
       <div class="hero-top">
@@ -556,7 +759,37 @@
       </div>
     </div>
 
-    <!-- RISK sections — analytical layout -->
+    <!-- MULTI-TURN ARC — risk mode -->
+    {% if turn_analysis and turn_analysis.multi_turn %}
+    <div class="arc-section">
+      <div class="arc-header">
+        <div>
+          <div class="arc-eyebrow">Pattern across {{ turn_analysis.turn_count }} screenshots</div>
+          <div class="arc-label">{{ turn_analysis.arc_label }}</div>
+        </div>
+        <div class="arc-direction-pill {{ turn_analysis.direction }}">
+          {{ turn_analysis.direction | capitalize }}
+        </div>
+      </div>
+      <div class="turn-timeline">
+        {% for turn in turn_analysis.turns %}
+          <div class="turn-item">
+            <div class="turn-dot {{ turn.color }}">{{ turn.risk_score }}</div>
+            <div class="turn-meta">
+              <div class="turn-num">Screenshot {{ turn.turn_number }}</div>
+              <div class="turn-verdict">{{ turn.verdict }}</div>
+              <div class="turn-label-text">{{ turn.label }}</div>
+            </div>
+          </div>
+          {% if not loop.last %}
+          <div class="arc-connector"><div class="arc-connector-line"></div></div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- RISK sections -->
     <div class="grid-2">
       <div class="section">
         <h3>What it points to</h3>
@@ -671,6 +904,20 @@
           <div class="k">Requested mode</div>
           <div class="v">{{ requested_mode or "risk" }}</div>
         </div>
+        {% if turn_analysis and turn_analysis.multi_turn %}
+        <div class="machine-card">
+          <div class="k">Arc</div>
+          <div class="v">{{ turn_analysis.arc }}</div>
+        </div>
+        <div class="machine-card">
+          <div class="k">Score delta</div>
+          <div class="v">{{ turn_analysis.delta }}</div>
+        </div>
+        <div class="machine-card">
+          <div class="k">Turn count</div>
+          <div class="v">{{ turn_analysis.turn_count }}</div>
+        </div>
+        {% endif %}
       </div>
 
       <pre>{{ extracted_text }}</pre>

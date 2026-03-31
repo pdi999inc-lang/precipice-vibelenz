@@ -12,7 +12,7 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.analyzer import analyze_text
+from app.analyzer import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
 
@@ -50,6 +50,7 @@ def _build_response_payload(
     extracted_text: str,
     analysis: dict,
     narrative: dict,
+    turn_analysis: dict,
 ) -> dict:
     payload = dict(analysis)
     payload.update(narrative)
@@ -61,6 +62,7 @@ def _build_response_payload(
     payload["risk_label"] = payload.get("risk_label") or _risk_label_from_score(
         int(payload.get("final_risk_score", payload.get("risk_score", 0)))
     )
+    payload["turn_analysis"] = turn_analysis
     return payload
 
 
@@ -146,7 +148,12 @@ async def analyze_screenshots(
 
     try:
         image_bytes_list = [await f.read() for f in files]
-        extracted_text = extract_text_from_images(image_bytes_list)
+        # Extract text per image for multi-turn analysis
+        text_chunks = []
+        for img_bytes in image_bytes_list:
+            chunk = extract_text_from_images([img_bytes])
+            text_chunks.append(chunk)
+        extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
     except Exception as e:
         logger.error(f"[{request_id}] OCR failure: {e}")
         raise HTTPException(status_code=503, detail="OCR processing failed. System blocked.")
@@ -161,6 +168,12 @@ async def analyze_screenshots(
             context_note=context_note,
         )
         narrative = interpret_analysis(analysis, requested_mode=requested_mode)
+
+        # Multi-turn analysis — only runs if more than one image uploaded
+        turn_analysis = analyze_turns(
+            text_chunks=[t for t in text_chunks if t.strip()],
+            relationship_type=relationship_type,
+        )
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
@@ -171,11 +184,14 @@ async def analyze_screenshots(
         extracted_text=extracted_text,
         analysis=analysis,
         narrative=narrative,
+        turn_analysis=turn_analysis,
     )
 
     logger.info(
         f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "
-        f"Mode={requested_mode} Degraded={payload.get('degraded', False)} "
+        f"Mode={requested_mode} Turns={turn_analysis.get('turn_count', 0)} "
+        f"Arc={turn_analysis.get('arc', 'n/a')} "
+        f"Degraded={payload.get('degraded', False)} "
         f"TookMs={int((time.time() - timestamp_start) * 1000)}"
     )
 

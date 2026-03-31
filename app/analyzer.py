@@ -90,45 +90,43 @@ def _detect_intent_horizon(text: str, domain_mode: str) -> str:
 
 
 def _detect_connection_signals(text: str) -> Dict[str, Any]:
-    """
-    Detects positive connection signals across any domain.
-    Returns a dict of detected signal flags and a suggested primary label.
-    """
     t = _norm(text)
 
-    # Confusion-then-repair markers
     confusion_markers = [
         "who is this", "who are you", "i don't know you", "i do not know you",
         "wrong number", "new phone", "got a new phone", "all my stuff got deleted",
         "all my contacts", "lost my contacts", "don't have your number",
-        "do not have your number", "i forgot", "i don't remember", "i do not remember"
+        "do not have your number", "i forgot", "i don't remember", "i do not remember",
+        "| don't know you", "| do not know you", "| forgot", "| don't remember",
     ]
 
     repair_markers = [
         "i remember", "i remember you", "oh i remember", "oh right",
         "my bad", "i'm sorry", "i am sorry", "so sorry", "my apologies",
         "it was random", "i apologize", "oh okay", "oh ok", "never mind",
-        "wait i know", "that makes sense now"
+        "wait i know", "that makes sense now",
+        "| remember", "| remember you", "oh | remember",
     ]
 
-    # Playful / flirtatious reciprocity markers
     playful_markers = [
         "i still do", "i want your", "your genes", "yay", "haha", "lol",
         "you're cute", "you are cute", "miss you", "liked your", "can have them",
-        "let me see", "send me", "you're funny", "you are funny"
+        "let me see", "send me", "you're funny", "you are funny",
+        "| still do", "| want your", "| remember you",
     ]
 
-    # Warm receptivity markers
     warm_markers = [
         "that's so cool", "that is so cool", "that's awesome", "that is awesome",
         "good app", "great app", "amazing", "wow", "impressed", "love that",
-        "so cool", "really cool", "that's great", "that is great"
+        "so cool", "really cool", "that's great", "that is great",
+        "good fucking app", "fucking app",
     ]
 
-    # Sexual reciprocity markers
     sexual_reciprocity_markers = [
         "i want your baby", "i want your genes", "i still do", "you're hot",
-        "you are hot", "you're sexy", "you are sexy", "come over", "hook up"
+        "you are hot", "you're sexy", "you are sexy", "come over", "hook up",
+        "| want your baby", "| want your genes", "| still do",
+        "| want your", "wanted my baby", "want your genes",
     ]
 
     confusion_count = _count_any(t, confusion_markers)
@@ -149,9 +147,8 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
     if confusion_count >= 1:
         signals.append("initial_confusion_present")
 
-    # Determine best connection label
     label = None
-    if confusion_count >= 1 and repair_count >= 1 and playful_count >= 1:
+    if confusion_count >= 1 and repair_count >= 1 and (playful_count >= 1 or sexual_count >= 1):
         label = "playful_reengagement"
     elif confusion_count >= 1 and repair_count >= 1:
         label = "confusion_then_repair"
@@ -194,7 +191,6 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
     if _contains_any(t, ["stop contacting me", "leave me alone", "not comfortable", "do not contact me"]):
         signals.append("boundary_language_present")
 
-    # Rental / housing fraud clusters
     if domain_mode == "housing_rental":
         if _contains_any(t, [
             "owner contact information once you're interested",
@@ -208,11 +204,8 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
             boundary_violations.append("withheld_owner_verification")
 
         if _contains_any(t, [
-            "other property",
-            "wrong property",
-            "belongs to a lady",
-            "belongs to the lady",
-            "initially talked about belongs to",
+            "other property", "wrong property", "belongs to a lady",
+            "belongs to the lady", "initially talked about belongs to",
             "i think i sent you the other property"
         ]):
             signals.append("property_identity_shift")
@@ -233,9 +226,7 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
             boundary_violations.append("verification_path_shift")
 
         if _contains_any(t, money_terms) and _contains_any(t, [
-            "deposit is paid",
-            "lease agreement signed",
-            "move in",
+            "deposit is paid", "lease agreement signed", "move in",
             "would need the entire",
             "first month rent can be paid after your move in"
         ]):
@@ -285,7 +276,6 @@ def _assign_lane(
     if domain_mode == "housing_rental":
         if housing_cluster >= 2:
             return {"lane": "FRAUD", "primary_label": "transactional_extraction_pattern"}
-
         if _contains_any(text, ["wifi", "guest", "host", "parking", "check in", "during your stay"]) and housing_cluster == 0 and not extraction_present:
             return {"lane": "BENIGN", "primary_label": "routine_host_message"}
 
@@ -303,7 +293,6 @@ def _assign_lane(
     if relationship_type in {"dating", "family", "friend"} and not extraction_present and not pressure_present:
         return {"lane": "RELATIONSHIP_NORMAL", "primary_label": "relationship_context"}
 
-    # Connection label detection — fires for general_unknown domain
     if connection_label and not extraction_present and not pressure_present:
         return {"lane": "BENIGN", "primary_label": connection_label}
 
@@ -433,10 +422,7 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
     domain = _detect_domain_mode(normalized_text)
     reciprocity_level = _detect_reciprocity(normalized_text)
     intent_horizon = _detect_intent_horizon(normalized_text, domain["domain_mode"])
-
     extracted = _extract_key_signals(normalized_text, domain["domain_mode"])
-
-    # Run connection signal detection on all domains
     connection_data = _detect_connection_signals(normalized_text)
 
     lane_info = _assign_lane(
@@ -496,7 +482,6 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
 
     flags = extracted["signals"][:] if extracted["signals"] else ["No signals detected"]
 
-    # Build positive signals from connection detection — fires on all domains
     positive_signals = connection_data["connection_signals"][:]
     if reciprocity_level == "HIGH" and "reciprocal_engagement" not in positive_signals:
         positive_signals.append("reciprocal_engagement")
@@ -553,4 +538,165 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
                 "allowed_depth": "limited_inference" if len(normalized_text) >= 120 else "surface_only"
             }
         }
+    }
+
+
+def _turn_risk_score(text: str, relationship_type: str = "stranger") -> int:
+    """Quick risk score for a single turn chunk. Used by analyze_turns."""
+    result = analyze_text(text, relationship_type=relationship_type)
+    return result.get("risk_score", 0)
+
+
+def _turn_label(text: str, relationship_type: str = "stranger") -> str:
+    """Quick primary label for a single turn chunk."""
+    result = analyze_text(text, relationship_type=relationship_type)
+    return result.get("primary_label", "routine_message")
+
+
+def _arc_label(scores: List[int], labels: List[str]) -> Dict[str, Any]:
+    """
+    Compute conversation arc from per-turn scores and labels.
+
+    Arc types:
+    - escalating: risk score rises significantly across turns
+    - de_escalating: risk score drops significantly
+    - repair: starts high or confused, ends warm or low risk
+    - flat_low: consistently low risk throughout
+    - flat_high: consistently high risk throughout
+    - volatile: large swings between turns
+    - single_turn: only one turn provided
+    """
+    if len(scores) <= 1:
+        return {
+            "arc": "single_turn",
+            "arc_label": "Single screenshot — upload more for pattern tracking",
+            "direction": "neutral",
+            "delta": 0,
+        }
+
+    first = scores[0]
+    last = scores[-1]
+    delta = last - first
+    max_score = max(scores)
+    min_score = min(scores)
+    swing = max_score - min_score
+
+    # Check for repair pattern — confusion/high early, warm/low late
+    early_confused = any(l in {"routine_message", "confusion_then_repair", "playful_reengagement"}
+                         for l in labels[:max(1, len(labels) // 2)])
+    late_warm = any(l in {"warm_receptivity", "casual_flirtation", "playful_reengagement",
+                          "light_sexual_reciprocity", "confusion_then_repair"}
+                    for l in labels[len(labels) // 2:])
+
+    if swing >= 30 and delta < -10:
+        arc = "repair"
+        arc_label = "Started rough, ended warmer — the conversation repaired itself"
+        direction = "improving"
+    elif delta >= 20:
+        arc = "escalating"
+        arc_label = "Risk is climbing across screenshots — something shifted"
+        direction = "worsening"
+    elif delta <= -20:
+        arc = "de_escalating"
+        arc_label = "Tension dropped as the conversation progressed"
+        direction = "improving"
+    elif swing >= 25:
+        arc = "volatile"
+        arc_label = "Inconsistent energy — the conversation keeps shifting"
+        direction = "mixed"
+    elif max_score >= 60:
+        arc = "flat_high"
+        arc_label = "Consistently elevated risk across all screenshots"
+        direction = "concerning"
+    elif early_confused and late_warm:
+        arc = "repair"
+        arc_label = "Started confused or defensive, ended warm — classic repair pattern"
+        direction = "improving"
+    else:
+        arc = "flat_low"
+        arc_label = "Low and stable — nothing escalated across these screenshots"
+        direction = "neutral"
+
+    return {
+        "arc": arc,
+        "arc_label": arc_label,
+        "direction": direction,
+        "delta": delta,
+    }
+
+
+def analyze_turns(
+    text_chunks: List[str],
+    relationship_type: str = "stranger",
+) -> Dict[str, Any]:
+    """
+    Analyze a conversation as ordered turns (one chunk per screenshot).
+    Returns per-turn scores plus an overall arc analysis.
+
+    Args:
+        text_chunks: List of OCR text strings, one per screenshot in order
+        relationship_type: Relationship context
+
+    Returns:
+        Dict with turn_scores, arc, and summary
+    """
+    if not text_chunks:
+        return {
+            "turn_count": 0,
+            "turns": [],
+            "arc": "single_turn",
+            "arc_label": "No screenshots provided",
+            "direction": "neutral",
+            "delta": 0,
+            "multi_turn": False,
+        }
+
+    turns = []
+    scores = []
+    labels = []
+
+    for i, chunk in enumerate(text_chunks):
+        if not chunk.strip():
+            continue
+
+        result = analyze_text(chunk, relationship_type=relationship_type)
+        score = result.get("risk_score", 0)
+        label = result.get("primary_label", "routine_message")
+        connection_data = _detect_connection_signals(chunk)
+
+        scores.append(score)
+        labels.append(label)
+
+        # Human-readable turn summary
+        if score >= 70:
+            turn_verdict = "High concern"
+            turn_color = "high"
+        elif score >= 35:
+            turn_verdict = "Worth watching"
+            turn_color = "medium"
+        else:
+            turn_verdict = "Low concern"
+            turn_color = "low"
+
+        turns.append({
+            "turn_number": i + 1,
+            "label": label.replace("_", " "),
+            "risk_score": score,
+            "verdict": turn_verdict,
+            "color": turn_color,
+            "positive_signals": connection_data["connection_signals"],
+            "key_signals": result.get("key_signals", []),
+        })
+
+    arc_data = _arc_label(scores, labels)
+
+    return {
+        "turn_count": len(turns),
+        "turns": turns,
+        "arc": arc_data["arc"],
+        "arc_label": arc_data["arc_label"],
+        "direction": arc_data["direction"],
+        "delta": arc_data["delta"],
+        "multi_turn": len(turns) > 1,
+        "scores": scores,
     }
