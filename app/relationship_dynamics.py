@@ -442,3 +442,11 @@ class RelationshipAnalyzer:
             return "Keep the steady rhythm going — look for a natural moment to deepen the connection."
         else:
             return "Give it a few more exchanges to see which direction this wants to go."
+
+_analyzer = RelationshipAnalyzer()
+
+def analyze_dynamics(turns):
+    result = _analyzer.analyze(turns)
+    if result is None:
+        return None
+    return result.model_dump()

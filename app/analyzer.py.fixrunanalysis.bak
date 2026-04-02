@@ -1,0 +1,1199 @@
+"""
+analyzer.py - VibeLenz LLM analyzer powered by the full 30-signal VIE behavioral library.
+
+Signals: 13 CRITICAL | 9 HIGH | 4 MEDIUM | 4 LOW
+Includes: Phase detection, combo amplification, VIE action mapping,
+research patch outputs (style markers, data sufficiency, evidence governance,
+coaching rubric, retention policy), and romance false-positive guardrails.
+Fail-closed: any API failure returns degraded=True, risk_score=100.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+from collections.abc import Iterable
+from copy import deepcopy
+from typing import Any, Dict, List
+
+import anthropic
+
+logger = logging.getLogger("vibelenz.analyzer")
+
+SYSTEM_PROMPT = """You are VibeLenz, a safety analysis engine powered by the Verified Interaction Engine (VIE).
+
+You analyze conversation text extracted from screenshots using the full VIE 30-signal behavioral library.
+
+## GOVERNANCE RULES
+- Do not infer sex or gender from writing style.
+- Do not say "this looks male" or "this looks female."
+- Do not say "men text like this" or "women text like this."
+- Prefer observable behavior over identity assumptions.
+- If evidence is limited, reduce confidence and say so.
+
+## PHASE DETECTION
+First identify the conversation phase:
+- GROOMING: Stranger building trust with suspicious patterns. ONLY use for unknown contacts with red flags. NEVER use GROOMING for established relationships - use NONE instead
+- ESCALATION: Moving off platform, increasing intimacy, introducing financial topics
+- COERCION: Direct financial asks, urgency pressure, isolation tactics
+- ENDGAME: Large financial request, withdrawal barriers, document fabrication
+- VICTIM_STATE: Victim defending the scammer, resisting intervention
+
+## 30-SIGNAL BEHAVIORAL LIBRARY
+
+### CRITICAL TIER (weight 1.0) — action: BLOCK
+1. platform_spoof_redirect — Fake site injection after transaction agreement
+2. financial_ask_escalation — Any monetary request; severity scales with amount and urgency
+3. otp_credential_harvest — Request for OTP, password, PIN, verification code, SSN
+4. remote_access_installation — Request to install AnyDesk, TeamViewer, or remote access tools
+5. intervention_resistance_high — Victim actively argues against fraud alert
+6. pig_butchering_sequence — Wrong number/chance contact → friendship → romance → crypto investment
+7. withdrawal_barrier_loop — Withdrawal blocked requiring additional deposit; repeating pattern
+8. authority_impersonation — Claims government, IRS, bank, or law enforcement identity + legal threat
+9. document_fabrication_series — Multiple fake official documents justifying payment
+10. bec_payment_substitution — Payment details substituted via spoofed business email
+11. money_mule_recruitment — Instruction to receive and forward money or crypto on behalf of sender
+12. unwitting_criminal_exposure — Victim unknowingly participating in criminal activity
+13. deepfake_video_call_claim — Claims video call is impossible; AI-generated content suspected
+
+### HIGH TIER (weight 0.8) — action: WARN
+14. platform_migration_early — Move to encrypted channel (WhatsApp, Telegram, Signal) within first 1-3 exchanges
+15. love_bomb_velocity — Affection declarations, soulmate language, intense bonding before 72-hour threshold
+16. backstory_archetype_match — Identity matches known scam archetypes: military/offshore/widower/medical professional
+17. verification_avoidance — 2+ deflections of video call or in-person meeting requests
+18. gift_lure_fee_extraction — Gift or package claim requiring fee or personal details to release
+19. isolation_pressure_calling — Multiple unsolicited contacts per day + instruction to keep situation private
+20. ai_celebrity_ad_lure — Investment opportunity introduced via celebrity endorsement or fake social media ad
+21. grief_mirroring_widowhood — Scammer discloses matching bereavement status early to create emotional bond
+22. false_transaction_claim — Claims purchase/transaction already completed before victim agreement
+23. fabricated_transit_proof — Unprompted photo or screenshot offered as fake delivery proof
+24. pii_extraction_transaction — Home address, banking detail, or SSN requested under transaction pretext
+
+### MEDIUM TIER (weight 0.5) — action: MONITOR
+25. vulnerability_narrative_early — Hardship disclosure (divorce, illness, unsafe situation) before trust established
+26. emotional_mirroring — Rapid identification and reflection of victim's emotional state and circumstances
+27. trust_calibration_small_ask — Small initial financial ask ($50-500) establishing compliance before escalation
+28. accidental_contact_opener — Opener claims wrong number or chance encounter to appear non-threatening
+
+### LOW TIER (weight 0.2) — action: SOFT_FLAG
+29. religious_trust_appeal — Unprompted religious framing to establish trustworthiness
+30. urgency_deadline_soft — Mild time pressure without explicit threat; "limited time" or "today only"
+
+## COMBO AMPLIFICATION
+When these signal combinations appear together, increase risk score by 10-15 points:
+- love_bomb_velocity + verification_avoidance = romance scam high confidence
+- pig_butchering_sequence + withdrawal_barrier_loop = investment fraud CRITICAL
+- backstory_archetype_match + vulnerability_narrative_early = scripted persona
+- platform_migration_early + financial_ask_escalation = scam execution in progress
+- authority_impersonation + isolation_pressure_calling = government impersonation scam
+- document_fabrication_series + financial_ask_escalation = advance fee fraud
+- money_mule_recruitment + financial_ask_escalation = REFER TO LAW ENFORCEMENT
+
+## SCORING
+- CRITICAL signal alone: 40-60 points
+- HIGH signal: 15-25 points each
+- MEDIUM signal: 8-12 points each
+- LOW signal: 3-5 points each
+- Combo amplification: +10-15 points per active combo
+- Cap at 100
+
+## VIE ACTIONS
+- BLOCK (80-100): Stop all interaction immediately
+- WARN (50-79): Caution required, verify before proceeding
+- MONITOR (25-49): Watch for escalation
+- SOFT_FLAG (1-24): Low risk, remain aware
+- LAW_ENFORCEMENT_REFERRAL: Money mule or criminal exposure detected — note this in recommended_action
+
+## OCR NOISE TOLERANCE
+OCR text may have artifacts (| for I, garbled words). Interpret intent from context, not literal characters.
+
+## POSITIVE SIGNAL LIBRARY
+Also detect these trust-building signals and return them in positive_signals list:
+- consistent_identity: Story details coherent and consistent
+- reciprocal_engagement: Genuine two-way interest asks questions
+- boundary_respect: Accepts limits without escalating
+- transparent_intentions: Clear about who they are
+- no_financial_topics: Money never comes up unsolicited
+- meeting_willingness: Open to video calls or in-person
+- patient_pacing: Does not rush intimacy
+- verifiable_details: Provides specific checkable information
+- reciprocal_flirting: Mutual playful interest without pressure
+- mutual_joking: Shared humor / banter
+- no_coercion: No threats, ultimatums, or fear-based pressure
+- adult_consensual_tone: Tone appears adult and consensual in visible exchange
+
+## EVIDENCE LINKER
+For each detected signal, extract the shortest exact quote from the conversation that triggered it.
+Quote must be verbatim text from the conversation — not paraphrased. Keep quotes under 20 words.
+If OCR noise makes exact quoting impossible, use the closest clean approximation.
+
+## OUTPUT
+Respond with ONLY valid JSON, no markdown fences, no preamble:
+{
+  "risk_score": <integer 0-100>,
+  "phase": "<GROOMING|ESCALATION|COERCION|ENDGAME|VICTIM_STATE|NONE>",
+  "vie_action": "<BLOCK|WARN|MONITOR|SOFT_FLAG|LAW_ENFORCEMENT_REFERRAL|NONE>",
+  "flags": ["<signal label strings>"],
+  "evidence": {"<signal_id>": "<exact quote from conversation that triggered this signal>"},
+  "active_combos": ["<combo description if triggered>"],
+  "positive_signals": ["reciprocal_engagement", "no_financial_topics"],
+  "confidence": <float 0.0-1.0>,
+  "summary": "<plain language risk summary including phase and pattern identification>",
+  "recommended_action": "<specific action — if LAW_ENFORCEMENT_REFERRAL, state this explicitly>",
+  "degraded": false
+}
+
+If no risk signals detected return risk_score 0, phase NONE, vie_action NONE, flags ["No signals detected"], evidence {}. However always populate positive_signals with any trust indicators you observed even when risk is 0. A score of 0 with positive signals is the ideal result for a healthy conversation."""
+
+
+RELATIONSHIP_PROMPT = """You are VibeLenz, a communication safety and dynamics analyzer.
+
+You analyze conversation text to identify harmful communication patterns in ongoing personal relationships.
+This is NOT a fraud/scam analysis. This is a behavioral dynamics analysis.
+
+## GOVERNANCE RULES
+- Do not infer sex or gender from writing style.
+- Do not say "this looks male" or "this looks female."
+- Do not say "men text like this" or "women text like this."
+- Prefer observable behavior over identity assumptions.
+- If evidence is limited, reduce confidence and say so.
+
+SIGNAL LIBRARY — RELATIONSHIP DYNAMICS:
+
+HIGH CONCERN (weight 0.8):
+- guilt_induction: making other person responsible for speaker feelings; "after everything I've done", "you never", "I always"
+- blame_shifting: deflecting all accountability to circumstances or the other party
+- gaslighting: denying events, rewriting history, making other person question their perception
+- DARVO: Deny Attack Reverse Victim and Offender — accused becomes the accuser
+- victimhood_framing: positioning as wronged party regardless of context
+- emotional_leverage: using children, shared history, or love as pressure
+
+MEDIUM CONCERN (weight 0.5):
+- love_bombing_cycle: excessive warmth before a request; coldness after compliance
+- triangulation: introducing third parties to create guilt or pressure
+- moving_goalposts: changing expectations after they have been met
+- stonewalling_as_punishment: withdrawal used as control
+- minimization: dismissing the other person's feelings as overreactions
+- false_equivalence: comparing unrelated situations to deflect concerns
+
+LOW CONCERN (weight 0.3):
+- passive_aggression: indirect hostility through sarcasm or deliberate inefficiency
+- catastrophizing: escalating minor issues to gain compliance
+- boundary_violations: ignoring stated limits repeatedly
+
+PHASE DETECTION:
+- TENSION_BUILDING: Low-level friction, minor blame
+- INCIDENT: Active manipulation, direct pressure
+- RECONCILIATION: Warmth cycle, love bombing, promises
+- CALM: Normal interaction
+
+SCORING: 0-29 healthy, 30-59 concerning, 60-79 significant manipulation, 80-100 severe
+
+Respond with ONLY valid JSON, no markdown:
+{"risk_score": <0-100>, "phase": "<TENSION_BUILDING|INCIDENT|RECONCILIATION|CALM|NONE>", "vie_action": "<WARN|MONITOR|SOFT_FLAG|NONE>", "flags": ["signal labels"], "evidence": {"signal_id": "exact quote"}, "active_combos": ["combo descriptions"], "confidence": <0.0-1.0>, "summary": "<dynamic summary>", "recommended_action": "<practical guidance>", "degraded": false}
+
+If no concerning patterns: risk_score 0, phase CALM, flags ["No concerning patterns detected"]."""
+
+ROMANCE_HARD_GROOMING_SIGNALS = {
+    "target_vulnerability_exploitation",
+    "age_power_imbalance",
+    "secrecy_encouragement",
+    "boundary_conditioning",
+    "dependency_shaping",
+    "isolation_from_others",
+    "coercive_sexual_progression",
+    "repeated_manipulation_over_time",
+}
+
+ROMANCE_SCAM_HARD_SIGNALS = {
+    "financial_ask_escalation",
+    "money_request",
+    "gift_lure_fee_extraction",
+    "emergency_narrative",
+    "off_platform_migration",
+    "verification_refusal",
+    "identity_inconsistency",
+    "repeated_contradiction",
+    "resource_extraction",
+}
+
+LOW_SEVERITY_RAPID_INTIMACY = {
+    "love_bomb_velocity",
+    "fast_sexual_tone",
+    "rapid_flirtation",
+    "sexual_forwardness",
+    "accelerated_intimacy",
+    "accidental_contact_opener",
+    "uncertain_identity",
+}
+
+RECIPROCAL_DAMPENERS = {
+    "mutual_joking",
+    "reciprocal_flirting",
+    "back_and_forth_engagement",
+    "no_fear_discomfort",
+    "no_coercion",
+    "no_resource_extraction",
+    "adult_consensual_tone",
+}
+
+WORD_RE = re.compile(r"\b[\w']+\b", re.UNICODE)
+EMOJI_RE = re.compile(
+    "["
+    "\U0001F300-\U0001F5FF"
+    "\U0001F600-\U0001F64F"
+    "\U0001F680-\U0001F6FF"
+    "\U0001F900-\U0001F9FF"
+    "\u2600-\u26FF"
+    "\u2700-\u27BF"
+    "]",
+    flags=re.UNICODE,
+)
+
+POSITIVE_WORDS = {
+    "love", "like", "miss", "glad", "happy", "sweet", "cute", "good", "great", "amazing",
+    "wonderful", "beautiful", "handsome", "appreciate", "excited", "yay", "thanks", "thank",
+}
+POSITIVE_EMOJI = {"❤️", "❤", "😍", "🥰", "😘", "😊", "☺", "🙂", "😉", "💕", "💖", "💘", "🔥"}
+INTENSIFIERS = {
+    "very", "really", "so", "super", "extremely", "totally", "literally", "absolutely",
+    "incredibly", "seriously", "deeply", "truly",
+}
+DESCRIPTIVE_WORDS = {
+    "amazing", "awesome", "beautiful", "cute", "sweet", "lovely", "perfect", "hot",
+    "sexy", "kind", "honest", "great", "wonderful", "adorable", "gorgeous",
+}
+HEDGES = {
+    "maybe", "perhaps", "sort", "kind", "kinda", "possibly", "probably",
+    "might", "could", "just", "somewhat", "apparently", "guess",
+}
+DIRECT_MARKERS = {
+    "need", "want", "let's", "lets", "call", "come", "tell", "be", "stop", "send",
+    "meet", "answer", "reply", "do", "don't", "dont", "can", "will",
+}
+SEXUAL_WORDS = {
+    "sex", "sexy", "nude", "nudes", "horny", "fuck", "fucking", "dick", "cock", "pussy",
+    "ass", "tits", "boobs", "cum", "orgasm", "kiss me", "spank", "turn on", "ride",
+}
+VULGAR_WORDS = {
+    "fuck", "fucking", "shit", "bitch", "asshole", "damn", "wtf", "bullshit", "mf", "motherfucker",
+}
+DISCLOSURE_MARKERS = {
+    "i feel", "i felt", "i'm scared", "im scared", "i'm worried", "im worried", "i'm hurt",
+    "im hurt", "i'm insecure", "im insecure", "i need", "i want", "i care", "i miss",
+}
+WEAPONIZATION_MARKERS = {
+    "you always", "you never", "that's why nobody", "no wonder", "crazy", "pathetic", "embarrassing",
+}
+HONESTY_MARKERS = {
+    "honestly", "to be honest", "truth", "for real", "real talk", "transparent",
+}
+CONFLICT_MARKERS = {
+    "upset", "angry", "mad", "hurt", "annoyed", "frustrated", "problem", "issue", "argue", "fight",
+}
+REPAIR_MARKERS = {
+    "sorry", "apologize", "understand", "hear you", "let's fix", "work on", "figure this out",
+    "talk it through", "make it better", "repair",
+}
+GROWTH_MARKERS = {
+    "grow", "better", "improve", "work on", "learn", "together", "healthy", "understand",
+    "communicate", "figure out", "mutual",
+}
+PROHIBITED_CLAIMS = (
+    "this looks male",
+    "this looks female",
+    "women text like this",
+    "men text like this",
+)
+
+TIER_DEFINITIONS = [
+    {
+        "tier": 1,
+        "label": "peer_reviewed_direct_behavior_relevance",
+        "examples": ["direct behavioral texting research"],
+        "default_weight_policy": "moderate_if_replication_is_limited",
+        "notes": "Tier 1 still does not justify sex-based claims without replication and internal validation.",
+    },
+    {
+        "tier": 2,
+        "label": "peer_reviewed_adjacent_service_relevance",
+        "examples": ["supportive texting service research", "adjacent texting or attitude research"],
+        "default_weight_policy": "use_for_product_design_or_adjacent_hypotheses",
+        "notes": "Useful for support/coaching design or adjacent constraints, not direct dating-text inference unless validated.",
+    },
+    {
+        "tier": 3,
+        "label": "exploratory_student_or_low_power_research",
+        "examples": ["small-sample campus or student exploratory work"],
+        "default_weight_policy": "hypothesis_only_low_weight",
+        "notes": "Do not operationalize as a strong rule.",
+    },
+    {
+        "tier": 4,
+        "label": "conceptual_or_coaching_framework",
+        "examples": ["relationship or self-help frameworks"],
+        "default_weight_policy": "coaching_only_not_detection",
+        "notes": "May inform guidance rubrics but must not become evidence of risk or intent.",
+    },
+]
+
+FEATURE_REGISTRATION_SCHEMA = {
+    "required_fields": [
+        "feature_name",
+        "source_name",
+        "source_tier",
+        "what_it_measures",
+        "engine_side",
+        "validation_status",
+        "allowed_weight_range",
+        "prohibited_claims",
+        "known_limits",
+    ],
+    "engine_side_values": ["inference", "coaching", "retention", "governance"],
+    "validation_status_values": ["validated", "hypothesis_only", "internal_only"],
+}
+
+HARD_RULES = [
+    "Every new research-derived feature must be registered before use.",
+    "Hypothesis-only features cannot drive high-confidence outputs.",
+    "Tier 3 and Tier 4 sources cannot justify identity inference.",
+    "Tier 4 sources cannot drive detection or risk classification.",
+    "Adjacent-use sources must be explicitly tagged as adjacent-use only.",
+]
+
+PROHIBITED_OUTPUT_CLAIMS = [
+    "No sex or gender identity inference from writing style.",
+    "No group-based claims about how men or women text.",
+    "No male-vs-female classifier language in user-facing output.",
+]
+
+DEFAULT_FEATURE_REGISTRY = [
+    {
+        "feature_name": "style_markers",
+        "source_name": "internal_observable_feature_set",
+        "source_tier": 1,
+        "what_it_measures": "Session-level lexical and punctuation observables only.",
+        "engine_side": "inference",
+        "validation_status": "internal_only",
+        "allowed_weight_range": [0.0, 0.35],
+        "prohibited_claims": [
+            "No sex or gender inference.",
+            "No stable personality inference.",
+            "No attachment or intent inference from style markers alone.",
+        ],
+        "known_limits": [
+            "Highly context-dependent.",
+            "Platform, age, audience, and relationship stage can shift style.",
+            "Short excerpts can distort marker distribution.",
+        ],
+    },
+    {
+        "feature_name": "data_sufficiency",
+        "source_name": "internal_guardrail_policy",
+        "source_tier": 1,
+        "what_it_measures": "Whether enough evidence exists to support deeper interpretation.",
+        "engine_side": "governance",
+        "validation_status": "validated",
+        "allowed_weight_range": [1.0, 1.0],
+        "prohibited_claims": ["Do not bypass sufficiency gating for convenience."],
+        "known_limits": ["Depends on upstream metadata quality."],
+    },
+    {
+        "feature_name": "relationship_rubric",
+        "source_name": "Connect-style coaching framework",
+        "source_tier": 4,
+        "what_it_measures": "Coaching-oriented relationship quality dimensions.",
+        "engine_side": "coaching",
+        "validation_status": "hypothesis_only",
+        "allowed_weight_range": [0.0, 0.2],
+        "prohibited_claims": [
+            "Cannot drive risk classification.",
+            "Cannot be shown when evidence is insufficient.",
+        ],
+        "known_limits": [
+            "Single screenshots rarely justify confident scoring.",
+            "Should be treated as a coaching lens, not a fact detector.",
+        ],
+    },
+    {
+        "feature_name": "coaching_message",
+        "source_name": "supportive-texting service research",
+        "source_tier": 2,
+        "what_it_measures": "Optional retention/support message design constraints.",
+        "engine_side": "retention",
+        "validation_status": "hypothesis_only",
+        "allowed_weight_range": [0.0, 0.1],
+        "prohibited_claims": [
+            "Must remain separate from core inference.",
+            "Cannot create pseudo-therapeutic authority claims.",
+        ],
+        "known_limits": ["Not validated as a dating-text classifier input."],
+    },
+]
+
+
+def _clamp(value: float, lower: float = 0.0, upper: float = 1.0) -> float:
+    return max(lower, min(upper, value))
+
+
+def _norm_signal_name(x: Any) -> str:
+    return str(x).strip().lower().replace(" ", "_")
+
+
+def _extract_signal_names(result: Dict[str, Any]) -> set[str]:
+    names: set[str] = set()
+
+    for field in ("flags", "active_combos", "positive_signals", "labels"):
+        for item in result.get(field, []) or []:
+            if isinstance(item, str):
+                names.add(_norm_signal_name(item))
+            elif isinstance(item, dict):
+                for key in ("signal", "name", "id", "label"):
+                    if item.get(key):
+                        names.add(_norm_signal_name(item[key]))
+    return names
+
+
+def _ensure_label(result: Dict[str, Any], label: str) -> Dict[str, Any]:
+    labels = result.get("labels", []) or []
+    if label not in labels:
+        labels.append(label)
+    result["labels"] = labels
+    return result
+
+
+def _remove_label(result: Dict[str, Any], label: str) -> Dict[str, Any]:
+    labels = [x for x in (result.get("labels", []) or []) if str(x).lower() != label.lower()]
+    result["labels"] = labels
+    return result
+
+
+def _cap_risk(result: Dict[str, Any], cap: int) -> Dict[str, Any]:
+    try:
+        score = int(result.get("risk_score", 0))
+    except Exception:
+        score = 0
+    result["risk_score"] = min(score, cap)
+    return result
+
+
+def _set_action_at_most(result: Dict[str, Any], max_action: str = "MONITOR") -> Dict[str, Any]:
+    current = str(result.get("vie_action", "NONE")).upper()
+    order = {"NONE": 0, "SOFT_FLAG": 1, "MONITOR": 2, "WARN": 3, "BLOCK": 4, "LAW_ENFORCEMENT_REFERRAL": 5}
+    if order.get(current, 0) > order.get(max_action, 2):
+        result["vie_action"] = max_action
+    return result
+
+
+def _set_summary(result: Dict[str, Any], text: str) -> Dict[str, Any]:
+    result["summary"] = text
+    return result
+
+
+def _apply_relationship_guardrails(result: Dict[str, Any], relationship_type: str = "stranger") -> Dict[str, Any]:
+    relationship_type = str(relationship_type or "stranger").lower()
+    if relationship_type == "stranger":
+        return result
+
+    signal_names = _extract_signal_names(result)
+
+    hard_groom = len(signal_names & ROMANCE_HARD_GROOMING_SIGNALS)
+    hard_scam = len(signal_names & ROMANCE_SCAM_HARD_SIGNALS)
+    low_rapid = len(signal_names & LOW_SEVERITY_RAPID_INTIMACY)
+    dampeners = len(signal_names & RECIPROCAL_DAMPENERS)
+
+    no_money = not any(x in signal_names for x in {
+        "financial_ask_escalation", "money_request", "resource_extraction", "gift_lure_fee_extraction"
+    })
+    no_offplatform = not any(x in signal_names for x in {
+        "off_platform_migration", "platform_migration_early", "secrecy_encouragement"
+    })
+    no_coercion = not any(x in signal_names for x in {
+        "coercive_sexual_progression", "boundary_conditioning", "isolation_from_others", "threat", "blackmail"
+    })
+
+    if hard_groom < 3:
+        result = _remove_label(result, "grooming")
+        result = _remove_label(result, "early stage grooming indicators")
+        result = _remove_label(result, "predation")
+        if result.get("phase") in {"GROOMING", "COERCION", "ENDGAME"}:
+            result["phase"] = "NONE"
+
+    if low_rapid >= 1 and hard_groom == 0 and hard_scam == 0:
+        result = _ensure_label(result, "rapid_flirtation")
+        result = _ensure_label(result, "needs_verification")
+        result = _cap_risk(result, 24)
+        result = _set_action_at_most(result, "MONITOR")
+        result = _set_summary(
+            result,
+            "Conversation shows identity ambiguity and quick flirtation escalation, but no clear financial coercion or exploitative behavior in the visible exchange.",
+        )
+
+    if no_money and no_offplatform and no_coercion and dampeners >= 1:
+        result = _remove_label(result, "grooming")
+        result = _remove_label(result, "possible_predation")
+        result = _ensure_label(result, "identity_ambiguity")
+        result = _ensure_label(result, "monitor_only")
+        result = _cap_risk(result, 20)
+        result = _set_action_at_most(result, "MONITOR")
+        result = _set_summary(
+            result,
+            "Conversation shows identity ambiguity and quick flirtation escalation, but no clear financial coercion, secrecy pressure, or exploitative behavior in the visible exchange.",
+        )
+
+    if hard_scam >= 2:
+        result = _ensure_label(result, "possible_romance_scam")
+    else:
+        result = _remove_label(result, "possible_romance_scam")
+
+    if "rapid_flirtation" in (result.get("labels", []) or []):
+        safer_label = "benign_flirting" if dampeners >= 1 and no_money and no_coercion else "fast_escalation"
+        result = _ensure_label(result, safer_label)
+
+    return result
+
+
+def _extract_first_json_object(raw_text: str) -> Dict[str, Any]:
+    if raw_text is None:
+        raise ValueError("Claude response was empty")
+
+    s = str(raw_text).strip()
+    s = re.sub(r"^\s*```(?:json)?\s*", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s*```\s*$", "", s)
+
+    try:
+        return json.loads(s)
+    except Exception:
+        pass
+
+    start = s.find("{")
+    if start == -1:
+        raise ValueError("No JSON object found in Claude response")
+
+    depth = 0
+    in_string = False
+    escape = False
+
+    for i in range(start, len(s)):
+        ch = s[i]
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return json.loads(s[start : i + 1])
+
+    raise ValueError("No complete balanced JSON object found in Claude response")
+
+
+def _message_like_lines_from_text(text: str) -> List[Dict[str, Any]]:
+    lines = [line.strip() for line in str(text).splitlines() if line.strip()]
+    if not lines:
+        return []
+
+    messages: List[Dict[str, Any]] = []
+    speaker_pattern = re.compile(r"^([A-Za-z0-9_ .'-]{1,30}):\s+(.*)$")
+    inferred_speakers = ["speaker_a", "speaker_b"]
+    speaker_index = 0
+
+    for line in lines:
+        match = speaker_pattern.match(line)
+        if match:
+            messages.append({"speaker": match.group(1).strip(), "text": match.group(2).strip(), "timestamp": None})
+            continue
+
+        messages.append({"speaker": inferred_speakers[speaker_index % 2], "text": line, "timestamp": None})
+        speaker_index += 1
+
+    return messages
+
+
+def _normalize_messages(messages: Any) -> List[Dict[str, Any]]:
+    if messages is None:
+        return []
+
+    if isinstance(messages, str):
+        message_lines = _message_like_lines_from_text(messages)
+        return message_lines if message_lines else [{"speaker": "unknown", "text": messages, "timestamp": None}]
+
+    normalized: List[Dict[str, Any]] = []
+    if isinstance(messages, dict):
+        messages = [messages]
+
+    if not isinstance(messages, Iterable):
+        return []
+
+    for item in messages:
+        if isinstance(item, str):
+            normalized.extend(_message_like_lines_from_text(item) or [{"speaker": "unknown", "text": item, "timestamp": None}])
+            continue
+
+        if not isinstance(item, dict):
+            continue
+
+        text = item.get("text") or item.get("content") or item.get("message") or item.get("body") or ""
+        speaker = item.get("speaker") or item.get("role") or item.get("author") or "unknown"
+        timestamp = item.get("timestamp")
+        normalized.append({"speaker": str(speaker), "text": str(text), "timestamp": timestamp})
+
+    return [m for m in normalized if m.get("text", "").strip()]
+
+
+def _tokenize(text: str) -> List[str]:
+    return [t.lower() for t in WORD_RE.findall(text)]
+
+
+def _count_phrase_hits(text: str, phrases: Iterable[str]) -> int:
+    lowered = text.lower()
+    return sum(1 for phrase in phrases if phrase in lowered)
+
+
+def _compute_style_markers(messages: Any) -> Dict[str, Any]:
+    normalized = _normalize_messages(messages)
+    combined_text = " ".join(m["text"] for m in normalized)
+    tokens = _tokenize(combined_text)
+    total_tokens = max(len(tokens), 1)
+    total_messages = max(len(normalized), 1)
+    total_chars = max(len(combined_text), 1)
+
+    emoji_count = len(EMOJI_RE.findall(combined_text))
+    exclamation_count = combined_text.count("!")
+    positive_word_hits = sum(1 for t in tokens if t in POSITIVE_WORDS)
+    positive_emoji_hits = sum(1 for char in combined_text if char in POSITIVE_EMOJI)
+    adjective_hits = sum(1 for t in tokens if t in INTENSIFIERS or t in DESCRIPTIVE_WORDS)
+    direct_hits = sum(1 for t in tokens if t in DIRECT_MARKERS)
+    hedge_hits = sum(1 for t in tokens if t in HEDGES)
+    sexual_hits = sum(1 for t in tokens if t in SEXUAL_WORDS) + _count_phrase_hits(combined_text, SEXUAL_WORDS)
+    vulgar_hits = sum(1 for t in tokens if t in VULGAR_WORDS)
+
+    avg_tokens_per_message = len(tokens) / total_messages
+    comma_clause_bonus = combined_text.count(",") + combined_text.count(";")
+    elaboration_raw = (avg_tokens_per_message / 30.0) + (comma_clause_bonus / max(total_messages, 1) / 4.0)
+    directness_raw = ((direct_hits * 1.2) - (hedge_hits * 0.8)) / max(total_messages, 1)
+
+    return {
+        "scope": "message_batch_only",
+        "identity_inference_allowed": False,
+        "trait_inference_allowed": False,
+        "emoji_density": round(_clamp(emoji_count / total_tokens), 4),
+        "positive_affect_marker_density": round(_clamp((positive_word_hits + positive_emoji_hits) / total_tokens), 4),
+        "exclamation_density": round(_clamp(exclamation_count / max(total_chars / 40.0, 1.0)), 4),
+        "adjective_intensity_score": round(_clamp(adjective_hits / max(total_tokens * 0.3, 1.0)), 4),
+        "directness_score": round(_clamp(0.5 + (directness_raw / 4.0)), 4),
+        "elaboration_score": round(_clamp(elaboration_raw), 4),
+        "sexual_explicitness_score": round(_clamp(sexual_hits / max(total_tokens * 0.15, 1.0)), 4),
+        "vulgarity_score": round(_clamp(vulgar_hits / max(total_tokens * 0.1, 1.0)), 4),
+        "notes": [
+            "Session-level observables only.",
+            "Do not infer sex, gender, stable personality, or attachment style from these markers alone.",
+        ],
+    }
+
+
+def _assess_data_sufficiency(messages: Any) -> Dict[str, Any]:
+    normalized = _normalize_messages(messages)
+    texts = [m["text"] for m in normalized]
+    speakers = {m["speaker"] for m in normalized if m.get("speaker")}
+    combined_text = " ".join(texts)
+    total_tokens = len(_tokenize(combined_text))
+    total_messages = len(normalized)
+
+    reasons: List[str] = []
+
+    if total_messages <= 2:
+        reasons.append("short_excerpt_only")
+    if total_tokens < 40:
+        reasons.append("single_screenshot_only")
+    if total_messages < 4:
+        reasons.append("insufficient_reciprocity")
+    if not any(m.get("timestamp") for m in normalized):
+        reasons.append("no_temporal_continuity")
+    if len(speakers) < 2 and total_messages < 6:
+        reasons.append("limited_participant_clarity")
+
+    if total_messages >= 8 and total_tokens >= 120:
+        level = "high"
+        allowed_depth = "full_inference"
+        reasons = [
+            r for r in reasons if r not in {"short_excerpt_only", "single_screenshot_only", "insufficient_reciprocity"}
+        ]
+    elif total_messages >= 4 and total_tokens >= 40:
+        level = "medium"
+        allowed_depth = "limited_inference"
+    else:
+        level = "low"
+        allowed_depth = "surface_only"
+
+    return {
+        "level": level,
+        "reasons": sorted(set(reasons)),
+        "allowed_depth": allowed_depth,
+    }
+
+
+def _build_relationship_rubric(messages: Any, data_sufficiency: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = _normalize_messages(messages)
+    combined_text = " ".join(m["text"] for m in normalized).lower()
+
+    if data_sufficiency.get("level") == "low":
+        return {
+            "status": "not_enough_evidence",
+            "confidence": "low",
+            "triggered_conditions": list(data_sufficiency.get("reasons", [])),
+            "message": "Not enough reciprocal conversation evidence for relationship-quality scoring.",
+            "scores": None,
+            "notes": [
+                "RelationshipRubric is coaching-only.",
+                "Suppressed because data sufficiency is low.",
+            ],
+        }
+
+    disclosure_hits = _count_phrase_hits(combined_text, DISCLOSURE_MARKERS)
+    weaponization_hits = _count_phrase_hits(combined_text, WEAPONIZATION_MARKERS)
+    honesty_hits = _count_phrase_hits(combined_text, HONESTY_MARKERS)
+    conflict_hits = _count_phrase_hits(combined_text, CONFLICT_MARKERS)
+    repair_hits = _count_phrase_hits(combined_text, REPAIR_MARKERS)
+    growth_hits = _count_phrase_hits(combined_text, GROWTH_MARKERS)
+    we_hits = combined_text.count(" we ")
+    i_hits = combined_text.count(" i ")
+
+    authenticity = 1 + min(disclosure_hits, 2)
+    vulnerability = min(3, disclosure_hits)
+    trust_non_weaponization = max(0, min(3, 2 - min(weaponization_hits, 2) + min(repair_hits, 1)))
+    honesty = min(3, 1 + min(honesty_hits + max(i_hits // 5, 0), 2))
+    productive_conflict = 1 if conflict_hits > 0 else 0
+    if conflict_hits > 0 and repair_hits > 0:
+        productive_conflict = 2
+    if conflict_hits > 1 and repair_hits > 1:
+        productive_conflict = 3
+    mutual_growth_orientation = min(3, growth_hits + min(we_hits // 3, 1))
+
+    confidence = "medium" if data_sufficiency.get("level") == "medium" else "high"
+
+    return {
+        "status": "scored",
+        "confidence": confidence,
+        "triggered_conditions": [
+            f"data_sufficiency:{data_sufficiency.get('level', 'low')}",
+            "coaching_only_framework",
+        ],
+        "message": "Coaching-oriented rubric generated under data sufficiency gating.",
+        "scores": {
+            "authenticity": max(0, min(3, authenticity)),
+            "vulnerability": max(0, min(3, vulnerability)),
+            "trust_non_weaponization": max(0, min(3, trust_non_weaponization)),
+            "honesty": max(0, min(3, honesty)),
+            "productive_conflict": max(0, min(3, productive_conflict)),
+            "mutual_growth_orientation": max(0, min(3, mutual_growth_orientation)),
+        },
+        "notes": [
+            "This rubric is not a risk classifier.",
+            "Treat scores as coaching guidance, not factual diagnosis.",
+        ],
+    }
+
+
+def _build_evidence_registry() -> Dict[str, Any]:
+    return {
+        "tiers": deepcopy(TIER_DEFINITIONS),
+        "feature_registration_schema": deepcopy(FEATURE_REGISTRATION_SCHEMA),
+        "hard_rules": deepcopy(HARD_RULES),
+        "prohibited_output_claims": deepcopy(PROHIBITED_OUTPUT_CLAIMS),
+        "registered_features": deepcopy(DEFAULT_FEATURE_REGISTRY),
+    }
+
+
+def _build_research_patch(text: str, relationship_type: str) -> Dict[str, Any]:
+    style_markers = _compute_style_markers(text)
+    data_sufficiency = _assess_data_sufficiency(text)
+    coaching = {
+        "relationship_rubric": _build_relationship_rubric(text, data_sufficiency)
+        if relationship_type in {"dating", "family", "friend", "business"}
+        else {
+            "status": "not_applicable",
+            "confidence": "low",
+            "triggered_conditions": ["non_relationship_mode"],
+            "message": "Relationship rubric suppressed outside relationship-analysis modes.",
+            "scores": None,
+            "notes": ["Coaching rubric is only for relationship-guidance contexts."],
+        },
+        "display_policy": {
+            "show_only_when": "data_sufficiency.level != low",
+            "purpose": "guidance_only",
+        },
+    }
+    retention = {
+        "coaching_message_policy": {
+            "enabled": False,
+            "consent_required": True,
+            "constraints": ["brief", "affirmative", "relevant", "low_effort", "non_intrusive"],
+            "separation_rule": "Must remain separate from core inference.",
+        }
+    }
+
+    return {
+        "style_markers": style_markers,
+        "data_sufficiency": data_sufficiency,
+        "governance": _build_evidence_registry(),
+        "coaching": coaching,
+        "retention": retention,
+    }
+
+
+def _sanitize_prohibited_claims(payload: Any) -> Any:
+    replacements = {
+        "this looks male": "this style pattern is not suitable for sex inference",
+        "this looks female": "this style pattern is not suitable for sex inference",
+        "women text like this": "this output does not support group-based texting claims",
+        "men text like this": "this output does not support group-based texting claims",
+    }
+
+    if isinstance(payload, dict):
+        return {key: _sanitize_prohibited_claims(value) for key, value in payload.items()}
+    if isinstance(payload, list):
+        return [_sanitize_prohibited_claims(item) for item in payload]
+    if isinstance(payload, str):
+        sanitized = payload
+        lowered = sanitized.lower()
+        for phrase, replacement in replacements.items():
+            if phrase in lowered:
+                pattern = re.compile(re.escape(phrase), flags=re.IGNORECASE)
+                sanitized = pattern.sub(replacement, sanitized)
+                lowered = sanitized.lower()
+        return sanitized
+    return payload
+
+
+def analyze_text(text: str, relationship_type: str = "stranger", context_note: str = "") -> Dict[str, Any]:
+    """
+    Analyze conversation text using Claude API.
+    relationship_type: "stranger" | "dating" | "family" | "friend" | "business"
+    Fail-closed: any exception returns degraded result with score=100.
+    """
+    try:
+        return _run_analysis(text, relationship_type, context_note)
+    except Exception as e:
+        logger.error(f"Analysis failure: {e}")
+        failed = {
+            "risk_score": 100,
+            "flags": ["ANALYSIS_ENGINE_FAILURE"],
+            "confidence": 0.0,
+            "summary": "Analysis engine error. Output blocked per fail-closed policy.",
+            "recommended_action": "Do not proceed. Contact support.",
+            "degraded": True,
+            "phase": "NONE",
+            "vie_action": "NONE",
+            "active_combos": [],
+            "evidence": {},
+            "positive_signals": [],
+            "labels": [],
+        }
+        failed["research_patch"] = _build_research_patch(text, relationship_type)
+        return failed
+        failed = _attach_contextual_layers(failed, text)
+
+
+    def _run_analysis(text: str, relationship_type: str = "stranger", context_note: str = "") -> Dict[str, Any]:
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not configured")
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    if len(text) > 8000:
+        text = text[:8000] + "\n[truncated]"
+
+    relationship_type = str(relationship_type or "stranger").lower()
+    if relationship_type in ("dating", "family", "friend", "business"):
+        active_prompt = RELATIONSHIP_PROMPT
+        user_content = f"Relationship type: {relationship_type}\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+    else:
+        active_prompt = SYSTEM_PROMPT
+        user_content = f"Context note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1400,
+        system=active_prompt,
+        messages=[{"role": "user", "content": user_content}],
+    )
+
+    raw = message.content[0].text.strip()
+    logger.info("Claude response: %s", raw[:300])
+    result = _extract_first_json_object(raw)
+
+    risk_score = max(0, min(100, int(result.get("risk_score", 0))))
+    flags = result.get("flags", ["No signals detected"])
+    if not isinstance(flags, list) or len(flags) == 0:
+        flags = ["No signals detected"]
+
+    try:
+        confidence = max(0.0, min(1.0, float(result.get("confidence", 0.5))))
+    except Exception:
+        confidence = 0.5
+
+    evidence = result.get("evidence", {})
+    if not isinstance(evidence, dict):
+        evidence = {}
+
+    active_combos = result.get("active_combos", [])
+    if not isinstance(active_combos, list):
+        active_combos = []
+
+    positive_signals = result.get("positive_signals", [])
+    if not isinstance(positive_signals, list):
+        positive_signals = []
+
+    labels = result.get("labels", [])
+    if not isinstance(labels, list):
+        labels = []
+import re
+from typing import List, Dict, Any
+
+
+def _detect_domain_mode(text: str) -> Dict[str, Any]:
+    t = (text or "").lower()
+
+    housing_terms = [
+        "rent", "rental", "deposit", "lease", "application", "landlord",
+        "owner", "property", "apartment", "house", "utilities", "move in",
+        "showing", "viewing", "bedroom", "zillow", "nextdoor", "airbnb"
+    ]
+    dating_terms = [
+        "date", "dating", "cute", "beautiful", "miss you", "love",
+        "babe", "baby", "kiss", "flirt", "come over", "hang out"
+    ]
+    marketplace_terms = [
+        "facebook marketplace", "shipping", "seller", "buyer",
+        "pickup", "tracking", "venmo", "cashapp", "zelle"
+    ]
+
+    housing_score = sum(1 for x in housing_terms if x in t)
+    dating_score = sum(1 for x in dating_terms if x in t)
+    marketplace_score = sum(1 for x in marketplace_terms if x in t)
+
+    scores = {
+        "housing_rental": housing_score,
+        "dating_social": dating_score,
+        "marketplace_transaction": marketplace_score,
+    }
+
+    best_mode = max(scores, key=scores.get)
+    best_score = scores[best_mode]
+    total = max(sum(scores.values()), 1)
+
+    if best_score < 3:
+        return {
+            "domain_mode": "general_unknown",
+            "domain_confidence": 0.35,
+        }
+
+    return {
+        "domain_mode": best_mode,
+        "domain_confidence": round(best_score / total, 2),
+    }
+
+
+def _extract_contradictions(text: str) -> Dict[str, Any]:
+    t = (text or "").lower()
+    contradictions: List[Dict[str, Any]] = []
+
+    if "owner is currently out of town" in t and "manny" in t:
+        contradictions.append({
+            "type": "owner_identity_shift",
+            "severity": "high",
+            "evidence": [
+                "owner out of town narrative",
+                "later owner named as Manny"
+            ]
+        })
+
+    if "application is approved a showing can be scheduled" in t and (
+        "i'd like to see the property before i decide" in t or
+        "see the property before" in t
+    ):
+        contradictions.append({
+            "type": "verification_path_shift",
+            "severity": "high",
+            "evidence": [
+                "user requested viewing first",
+                "counterparty conditioned showing on application approval"
+            ]
+        })
+
+    if "deposit" in t and ("before viewing" in t or "application" in t):
+        contradictions.append({
+            "type": "payment_before_verification",
+            "severity": "high",
+            "evidence": [
+                "money-related step appears before ordinary verification"
+            ]
+        })
+
+    narrative_integrity_score = max(0, 100 - (len(contradictions) * 35))
+
+    return {
+        "contradiction_signals": contradictions,
+        "narrative_integrity_score": narrative_integrity_score,
+    }
+
+
+def _build_structured_explanation(result: Dict[str, Any], text: str) -> Dict[str, Any]:
+    domain_mode = result.get("domain_mode", "general_unknown")
+    contradictions = result.get("contradiction_signals", [])
+    risk_label = result.get("risk_label", "Low Risk")
+    flags = result.get("flags", [])
+
+    if domain_mode == "housing_rental" and contradictions:
+        what_is_happening = "This appears more like a transactional/rental-risk conversation than a normal social exchange."
+        why_it_looks_that_way = "The conversation shows verification problems, process conditioning, and contradiction patterns consistent with rental scam behavior."
+        alternative_explanations = "It is still possible this is disorganized or poorly managed rather than fraudulent, but the verification structure remains weak."
+        recommended_next_step = "Do not send payment or personal information until ownership and in-person verification are confirmed."
+    elif "ANALYSIS_ENGINE_FAILURE" in flags:
+        what_is_happening = "The system could not complete full analysis."
+        why_it_looks_that_way = "The engine entered fail-closed mode."
+        alternative_explanations = "No stronger interpretation should be made from this degraded result."
+        recommended_next_step = "Retry after resolving the underlying engine issue."
+    else:
+        what_is_happening = result.get("summary", "The conversation was analyzed.")
+        why_it_looks_that_way = "The system weighted the extracted signals, contradictions, and domain cues."
+        alternative_explanations = "Some ambiguity may remain if the conversation is incomplete or cropped."
+        recommended_next_step = result.get("recommended_action", "Review carefully before proceeding.")
+
+    return {
+        "what_is_happening": what_is_happening,
+        "why_it_looks_that_way": why_it_looks_that_way,
+        "alternative_explanations": alternative_explanations,
+        "recommended_next_step": recommended_next_step,
+    }
+
+
+def _apply_risk_floors(result: Dict[str, Any]) -> Dict[str, Any]:
+    flags = set(result.get("flags", []))
+    raw_score = int(result.get("risk_score", 0))
+    summary = (result.get("summary") or "").lower()
+    contradictions = result.get("contradiction_signals", [])
+    domain_mode = result.get("domain_mode", "general_unknown")
+
+    floor = 0
+    reason = None
+
+    contradiction_types = {c.get("type") for c in contradictions}
+
+    if domain_mode == "housing_rental":
+        if "advance fee fraud" in summary or "payment_before_verification" in contradiction_types:
+            floor = max(floor, 90)
+            reason = "advance_fee_rental_combo"
+
+        if "platform_migration_early" in flags and ("pii_extraction_transaction" in flags or "false_transaction_claim" in flags):
+            floor = max(floor, 85)
+            reason = reason or "off_platform_financial_combo"
+
+        if "owner_identity_shift" in contradiction_types and "verification_path_shift" in contradiction_types:
+            floor = max(floor, 88)
+            reason = reason or "identity_and_verification_contradiction_combo"
+
+        if len(contradictions) >= 2:
+            floor = max(floor, 80)
+            reason = reason or "multi_contradiction_transactional_pattern"
+
+    final_score = max(raw_score, floor)
+
+    result["raw_risk_score"] = raw_score
+    result["final_risk_score"] = final_score
+    result["risk_floor_applied"] = final_score > raw_score
+    result["risk_floor_reason"] = reason
+
+    if final_score >= 85:
+        result["risk_label"] = "High Risk"
+    elif final_score >= 65:
+        result["risk_label"] = "Moderate Risk"
+    else:
+        result["risk_label"] = "Low Risk"
+
+    result["risk_score"] = final_score
+    return result
+
+
+def _apply_domain_suppression(result: Dict[str, Any]) -> Dict[str, Any]:
+    domain_mode = result.get("domain_mode", "general_unknown")
+    final_score = int(result.get("risk_score", 0))
+    risk_floor_applied = bool(result.get("risk_floor_applied", False))
+
+    if domain_mode != "dating_social" or final_score >= 70 or risk_floor_applied:
+        result["analysis_mode"] = "safety_only"
+        result["interest_level"] = "Not Applicable"
+        result["interest_score"] = None
+        result["positive_signals"] = []
+    else:
+        result["analysis_mode"] = "social_interest"
+
+    return result
+
+
+def _attach_contextual_layers(result: Dict[str, Any], text: str) -> Dict[str, Any]:
+    domain_info = _detect_domain_mode(text)
+    result.update(domain_info)
+
+    contradiction_info = _extract_contradictions(text)
+    result.update(contradiction_info)
+
+    result = _apply_risk_floors(result)
+    result = _apply_domain_suppression(result)
+
+    result["structured_explanation"] = _build_structured_explanation(result, text)
+
+    result["protective_user_behaviors"] = []
+    result["counterparty_verification_failures"] = []
+
+    t = (text or "").lower()
+
+    if "see the property before" in t or "i'd like to see the property" in t:
+        result["protective_user_behaviors"].append("requested_in_person_viewing")
+
+    if "who is manny" in t or "who owns" in t or "owner" in t:
+        result["protective_user_behaviors"].append("challenged_identity_or_ownership")
+
+    if "application is approved a showing can be scheduled" in t:
+        result["counterparty_verification_failures"].append("showing_conditioned_on_application")
+
+    if result.get("contradiction_signals"):
+        result["counterparty_verification_failures"].append("story_shift_detected")
+
+    return result
+    merged = _attach_contextual_layers(merged, text)
+    merged: Dict[str, Any] = {
+        "risk_score": risk_score,
+        "flags": flags,
+        "confidence": confidence,
+        "summary": result.get("summary", "Analysis complete."),
+        "recommended_action": result.get("recommended_action", "No action required."),
+        "degraded": False,
+        "phase": result.get("phase", "NONE"),
+        "vie_action": result.get("vie_action", "NONE"),
+        "active_combos": active_combos,
+        "evidence": evidence,
+        "positive_signals": positive_signals,
+        "labels": labels,
+    }
+
+    merged = _apply_relationship_guardrails(merged, relationship_type=relationship_type)
+    merged["research_patch"] = _build_research_patch(text, relationship_type)
+
+    if merged["research_patch"]["data_sufficiency"]["level"] == "low":
+        merged["confidence"] = min(float(merged.get("confidence", 0.5)), 0.55)
+
+    merged = _sanitize_prohibited_claims(merged)
+    return merged

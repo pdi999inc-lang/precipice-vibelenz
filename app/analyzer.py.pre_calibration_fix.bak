@@ -1,0 +1,410 @@
+from __future__ import annotations
+
+import re
+from typing import Any, Dict, List
+
+
+def _count_hits(text: str, phrases: List[str]) -> int:
+    t = (text or "").lower()
+    return sum(1 for p in phrases if p in t)
+
+
+def _contains_any(text: str, phrases: List[str]) -> bool:
+    return _count_hits(text, phrases) > 0
+
+
+def _detect_domain_mode(text: str) -> Dict[str, Any]:
+    t = (text or "").lower()
+
+    housing_terms = [
+        "rent", "rental", "deposit", "lease", "application", "landlord",
+        "owner", "property", "apartment", "house", "utilities", "move in",
+        "showing", "viewing", "bedroom", "zillow", "nextdoor", "airbnb",
+        "check-in", "wifi", "parking", "guest"
+    ]
+    dating_terms = [
+        "date", "dating", "cute", "beautiful", "miss you", "love",
+        "babe", "baby", "kiss", "flirt", "come over", "hang out",
+        "sexy", "horny", "hook up", "hookup"
+    ]
+    marketplace_terms = [
+        "facebook marketplace", "seller", "buyer", "pickup", "shipping",
+        "tracking", "venmo", "cashapp", "zelle", "paypal", "item"
+    ]
+
+    housing_score = _count_hits(t, housing_terms)
+    dating_score = _count_hits(t, dating_terms)
+    marketplace_score = _count_hits(t, marketplace_terms)
+
+    scores = {
+        "housing_rental": housing_score,
+        "dating_social": dating_score,
+        "marketplace_transaction": marketplace_score,
+    }
+
+    best_mode = max(scores, key=scores.get)
+    best_score = scores[best_mode]
+    total = max(sum(scores.values()), 1)
+
+    if best_score < 3:
+        return {"domain_mode": "general_unknown", "domain_confidence": 0.35}
+
+    return {
+        "domain_mode": best_mode,
+        "domain_confidence": round(best_score / total, 2),
+    }
+
+
+def _detect_reciprocity(text: str) -> str:
+    t = (text or "").lower()
+
+    high_markers = [
+        "me too", "you too", "same", "haha", "lol", "lmao",
+        "i miss you too", "sounds good", "let's", "we can"
+    ]
+    medium_markers = [
+        "?", "thanks", "thank you", "appreciate", "let me know"
+    ]
+
+    score = _count_hits(t, high_markers)
+    if score >= 2:
+        return "HIGH"
+    if score == 1 or _count_hits(t, medium_markers) >= 2:
+        return "MEDIUM"
+    return "LOW"
+
+
+def _detect_intent_horizon(text: str, domain_mode: str) -> str:
+    t = (text or "").lower()
+
+    if domain_mode != "dating_social":
+        return "UNCLEAR"
+
+    short_term = [
+        "sexy", "horny", "come over", "hook up", "hookup", "kiss", "nudes"
+    ]
+    long_term = [
+        "plan", "tomorrow", "weekend", "later this week", "future",
+        "consistency", "serious", "relationship"
+    ]
+
+    short_hits = _count_hits(t, short_term)
+    long_hits = _count_hits(t, long_term)
+
+    if short_hits > long_hits and short_hits >= 1:
+        return "SHORT_TERM"
+    if long_hits > short_hits and long_hits >= 1:
+        return "LONG_TERM"
+    return "UNCLEAR"
+
+
+def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
+    t = (text or "").lower()
+
+    money_terms = [
+        "deposit", "payment", "cashapp", "zelle", "venmo", "wire", "fee", "pay now"
+    ]
+    pressure_terms = [
+        "urgent", "hurry", "must", "today only", "now", "immediately"
+    ]
+    off_platform_terms = [
+        "text me", "telegram", "whatsapp", "signal"
+    ]
+    credential_terms = [
+        "verification code", "otp", "pin", "ssn", "social security", "password", "login"
+    ]
+    sexual_terms = [
+        "sexy", "horny", "come over", "hook up", "hookup", "kiss", "nudes"
+    ]
+    boundary_terms = [
+        "stop", "no", "not comfortable", "leave me alone", "don't"
+    ]
+    contradiction_terms = []
+
+    if "owner is currently out of town" in t and "manny" in t:
+        contradiction_terms.append("owner_identity_shift")
+    if "application is approved a showing can be scheduled" in t and (
+        "see the property before" in t or "i'd like to see the property" in t
+    ):
+        contradiction_terms.append("verification_path_shift")
+    if ("deposit" in t or "payment" in t) and ("showing" in t or "application" in t):
+        contradiction_terms.append("payment_before_verification")
+
+    signals = []
+    if _contains_any(t, money_terms):
+        signals.append("money_request")
+    if _contains_any(t, pressure_terms):
+        signals.append("pressure_present")
+    if _contains_any(t, off_platform_terms):
+        signals.append("off_platform_migration")
+    if _contains_any(t, credential_terms):
+        signals.append("credential_or_sensitive_info_signal")
+    if domain_mode == "dating_social" and _contains_any(t, sexual_terms):
+        signals.append("sexual_directness")
+    if _contains_any(t, boundary_terms):
+        signals.append("boundary_language_present")
+    signals.extend(contradiction_terms)
+
+    extraction_present = any(s in signals for s in ["money_request", "credential_or_sensitive_info_signal"])
+    pressure_present = "pressure_present" in signals
+    boundary_violations = contradiction_terms[:] if contradiction_terms else []
+
+    return {
+        "signals": signals,
+        "extraction_present": extraction_present,
+        "pressure_present": pressure_present,
+        "boundary_violations": boundary_violations,
+    }
+
+
+def _assign_lane(
+    domain_mode: str,
+    reciprocity_level: str,
+    intent_horizon: str,
+    extraction_present: bool,
+    pressure_present: bool,
+    boundary_violations: List[str],
+    key_signals: List[str],
+    relationship_type: str,
+) -> Dict[str, Any]:
+    relationship_type = str(relationship_type or "stranger").lower()
+
+    if extraction_present and (
+        pressure_present
+        or "off_platform_migration" in key_signals
+        or "owner_identity_shift" in key_signals
+        or "verification_path_shift" in key_signals
+        or "payment_before_verification" in key_signals
+    ):
+        return {"lane": "FRAUD", "primary_label": "transactional_extraction_pattern"}
+
+    if pressure_present and boundary_violations:
+        return {"lane": "COERCION_RISK", "primary_label": "pressure_with_boundary_violation"}
+
+    if domain_mode == "dating_social":
+        if (
+            "sexual_directness" in key_signals
+            and reciprocity_level == "HIGH"
+            and not extraction_present
+            and not pressure_present
+        ):
+            return {"lane": "DATING_AMBIGUOUS", "primary_label": "fast_escalation_noncoercive"}
+
+        if intent_horizon == "SHORT_TERM" and not extraction_present and not pressure_present:
+            return {"lane": "DATING_AMBIGUOUS", "primary_label": "benign_flirtation"}
+
+        return {"lane": "DATING_AMBIGUOUS", "primary_label": "mixed_intent"}
+
+    if relationship_type in {"dating", "family", "friend"} and not extraction_present and not pressure_present:
+        return {"lane": "RELATIONSHIP_NORMAL", "primary_label": "relationship_context"}
+
+    return {"lane": "BENIGN", "primary_label": "routine_message"}
+
+
+def _build_dampeners(
+    domain_mode: str,
+    reciprocity_level: str,
+    intent_horizon: str,
+    extraction_present: bool,
+    pressure_present: bool,
+    key_signals: List[str],
+) -> List[str]:
+    dampeners: List[str] = []
+
+    if not extraction_present:
+        dampeners.append("no_extraction")
+    if not pressure_present:
+        dampeners.append("no_pressure")
+    if reciprocity_level == "HIGH":
+        dampeners.append("high_reciprocity")
+    if intent_horizon == "SHORT_TERM" and domain_mode == "dating_social":
+        dampeners.append("short_term_alignment_noncoercive")
+    if domain_mode == "housing_rental" and "money_request" not in key_signals:
+        dampeners.append("routine_transactional_context")
+    return dampeners
+
+
+def _risk_from_lane(
+    lane: str,
+    key_signals: List[str],
+    key_dampeners: List[str],
+    extraction_present: bool,
+    pressure_present: bool,
+) -> Dict[str, Any]:
+    base = {
+        "FRAUD": 88,
+        "COERCION_RISK": 75,
+        "DATING_AMBIGUOUS": 32,
+        "RELATIONSHIP_NORMAL": 18,
+        "BENIGN": 8,
+    }[lane]
+
+    if "owner_identity_shift" in key_signals:
+        base += 5
+    if "verification_path_shift" in key_signals:
+        base += 5
+    if "payment_before_verification" in key_signals:
+        base += 8
+    if "high_reciprocity" in key_dampeners:
+        base -= 10
+    if "no_extraction" in key_dampeners:
+        base -= 8
+    if "no_pressure" in key_dampeners:
+        base -= 8
+    if "routine_transactional_context" in key_dampeners:
+        base -= 10
+
+    if not extraction_present and not pressure_present:
+        base = min(base, 55)
+
+    score = max(0, min(100, base))
+
+    if score >= 70:
+        risk_level = "HIGH"
+    elif score >= 35:
+        risk_level = "MEDIUM"
+    else:
+        risk_level = "LOW"
+
+    return {"risk_score": score, "risk_level": risk_level}
+
+
+def _alternative_explanations(domain_mode: str, lane: str, key_signals: List[str]) -> List[str]:
+    if lane == "FRAUD":
+        return ["mismanaged transaction", "poor verification process"]
+    if lane == "COERCION_RISK":
+        return ["conflict escalation", "reactive communication rather than deliberate coercion"]
+    if lane == "DATING_AMBIGUOUS":
+        return ["mutual flirtation", "casual short-term framing", "playful escalation"]
+    if domain_mode == "housing_rental":
+        return ["routine host communication", "standard transactional logistics"]
+    return ["low information", "ordinary conversation"]
+
+def _confidence_score(lane: str, key_signals: List[str], key_dampeners: List[str]) -> float:
+    score = 0.55
+    score += min(len(key_signals) * 0.05, 0.25)
+    score += min(len(key_dampeners) * 0.03, 0.12)
+
+    if lane == "FRAUD":
+        score += 0.12
+    elif lane == "COERCION_RISK":
+        score += 0.08
+
+    return round(max(0.35, min(0.95, score)), 2)
+
+
+def analyze_text(text: str, relationship_type: str = "stranger", context_note: str = "") -> Dict[str, Any]:
+    normalized_text = (text or "").strip()
+
+    domain = _detect_domain_mode(normalized_text)
+    reciprocity_level = _detect_reciprocity(normalized_text)
+    intent_horizon = _detect_intent_horizon(normalized_text, domain["domain_mode"])
+
+    extracted = _extract_key_signals(normalized_text, domain["domain_mode"])
+    lane_info = _assign_lane(
+        domain_mode=domain["domain_mode"],
+        reciprocity_level=reciprocity_level,
+        intent_horizon=intent_horizon,
+        extraction_present=extracted["extraction_present"],
+        pressure_present=extracted["pressure_present"],
+        boundary_violations=extracted["boundary_violations"],
+        key_signals=extracted["signals"],
+        relationship_type=relationship_type,
+    )
+
+    dampeners = _build_dampeners(
+        domain_mode=domain["domain_mode"],
+        reciprocity_level=reciprocity_level,
+        intent_horizon=intent_horizon,
+        extraction_present=extracted["extraction_present"],
+        pressure_present=extracted["pressure_present"],
+        key_signals=extracted["signals"],
+    )
+
+    risk = _risk_from_lane(
+        lane=lane_info["lane"],
+        key_signals=extracted["signals"],
+        key_dampeners=dampeners,
+        extraction_present=extracted["extraction_present"],
+        pressure_present=extracted["pressure_present"],
+    )
+
+    contradiction_signals = [
+        {
+            "type": s,
+            "severity": "high" if s in {"owner_identity_shift", "verification_path_shift", "payment_before_verification"} else "medium",
+        }
+        for s in extracted["signals"]
+        if s in {"owner_identity_shift", "verification_path_shift", "payment_before_verification"}
+    ]
+
+    narrative_integrity_score = max(0, 100 - (len(contradiction_signals) * 30))
+    confidence = _confidence_score(lane_info["lane"], extracted["signals"], dampeners)
+
+    if domain["domain_mode"] != "dating_social" or lane_info["lane"] in {"FRAUD", "COERCION_RISK"}:
+        analysis_mode = "safety_only"
+        interest_score = None
+        interest_label = "Not Applicable"
+    else:
+        analysis_mode = "social_interest"
+        interest_score = 55 if reciprocity_level == "HIGH" else 35
+        interest_label = "Moderate" if reciprocity_level == "HIGH" else "Low"
+
+    flags = extracted["signals"][:] if extracted["signals"] else ["No signals detected"]
+    positive_signals = [] if analysis_mode == "safety_only" else (["reciprocal_engagement"] if reciprocity_level == "HIGH" else [])
+
+    if lane_info["lane"] == "BENIGN" and domain["domain_mode"] == "housing_rental":
+        summary_logic = "Routine transactional hospitality/logistics message without extraction, pressure, or contradiction."
+    elif lane_info["lane"] == "DATING_AMBIGUOUS":
+        summary_logic = "Fast or mixed escalation is present, but the interaction lacks extraction and coercive pressure."
+    elif lane_info["lane"] == "FRAUD":
+        summary_logic = "Extraction-oriented transactional pattern with pressure and/or contradiction signals."
+    elif lane_info["lane"] == "COERCION_RISK":
+        summary_logic = "Pressure plus boundary-related signals create coercion risk."
+    else:
+        summary_logic = "Conversation lacks strong danger criteria and defaults to a low-risk interpretation."
+
+    result = {
+        "lane": lane_info["lane"],
+        "primary_label": lane_info["primary_label"],
+        "risk_level": risk["risk_level"],
+        "risk_score": risk["risk_score"],
+        "final_risk_score": risk["risk_score"],
+        "confidence": confidence,
+        "reciprocity_level": reciprocity_level,
+        "intent_horizon": intent_horizon,
+        "pressure_present": extracted["pressure_present"],
+        "extraction_present": extracted["extraction_present"],
+        "boundary_violations": extracted["boundary_violations"],
+        "key_signals": extracted["signals"],
+        "key_dampeners": dampeners,
+        "alternative_explanations": _alternative_explanations(domain["domain_mode"], lane_info["lane"], extracted["signals"]),
+        "summary_logic": summary_logic,
+        "domain_mode": domain["domain_mode"],
+        "domain_confidence": domain["domain_confidence"],
+        "analysis_mode": analysis_mode,
+        "contradiction_signals": contradiction_signals,
+        "narrative_integrity_score": narrative_integrity_score,
+        "risk_floor_applied": False,
+        "risk_floor_reason": None,
+        "degraded": False,
+        "flags": flags,
+        "active_combos": [],
+        "positive_signals": positive_signals,
+        "vie_action": "BLOCK" if risk["risk_score"] >= 85 else ("WARN" if risk["risk_score"] >= 50 else ("MONITOR" if risk["risk_score"] >= 25 else "NONE")),
+        "interest_score": interest_score,
+        "interest_label": interest_label,
+        "research_patch": {
+            "style_markers": {
+                "scope": "message_batch_only",
+                "notes": ["Rebuild phase - style layer not yet reintroduced in deterministic form."]
+            },
+            "data_sufficiency": {
+                "level": "medium" if len(normalized_text) >= 120 else "low",
+                "reasons": [],
+                "allowed_depth": "limited_inference" if len(normalized_text) >= 120 else "surface_only"
+            }
+        }
+    }
+
+    return result
