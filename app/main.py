@@ -14,7 +14,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.analyzer import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
-from app.ocr import extract_text_from_images
+from app.ocr import extract_text_from_image
 
 logger = logging.getLogger("vibelenz.main")
 
@@ -151,7 +151,7 @@ async def analyze_screenshots(
         # Extract text per image for multi-turn analysis
         text_chunks = []
         for img_bytes in image_bytes_list:
-            chunk = extract_text_from_images([img_bytes])
+            chunk = extract_text_from_image([img_bytes])
             text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
     except Exception as e:
@@ -207,5 +207,6 @@ async def analyze_screenshots(
         return templates.TemplateResponse("result.html", template_payload)
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
+
 
 
