@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
@@ -15,7 +14,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.analyzer import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
-from app.ocr import extract_text_from_image
+from app.ocr import extract_text_from_images
 
 logger = logging.getLogger("vibelenz.main")
 
@@ -31,18 +30,6 @@ MAX_FILES = 10
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/jpg"}
 
 
-
-
-def _ocr_image_bytes(img_bytes: bytes, extension: str = ".jpg") -> str:
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as tmp:
-            tmp.write(img_bytes)
-            tmp_path = tmp.name
-        return extract_text_from_image(tmp_path)
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            os.remove(tmp_path)
 def _simple_page(title: str, body: str) -> HTMLResponse:
     return HTMLResponse(
         f"<html><head><title>{title}</title></head><body><h1>{title}</h1><p>{body}</p></body></html>"
@@ -164,7 +151,7 @@ async def analyze_screenshots(
         # Extract text per image for multi-turn analysis
         text_chunks = []
         for img_bytes in image_bytes_list:
-            chunk = _ocr_image_bytes(img_bytes, extension=ext)
+            chunk = extract_text_from_images([img_bytes])
             text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
     except Exception as e:
@@ -220,8 +207,3 @@ async def analyze_screenshots(
         return templates.TemplateResponse("result.html", template_payload)
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
-
-
-
-
-
