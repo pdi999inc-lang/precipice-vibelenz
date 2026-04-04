@@ -17,7 +17,9 @@ from typing import List, Dict, Any, Optional
 from app.ocr import extract_text_from_image          # ocr.py
 from app.schemas import AnalysisResponse, Turn        # schemas.py
 from app.behavior import analyze_behavior             # behavior.py
-from app.relationship_dynamics import analyze_dynamics  # relationship_dynamics.py
+from app.relationship_dynamics import analyze_dynamics
+from app.analyzer import analyze_text as _analyze_text
+from app.interpreter import interpret_analysis as _interpret  # relationship_dynamics.py
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +94,17 @@ async def _run_pipeline(turns: List[Turn]) -> AnalysisResponse:
 
     verifier_score = _run_verifier(turns, behavior_result, dynamics_result)
 
-    return AnalysisResponse(
+    # Run analyzer + interpreter to produce risk_score, lane, diagnosis etc
+    raw_text = " ".join(f"{t.speaker}: {t.message}" for t in turns)
+    try:
+        analysis = _analyze_text(raw_text, use_llm=False)
+        narrative = _interpret(analysis, requested_mode="risk")
+    except Exception as e:
+        logger.warning("analyzer/interpreter failed: %s", e)
+        analysis = {}
+        narrative = {}
+
+    response = AnalysisResponse(
         status="ok",
         error=None,
         turns=turns,
@@ -100,6 +112,11 @@ async def _run_pipeline(turns: List[Turn]) -> AnalysisResponse:
         dynamics=dynamics_result,
         verifier_score=verifier_score,
     )
+    # Attach enriched keys directly to the response dict for downstream consumers
+    result = response.model_dump()
+    result.update(analysis)
+    result.update(narrative)
+    return result
 
 
 # ---------------------------------------------------------------------------
