@@ -13,15 +13,12 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.api import analyze_image as _vie_analyze_image
 from app.api import analyze_text as _vie_analyze_text
 from app.analyzer import analyze_turns
-from app.routes import router as vie_router
 
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
-app.include_router(vie_router, prefix="/v1")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -49,6 +46,7 @@ def _risk_label_from_score(score: int) -> str:
 
 def _ocr_image_bytes(img_bytes: bytes, extension: str = ".jpg") -> str:
     from app.ocr import extract_text_from_image
+
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as tmp:
@@ -60,7 +58,14 @@ def _ocr_image_bytes(img_bytes: bytes, extension: str = ".jpg") -> str:
             os.remove(tmp_path)
 
 
-def _flatten_vie_response(response, request_id, ts, extracted_text, turn_analysis, requested_mode):
+def _flatten_vie_response(
+    response,
+    request_id: str,
+    ts: str,
+    extracted_text: str,
+    turn_analysis: dict,
+    requested_mode: str,
+) -> dict:
     if hasattr(response, "model_dump"):
         base = response.model_dump()
     else:
@@ -171,7 +176,10 @@ async def analyze_screenshots(
         filename = (f.filename or "").lower()
         ext = os.path.splitext(filename)[1]
         content_type = (f.content_type or "").lower()
-        if not (content_type in ALLOWED_TYPES or (content_type == "application/octet-stream" and ext in allowed_exts)):
+        if not (
+            content_type in ALLOWED_TYPES
+            or (content_type == "application/octet-stream" and ext in allowed_exts)
+        ):
             raise HTTPException(status_code=422, detail=f"Unsupported file type: {content_type}.")
 
     try:
@@ -238,4 +246,3 @@ async def analyze_screenshots(
         return templates.TemplateResponse("result.html", template_payload)
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
-

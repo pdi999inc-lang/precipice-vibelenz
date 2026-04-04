@@ -14,10 +14,10 @@ collected from live endpoint. Replace _run_verifier() when models are ready.
 import asyncio
 from typing import List, Dict, Any, Optional
 
-from ocr import extract_text_from_image          # ocr.py
-from schemas import AnalysisResponse, Turn        # schemas.py
-from behavior import analyze_behavior             # behavior.py
-from relationship_dynamics import analyze_dynamics  # relationship_dynamics.py
+from app.ocr import extract_text_from_image          # ocr.py
+from app.schemas import AnalysisResponse, Turn        # schemas.py
+from app.behavior import analyze_behavior             # behavior.py
+from app.relationship_dynamics import analyze_dynamics  # relationship_dynamics.py
 
 
 # ---------------------------------------------------------------------------
@@ -136,3 +136,4 @@ async def analyze_text(raw_text: str) -> AnalysisResponse:
     return await _run_pipeline(turns)
 
 MAX_TURNS = 200
+
