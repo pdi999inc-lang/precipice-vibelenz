@@ -15,7 +15,8 @@ logger = logging.getLogger("vibelenz.ocr")
 
 try:
     import pytesseract
-    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    if os.name == "nt":
+        pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 except Exception as e:
     pytesseract = None
     logger.warning("pytesseract unavailable: %s", e)
@@ -75,3 +76,4 @@ def extract_text_from_images(image_paths: List[str]) -> str:
         if text.strip():
             chunks.append(text)
     return "\n\n".join(chunks)
+
