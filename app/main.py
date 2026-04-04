@@ -14,6 +14,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from app.api import analyze_text as _vie_analyze_text
+from app.api import analyze_image as _vie_analyze_image
+from app.routes import router as vie_router
 from app.analyzer import analyze_turns
 
 logger = logging.getLogger("vibelenz.main")
@@ -247,3 +249,4 @@ async def analyze_screenshots(
         return templates.TemplateResponse("result.html", template_payload)
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
+
