@@ -17,6 +17,8 @@ from fastapi.templating import Jinja2Templates
 from app.api import analyze_text as _vie_analyze_text
 from app.api import analyze_image as _vie_analyze_image
 from app.routes import router as vie_router
+from app.analyzer import analyze_text as _analyze_text
+from app.interpreter import interpret_analysis as _interpret
 from app.analyzer import analyze_turns
 
 logger = logging.getLogger("vibelenz.main")
@@ -106,6 +108,16 @@ def _flatten_vie_response(
         payload.setdefault("mode_override_note", "")
         payload.setdefault("requested_mode", requested_mode)
 
+        # Run analyzer + interpreter to get risk_score, lane, diagnosis etc
+    try:
+        extracted = base.get("extracted_text") or extracted_text
+        analysis = _analyze_text(extracted_text, use_llm=False)
+        narrative = _interpret(analysis, requested_mode=requested_mode)
+        payload.update(analysis)
+        payload.update(narrative)
+    except Exception as e:
+        payload.setdefault("diagnosis", "Analysis unavailable.")
+        payload.setdefault("practical_next_steps", "Please try again.")
     payload["request_id"] = request_id
     payload["timestamp"] = ts
     payload["extracted_text"] = extracted_text
@@ -250,6 +262,8 @@ async def analyze_screenshots(
         return templates.TemplateResponse("result.html", template_payload)
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
+
+
 
 
 
