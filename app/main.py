@@ -186,9 +186,7 @@ async def analyze_screenshots(
 
     try:
         text_chunks = [_ocr_image_bytes(b, extension=e) for b, e in uploaded]
-        extracted_text = "
-
-".join(t for t in text_chunks if t.strip())
+        extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
     except Exception as e:
         logger.error("[%s] OCR failure: %s", request_id, e)
         raise HTTPException(status_code=503, detail="OCR processing failed.")
@@ -240,3 +238,4 @@ async def analyze_screenshots(
         return templates.TemplateResponse("result.html", template_payload)
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
+
