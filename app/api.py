@@ -87,7 +87,7 @@ async def _run_pipeline(turns: List[Turn]) -> AnalysisResponse:
     # Run behavior and dynamics analysis in parallel
     behavior_result, dynamics_result = await asyncio.gather(
         asyncio.to_thread(analyze_behavior, turns),
-        asyncio.to_thread(analyze_dynamics, turns),
+        asyncio.to_thread(analyze_dynamics, [{"turn_id": f"T{i+1}", "sender": "other" if i % 2 else "user", "text": t.message} for i, t in enumerate(turns)]),
     )
 
     verifier_score = _run_verifier(turns, behavior_result, dynamics_result)
@@ -136,5 +136,6 @@ async def analyze_text(raw_text: str) -> AnalysisResponse:
     return await _run_pipeline(turns)
 
 MAX_TURNS = 200
+
 
 

@@ -250,3 +250,4 @@ async def analyze_screenshots(
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
 
+
