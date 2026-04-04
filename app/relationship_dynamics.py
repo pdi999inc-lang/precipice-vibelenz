@@ -22,7 +22,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from schemas import RelationshipInsight
+from app.schemas import RelationshipInsight
 
 logger = logging.getLogger("vibelenz.relationship")
 
@@ -495,3 +495,4 @@ def analyze_dynamics(turns: List[Dict]) -> Dict[str, Any]:
         }
 
     return insight.model_dump()
+
