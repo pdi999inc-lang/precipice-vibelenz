@@ -6,3 +6,4 @@ pillow==10.3.0
 pytesseract==0.3.10
 pydantic==2.7.1
 anthropic==0.49.0
+# cache bust
