@@ -1,3 +1,4 @@
+# VIE pipeline v2 - 20260404-1910
 from __future__ import annotations
 
 import logging
@@ -249,5 +250,6 @@ async def analyze_screenshots(
         return templates.TemplateResponse("result.html", template_payload)
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
+
 
 
