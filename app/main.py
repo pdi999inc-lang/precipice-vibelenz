@@ -19,6 +19,7 @@ from app.analyzer import analyze_turns
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
+app.include_router(vie_router, prefix="/v1")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
