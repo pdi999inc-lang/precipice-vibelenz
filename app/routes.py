@@ -3,7 +3,7 @@ import tempfile
 import os
 import logging
 
-from api import analyze_image, analyze_text
+from app.api import analyze_image, analyze_text
 
 logger = logging.getLogger("vibelenz.routes")
 router = APIRouter()
@@ -69,3 +69,4 @@ async def analyze_from_text(conversation: str = Form(...)):
     except Exception as e:
         logger.error("analyze_from_text unhandled: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
