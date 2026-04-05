@@ -16,12 +16,12 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from ocr import extract_text_from_image          # returns raw string
-from schemas import AnalysisResponse, Turn        # pydantic models
-from behavior import analyze_behavior             # safety/deterministic layer
-from relationship_dynamics import analyze_dynamics  # connection layer
-from analyzer_combined import run_combined        # det + LLM unified analyzer
-from interpreter import interpret_analysis        # final interpretation pass
+from app.ocr import extract_text_from_image          # returns raw string
+from app.schemas import AnalysisResponse, Turn        # pydantic models
+from app.behavior import analyze_behavior             # safety/deterministic layer
+from app.relationship_dynamics import analyze_dynamics  # connection layer
+from app.analyzer_combined import run_combined        # det + LLM unified analyzer
+from app.interpreter import interpret_analysis        # final interpretation pass
 
 logger = logging.getLogger("vibelenz.api")
 
@@ -275,3 +275,4 @@ async def analyze_text(raw_text: str) -> AnalysisResponse:
 
     parse_result = parse_turns(raw_text)
     return await _run_pipeline(parse_result)
+
