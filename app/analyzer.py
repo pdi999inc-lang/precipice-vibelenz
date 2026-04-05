@@ -162,6 +162,49 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
     elif playful_count >= 1:
         label = "casual_flirtation"
 
+    # High-intent / vision-building markers
+    high_intent_markers = [
+        "married", "marriage", "wedding", "honeymoon", "destination wedding",
+        "have a baby", "start a family", "settle down", "long term", "long-term",
+        "relationship", "future together", "serious", "commitment", "committed",
+        "sperm donor", "pregnant", "pregnancy", "baby this year"
+    ]
+
+    # Fear-driven urgency markers
+    fear_urgency_markers = [
+        "alone next christmas", "alone by", "don't want to be alone",
+        "do not want to be alone", "this year", "before the year",
+        "sperm donor", "or at least", "if not we", "no reason to talk",
+        "there is no reason", "there's no reason"
+    ]
+
+    # Vision-building markers (future planning specificity)
+    vision_markers = [
+        "yellowstone", "wyoming", "honeymoon", "destination wedding",
+        "where would we", "where should we", "what would you", "when we",
+        "our", "we would", "we could", "i picture", "i imagine",
+        "i can see us", "i see us"
+    ]
+
+    high_intent_count = _count_any(t, high_intent_markers)
+    fear_urgency_count = _count_any(t, fear_urgency_markers)
+    vision_count = _count_any(t, vision_markers)
+
+    if high_intent_count >= 1:
+        signals.append("high_intent_present")
+    if fear_urgency_count >= 1:
+        signals.append("fear_driven_urgency")
+    if vision_count >= 2:
+        signals.append("vision_building_present")
+
+    # Upgrade label based on new signals
+    if high_intent_count >= 2 and vision_count >= 1 and not label:
+        label = "high_intent_mutual"
+    elif fear_urgency_count >= 2 and high_intent_count >= 1 and not label:
+        label = "fear_driven_urgency"
+    elif high_intent_count >= 1 and not label:
+        label = "mixed_intent_genuine"
+
     return {
         "connection_signals": signals,
         "connection_label": label,
@@ -170,6 +213,9 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
         "playful_count": playful_count,
         "warm_count": warm_count,
         "sexual_count": sexual_count,
+        "high_intent_count": high_intent_count,
+        "fear_urgency_count": fear_urgency_count,
+        "vision_count": vision_count,
     }
 
 
@@ -245,6 +291,54 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
         if _contains_any(t, ["deposit", "lease agreement", "move in", "application fee", "rent"]):
             signals.append("money_request")
 
+    # Goal substitution — offering fallback outcomes mid-sentence
+    goal_sub_terms = [
+        "or at least", "or even just", "if not that then",
+        "sperm donor", "or a donor", "at minimum", "even if just",
+        "or someone who", "if nothing else"
+    ]
+    if _count_any(t, goal_sub_terms) >= 1:
+        signals.append("goal_substitution")
+
+    # Timeline compression — urgency tied to calendar
+    timeline_terms = [
+        "this year", "by christmas", "before christmas", "next christmas",
+        "before the year", "end of the year", "by summer", "by spring",
+        "before i turn", "this month", "within the year", "in 2025", "in 2026",
+        "before the holidays", "by new year"
+    ]
+    if _count_any(t, timeline_terms) >= 1:
+        signals.append("timeline_compression")
+
+    # Qualification screening — hard filters applied early
+    qual_terms = [
+        "no reason to talk", "there is no reason", "there's no reason",
+        "if that's not", "if that is not", "if you're not looking",
+        "if you are not looking", "probably aren't a match", "probably are not a match",
+        "we aren't compatible", "we are not compatible",
+        "not what you're looking for", "not what you are looking for",
+        "only reach out if", "don't message me if", "do not message me if"
+    ]
+    if _count_any(t, qual_terms) >= 1:
+        signals.append("qualification_screening")
+
+    # Communication imbalance — consecutive same-sender pressure
+    # Detect triple-text pattern by looking for repeated sender blocks
+    lines = [l.strip() for l in (text or "").split("\n") if l.strip()]
+    consecutive = 0
+    max_consecutive = 0
+    last_apparent_sender = None
+    for line in lines:
+        # Heuristic: short lines followed by longer ones suggest multi-send
+        if last_apparent_sender == "other" or last_apparent_sender is None:
+            consecutive = 1
+            last_apparent_sender = "other"
+        else:
+            consecutive += 1
+        max_consecutive = max(max_consecutive, consecutive)
+    if max_consecutive >= 3:
+        signals.append("communication_imbalance")
+
     extraction_present = any(s in signals for s in [
         "money_request",
         "credential_or_sensitive_info_signal",
@@ -298,6 +392,13 @@ def _assign_lane(
     if domain_mode == "dating_social":
         if "sexual_directness" in key_signals and reciprocity_level == "HIGH" and not extraction_present and not pressure_present:
             return {"lane": "DATING_AMBIGUOUS", "primary_label": "fast_escalation_noncoercive"}
+        # Check connection label before defaulting to mixed_intent
+        if connection_label and connection_label in {
+            "high_intent_mutual", "fear_driven_urgency", "mixed_intent_genuine",
+            "playful_reengagement", "confusion_then_repair", "light_sexual_reciprocity",
+            "warm_receptivity", "casual_flirtation"
+        } and not extraction_present and not pressure_present:
+            return {"lane": "BENIGN", "primary_label": connection_label}
         return {"lane": "DATING_AMBIGUOUS", "primary_label": "mixed_intent"}
 
     if relationship_type in {"dating", "family", "friend"} and not extraction_present and not pressure_present:
@@ -539,6 +640,17 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
         "flags": flags,
         "active_combos": [],
         "positive_signals": positive_signals,
+        "concern_signals": [
+            s for s in extracted["signals"] if s in {
+                "goal_substitution",
+                "timeline_compression",
+                "qualification_screening",
+                "communication_imbalance",
+                "fear_driven_urgency",
+                "pressure_present",
+                "boundary_language_present",
+            }
+        ],
         "vie_action": "BLOCK" if risk["risk_score"] >= 85 else ("WARN" if risk["risk_score"] >= 50 else ("MONITOR" if risk["risk_score"] >= 25 else "NONE")),
         "interest_score": interest_score,
         "interest_label": interest_label,
