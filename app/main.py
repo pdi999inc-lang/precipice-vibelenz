@@ -1,4 +1,3 @@
-# VIE pipeline v2 - 20260404-1910
 from __future__ import annotations
 
 import logging
@@ -14,17 +13,13 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.api import analyze_text as _vie_analyze_text
-from app.api import analyze_image as _vie_analyze_image
-from app.routes import router as vie_router
-from app.analyzer import analyze_text as _analyze_text
-from app.interpreter import interpret_analysis as _interpret
-from app.analyzer import analyze_turns
+from app.analyzer import analyze_text, analyze_turns
+from app.interpreter import interpret_analysis
+from app.ocr import extract_text_from_image
 
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
-app.include_router(vie_router, prefix="/v1")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -50,9 +45,34 @@ def _risk_label_from_score(score: int) -> str:
     return "Low"
 
 
-def _ocr_image_bytes(img_bytes: bytes, extension: str = ".jpg") -> str:
-    from app.ocr import extract_text_from_image
+def _build_response_payload(
+    request_id: str,
+    ts: str,
+    extracted_text: str,
+    analysis: dict,
+    narrative: dict,
+    turn_analysis: dict,
+) -> dict:
+    payload = dict(analysis)
+    payload.update(narrative)
+    payload["request_id"] = request_id
+    payload["timestamp"] = ts
+    payload["extracted_text"] = extracted_text
+    payload["summary"] = narrative["diagnosis"]
+    payload["recommended_action"] = narrative["practical_next_steps"]
+    payload["risk_label"] = payload.get("risk_label") or _risk_label_from_score(
+        int(payload.get("final_risk_score", payload.get("risk_score", 0)))
+    )
+    payload["turn_analysis"] = turn_analysis
+    return payload
 
+
+def _ocr_image_bytes(img_bytes: bytes, extension: str = ".jpg") -> str:
+    """
+    Write image bytes to a temp file, run OCR, clean up.
+    Returns extracted text string. Raises on OCR failure — caller handles.
+    extract_text_from_image expects a file path string, not bytes.
+    """
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as tmp:
@@ -64,90 +84,26 @@ def _ocr_image_bytes(img_bytes: bytes, extension: str = ".jpg") -> str:
             os.remove(tmp_path)
 
 
-def _flatten_vie_response(
-    response,
-    request_id: str,
-    ts: str,
-    extracted_text: str,
-    turn_analysis: dict,
-    requested_mode: str,
-) -> dict:
-    if hasattr(response, "model_dump"):
-        base = response.model_dump()
-    else:
-        base = dict(response) if isinstance(response, dict) else {}
-
-    behavior = base.get("behavior") or {}
-    if hasattr(behavior, "model_dump"):
-        behavior = behavior.model_dump()
-    elif not isinstance(behavior, dict):
-        behavior = {}
-
-    dynamics = base.get("dynamics") or {}
-    if hasattr(dynamics, "model_dump"):
-        dynamics = dynamics.model_dump()
-    elif not isinstance(dynamics, dict):
-        dynamics = {}
-
-    payload = {}
-    payload.update(dynamics)
-    payload.update(behavior)
-    payload.update(base)
-
-    if base.get("status") == "error":
-        payload.setdefault("diagnosis", base.get("error", "Analysis failed."))
-        payload.setdefault("practical_next_steps", "Please try again.")
-        payload.setdefault("presentation_mode", "risk")
-        payload.setdefault("mode_title", "Risk Analysis")
-        payload.setdefault("mode_tagline", "")
-        payload.setdefault("human_label", "error")
-        payload.setdefault("reasoning", "")
-        payload.setdefault("accountability", "")
-        payload.setdefault("social_tone", "")
-        payload.setdefault("interest_summary", "")
-        payload.setdefault("mode_override_note", "")
-        payload.setdefault("requested_mode", requested_mode)
-
-        # Run analyzer + interpreter to get risk_score, lane, diagnosis etc
-    try:
-        extracted = base.get("extracted_text") or extracted_text
-        analysis = _analyze_text(extracted_text, use_llm=False)
-        narrative = _interpret(analysis, requested_mode=requested_mode)
-        payload.update(analysis)
-        payload.update(narrative)
-    except Exception as e:
-        payload.setdefault("diagnosis", "Analysis unavailable.")
-        payload.setdefault("practical_next_steps", "Please try again.")
-    payload["request_id"] = request_id
-    payload["timestamp"] = ts
-    payload["extracted_text"] = extracted_text
-    payload["turn_analysis"] = turn_analysis
-    payload["requested_mode"] = requested_mode
-    payload["summary"] = payload.get("diagnosis", "")
-    payload["recommended_action"] = payload.get("practical_next_steps", "")
-    payload["risk_label"] = payload.get("risk_label") or _risk_label_from_score(
-        int(payload.get("risk_score", 0))
-    )
-    return payload
-
-
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    if (TEMPLATES_DIR / "index.html").exists():
+    index_file = TEMPLATES_DIR / "index.html"
+    if index_file.exists():
         return templates.TemplateResponse("index.html", {"request": request})
     return _simple_page("VibeLenz", "Home page template not found.")
 
 
 @app.get("/pitch", response_class=HTMLResponse)
 async def pitch(request: Request):
-    if (TEMPLATES_DIR / "pitch.html").exists():
+    pitch_file = TEMPLATES_DIR / "pitch.html"
+    if pitch_file.exists():
         return templates.TemplateResponse("pitch.html", {"request": request})
     return _simple_page("Pitch", "Pitch page template not found.")
 
 
 @app.get("/about", response_class=HTMLResponse)
 async def about(request: Request):
-    if (TEMPLATES_DIR / "about.html").exists():
+    about_file = TEMPLATES_DIR / "about.html"
+    if about_file.exists():
         return templates.TemplateResponse("about.html", {"request": request})
     return _simple_page("About", "About page template not found.")
 
@@ -182,22 +138,36 @@ async def analyze_screenshots(
     ts = datetime.now(timezone.utc).isoformat()
     timestamp_start = time.time()
 
-    logger.info("[%s] Received %d file(s), mode=%s", request_id, len(files), requested_mode)
+    logger.info(
+        "[%s] Received %d file(s), mode=%s at %s",
+        request_id, len(files), requested_mode, ts,
+    )
 
     if len(files) > MAX_FILES:
-        raise HTTPException(status_code=422, detail=f"Maximum {MAX_FILES} files allowed.")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Maximum {MAX_FILES} files allowed. Received {len(files)}.",
+        )
 
     allowed_exts = {".png", ".jpg", ".jpeg"}
+
     for f in files:
         filename = (f.filename or "").lower()
         ext = os.path.splitext(filename)[1]
         content_type = (f.content_type or "").lower()
-        if not (
-            content_type in ALLOWED_TYPES
-            or (content_type == "application/octet-stream" and ext in allowed_exts)
-        ):
-            raise HTTPException(status_code=422, detail=f"Unsupported file type: {content_type}.")
 
+        allowed_by_type = content_type in ALLOWED_TYPES
+        allowed_octet_stream_image = (
+            content_type == "application/octet-stream" and ext in allowed_exts
+        )
+
+        if not (allowed_by_type or allowed_octet_stream_image):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unsupported file type: {content_type}. Allowed: png, jpg, jpeg.",
+            )
+
+    # Read all files up front so UploadFile handles are consumed once
     try:
         uploaded = []
         for f in files:
@@ -208,45 +178,54 @@ async def analyze_screenshots(
         logger.error("[%s] File read failure: %s", request_id, e)
         raise HTTPException(status_code=422, detail="Could not read uploaded file(s).")
 
+    # OCR each image via temp file — extract_text_from_image expects a path string
     try:
-        text_chunks = [_ocr_image_bytes(b, extension=e) for b, e in uploaded]
+        text_chunks = []
+        for img_bytes, ext in uploaded:
+            chunk = _ocr_image_bytes(img_bytes, extension=ext)
+            text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
     except Exception as e:
         logger.error("[%s] OCR failure: %s", request_id, e)
-        raise HTTPException(status_code=503, detail="OCR processing failed.")
+        raise HTTPException(status_code=503, detail="OCR processing failed. System blocked.")
 
     if not extracted_text.strip():
         extracted_text = "[No readable text detected in uploaded images]"
 
     try:
-        vie_response = await _vie_analyze_text(extracted_text)
-    except Exception as e:
-        logger.error("[%s] VIE analysis failure: %s", request_id, e)
-        raise HTTPException(status_code=503, detail="Analysis engine failed.")
+        analysis = analyze_text(
+            extracted_text,
+            relationship_type=relationship_type,
+            context_note=context_note,
+        )
+        narrative = interpret_analysis(analysis, requested_mode=requested_mode)
 
-    try:
+        # Multi-turn analysis — only meaningful when more than one image uploaded
         turn_analysis = analyze_turns(
             text_chunks=[t for t in text_chunks if t.strip()],
             relationship_type=relationship_type,
         )
     except Exception as e:
-        logger.warning("[%s] Turn analysis failed (non-fatal): %s", request_id, e)
-        turn_analysis = {"turn_count": 0, "arc": "n/a", "turns": []}
+        logger.error("[%s] Analysis failure: %s", request_id, e)
+        raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
 
-    payload = _flatten_vie_response(
-        response=vie_response,
+    payload = _build_response_payload(
         request_id=request_id,
         ts=ts,
         extracted_text=extracted_text,
+        analysis=analysis,
+        narrative=narrative,
         turn_analysis=turn_analysis,
-        requested_mode=requested_mode,
     )
 
     logger.info(
-        "[%s] Risk=%s Lane=%s Degraded=%s TookMs=%d",
+        "[%s] Risk=%s Lane=%s Mode=%s Turns=%d Arc=%s Degraded=%s TookMs=%d",
         request_id,
         payload.get("risk_score"),
         payload.get("lane"),
+        requested_mode,
+        turn_analysis.get("turn_count", 0),
+        turn_analysis.get("arc", "n/a"),
         payload.get("degraded", False),
         int((time.time() - timestamp_start) * 1000),
     )
@@ -258,12 +237,8 @@ async def analyze_screenshots(
     template_payload = dict(payload)
     template_payload["request"] = request
 
-    if (TEMPLATES_DIR / "result.html").exists():
+    result_file = TEMPLATES_DIR / "result.html"
+    if result_file.exists():
         return templates.TemplateResponse("result.html", template_payload)
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
-
-
-
-
-

@@ -1400,6 +1400,16 @@ def _run_deterministic(text: str, relationship_type: str = "stranger") -> Dict[s
     if reciprocity_level == "HIGH" and "reciprocal_engagement" not in positive_signals:
         positive_signals.append("reciprocal_engagement")
 
+    # Map primary_label → connection_level so interpreter._connection_copy()
+    # NEGATIVE and MIXED_INTENT branches are reachable from the deterministic path.
+    _connection_level_map = {
+        "mixed_intent":                     "MIXED_INTENT",
+        "fast_escalation_noncoercive":      "MIXED_INTENT",
+        "transactional_extraction_pattern": "NEGATIVE",
+        "pressure_with_boundary_violation": "NEGATIVE",
+    }
+    connection_level = _connection_level_map.get(lane_info["primary_label"], "")
+
     evidence_data = _score_evidence(extracted["signals"])
 
     if lane_info["lane"] == "BENIGN" and domain["domain_mode"] == "housing_rental":
@@ -1456,6 +1466,7 @@ def _run_deterministic(text: str, relationship_type: str = "stranger") -> Dict[s
         "interest_label": interest_label,
         "evidence_scoring": evidence_data,
         "research_patch": research_patch,
+        "connection_level": connection_level,
     }
 
 
@@ -1638,7 +1649,7 @@ def analyze_text(
             result = _run_deterministic(text, relationship_type)
             result = _apply_relationship_guardrails(result, relationship_type)
             result = _sanitize_prohibited_claims(result)
-            result["degraded"] = False  # deterministic succeeded — not truly degraded
+            result["degraded"] = False
             result["fallback_reason"] = str(e)
             return result
         except Exception as e2:
