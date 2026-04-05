@@ -198,7 +198,7 @@ def _connection_copy(out: Dict[str, Any]) -> Dict[str, Any]:
         accountability = "Not every good thing needs to be analyzed into the ground. Sometimes easy is just easy."
 
     else:
-        diagnosis = "This is a real human interaction — low stakes, not a threat, just still early."
+        diagnosis = "This is still early — not a lot to work with yet, but nothing that feels off either."
         reasoning = (
             "Nothing here points to pressure, danger, or bad intent. "
             "It reads like a normal exchange between two people who are still figuring out the dynamic. "
@@ -264,3 +264,4 @@ def interpret_analysis(
 
     out["requested_mode"] = requested_mode
     return out
+
