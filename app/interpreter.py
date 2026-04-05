@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import json
+import httpx
 from typing import Any, Dict, List
 
 
@@ -312,12 +315,146 @@ def _connection_copy(out: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _llm_enrich(
+    result: Dict[str, Any],
+    extracted_text: str,
+    presentation_mode: str,
+    diagnosis: str,
+    reasoning: str,
+    practical_next_steps: str,
+    accountability: str,
+) -> Dict[str, Any]:
+    """
+    Calls Anthropic to enrich deterministic copy with LLM-generated insight.
+    Falls back to deterministic output if the call fails.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return {
+            "diagnosis": diagnosis,
+            "reasoning": reasoning,
+            "practical_next_steps": practical_next_steps,
+            "accountability": accountability,
+            "llm_enriched": False,
+            "llm_error": "no_api_key",
+        }
+
+    primary_label = result.get("primary_label", "unknown")
+    concern_signals = result.get("concern_signals", [])
+    positive_signals = result.get("positive_signals", [])
+    connection_score = result.get("connection_score", None)
+    risk_score = result.get("risk_score", None)
+    lane = result.get("lane", "BENIGN")
+
+    if presentation_mode == "connection":
+        system_prompt = """You are VibeLenz, a relationship dynamics analyst.
+Your job is to give the user a warm, honest, specific read on their dating conversation.
+Write like a thoughtful friend giving real talk — not a therapist, not a security scanner.
+Never use clinical language. Never use words like: pressure, danger, bad intent, threat, coercion, red flag.
+Be specific to what actually happened in the conversation. Avoid generic advice.
+You will receive: the raw conversation, the detected signals, and a deterministic draft.
+Your job is to improve the draft — make it more specific, more human, more useful.
+Return ONLY a JSON object with keys: diagnosis, reasoning, practical_next_steps, accountability.
+No preamble. No markdown. No explanation. Raw JSON only."""
+
+        user_prompt = f"""CONVERSATION:
+{extracted_text}
+
+DETECTED SIGNALS:
+Positive: {json.dumps(positive_signals)}
+Concern: {json.dumps(concern_signals)}
+Primary label: {primary_label}
+Lane: {lane}
+
+DETERMINISTIC DRAFT:
+Diagnosis: {diagnosis}
+Reasoning: {reasoning}
+Next steps: {practical_next_steps}
+Accountability: {accountability}
+
+Rewrite the draft to be more specific to this actual conversation.
+Keep the same structure. Make it warmer, more human, more actionable.
+Return raw JSON only."""
+
+    else:
+        system_prompt = """You are VibeLenz, a conversation safety analyst.
+Your job is to give the user a clear, honest read on risk signals in their conversation.
+Be direct and specific. Do not catastrophize. Do not minimize.
+You will receive: the raw conversation, the detected signals, and a deterministic draft.
+Improve the draft — make it more specific to what actually happened.
+Return ONLY a JSON object with keys: diagnosis, reasoning, practical_next_steps, accountability.
+No preamble. No markdown. No explanation. Raw JSON only."""
+
+        user_prompt = f"""CONVERSATION:
+{extracted_text}
+
+DETECTED SIGNALS:
+Risk signals: {json.dumps(result.get("key_signals", []))}
+Concern signals: {json.dumps(concern_signals)}
+Primary label: {primary_label}
+Lane: {lane}
+Risk score: {risk_score}
+
+DETERMINISTIC DRAFT:
+Diagnosis: {diagnosis}
+Reasoning: {reasoning}
+Next steps: {practical_next_steps}
+Accountability: {accountability}
+
+Rewrite the draft to be more specific to this actual conversation.
+Return raw JSON only."""
+
+    try:
+        response = httpx.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 1024,
+                "system": system_prompt,
+                "messages": [{"role": "user", "content": user_prompt}],
+            },
+            timeout=15.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        raw = data["content"][0]["text"].strip()
+        # Strip markdown fences if present
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        parsed = json.loads(raw.strip())
+        return {
+            "diagnosis": parsed.get("diagnosis", diagnosis),
+            "reasoning": parsed.get("reasoning", reasoning),
+            "practical_next_steps": parsed.get("practical_next_steps", practical_next_steps),
+            "accountability": parsed.get("accountability", accountability),
+            "llm_enriched": True,
+            "llm_error": None,
+        }
+    except Exception as e:
+        return {
+            "diagnosis": diagnosis,
+            "reasoning": reasoning,
+            "practical_next_steps": practical_next_steps,
+            "accountability": accountability,
+            "llm_enriched": False,
+            "llm_error": str(e),
+        }
+
+
 def interpret_analysis(
     result: Dict[str, Any],
     extracted_text: str = "",
     relationship_type: str = "stranger",
     context_note: str = "",
     requested_mode: str = "risk",
+    use_llm: bool = False,
 ) -> Dict[str, Any]:
     out = dict(result or {})
     requested_mode = str(requested_mode or "risk").lower().strip()
@@ -337,4 +474,25 @@ def interpret_analysis(
         out = _risk_copy(out)
 
     out["requested_mode"] = requested_mode
+
+    if use_llm and extracted_text:
+        enriched = _llm_enrich(
+            result=result,
+            extracted_text=extracted_text,
+            presentation_mode=out.get("presentation_mode", requested_mode),
+            diagnosis=out.get("diagnosis", ""),
+            reasoning=out.get("reasoning", ""),
+            practical_next_steps=out.get("practical_next_steps", ""),
+            accountability=out.get("accountability", ""),
+        )
+        out["diagnosis"] = enriched["diagnosis"]
+        out["reasoning"] = enriched["reasoning"]
+        out["practical_next_steps"] = enriched["practical_next_steps"]
+        out["accountability"] = enriched["accountability"]
+        out["llm_enriched"] = enriched["llm_enriched"]
+        out["llm_error"] = enriched["llm_error"]
+    else:
+        out["llm_enriched"] = False
+        out["llm_error"] = None
+
     return out

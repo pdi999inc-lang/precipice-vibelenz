@@ -116,7 +116,7 @@ def parse_turns(raw_text: str) -> ParseResult:
 # Core pipeline
 # ---------------------------------------------------------------------------
 
-async def _run_pipeline(parse_result: ParseResult) -> AnalysisResponse:
+async def _run_pipeline(parse_result: ParseResult, raw_text: str = "", use_llm: bool = True) -> AnalysisResponse:
     """
     Runs behavior + relationship_dynamics in parallel, then passes results
     through analyzer_combined and interpreter to produce AnalysisResponse.
@@ -189,7 +189,7 @@ async def _run_pipeline(parse_result: ParseResult) -> AnalysisResponse:
 
     # Interpreter — produces final AnalysisResponse
     try:
-        response: AnalysisResponse = interpret_analysis(combined_result)
+        response: AnalysisResponse = interpret_analysis(combined_result, extracted_text=raw_text, use_llm=use_llm)
     except Exception as e:
         logger.error("interpret_analysis raised: %s", e, exc_info=True)
         return AnalysisResponse(
@@ -251,7 +251,7 @@ async def analyze_image(image_path: str) -> AnalysisResponse:
         )
 
     parse_result = parse_turns(raw_text)
-    return await _run_pipeline(parse_result)
+    return await _run_pipeline(parse_result, raw_text=raw_text, use_llm=True)
 
 
 async def analyze_text(raw_text: str) -> AnalysisResponse:
@@ -274,4 +274,4 @@ async def analyze_text(raw_text: str) -> AnalysisResponse:
         )
 
     parse_result = parse_turns(raw_text)
-    return await _run_pipeline(parse_result)
+    return await _run_pipeline(parse_result, raw_text=raw_text, use_llm=True)
