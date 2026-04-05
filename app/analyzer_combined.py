@@ -22,7 +22,7 @@ import logging
 from typing import Any, Dict, List
 
 # Re-export everything from analyzer.py — benchmark imports from here
-from analyzer import (  # noqa: F401
+from app.analyzer import (  # noqa: F401
     analyze_text,
     analyze_turns,
     _run_deterministic,
@@ -118,3 +118,4 @@ def run_combined(
     )
 
     return result
+
