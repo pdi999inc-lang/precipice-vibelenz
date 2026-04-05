@@ -56,6 +56,25 @@ POSITIVE_CONNECTION_LEXICON: Dict[str, Dict[str, Any]] = {
             "soon", "again", "later", "when are you free",
         ],
     },
+    "sexual_reciprocity": {
+        "weight": 3.5,
+        "terms": [
+            "i still do", "i want your", "your cute", "you're cute",
+            "want your baby", "your genes", "i want your genes",
+            "still do", "definitely do it again", "yes please",
+            "you can have", "attracted", "into you",
+            "kiss", "hot", "sexy", "beautiful", "gorgeous",
+            "come over", "come back",
+        ],
+    },
+    "playful_flirtation": {
+        "weight": 2.8,
+        "terms": [
+            "yay", "do you?", "really?", "you sure",
+            "oh really", "sure about that", "you wish",
+            "maybe", "haha", "lol", "lmao",
+        ],
+    },
     "softeners": {
         "weight": 0.8,
         "terms": [
@@ -248,3 +267,4 @@ def merge_into_result(
     analyzer_result["connection_level"] = connection_result["connection_level"]
     analyzer_result["connection_signals"] = connection_result["signals"]
     return analyzer_result
+
