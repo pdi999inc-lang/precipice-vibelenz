@@ -254,7 +254,7 @@ async def analyze_image(image_path: str) -> AnalysisResponse:
     return await _run_pipeline(parse_result)
 
 
-async def analyze_text(raw_text: str) -> AnalysisResponse:
+async def analyze_text(raw_text: str, requested_mode: str = "risk") -> dict:
     """
     Full pipeline starting from raw conversation text.
     Turn parser → behavior + dynamics → combined → interpreter → AnalysisResponse.
@@ -275,4 +275,5 @@ async def analyze_text(raw_text: str) -> AnalysisResponse:
 
     parse_result = parse_turns(raw_text)
     return await _run_pipeline(parse_result)
+
 

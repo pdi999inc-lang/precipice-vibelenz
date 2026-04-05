@@ -50,7 +50,7 @@ async def analyze_from_image(file: UploadFile = File(...)):
 
 
 @router.post("/analyze/text")
-async def analyze_from_text(conversation: str = Form(...)):
+async def analyze_from_text(conversation: str = Form(...), requested_mode: str = Form("risk")):
     """
     Accept raw conversation text (pre-parsed or plain turns).
     Runs turn parser → behavior + relationship_dynamics → combined → interpreter → AnalysisResponse.
@@ -60,7 +60,7 @@ async def analyze_from_text(conversation: str = Form(...)):
 
     try:
         logger.info("analyze_from_text: %d chars received", len(conversation))
-        result = await analyze_text(conversation.strip())
+        result = await analyze_text(conversation.strip(), requested_mode=requested_mode)
         return result
 
     except HTTPException:
@@ -69,4 +69,5 @@ async def analyze_from_text(conversation: str = Form(...)):
     except Exception as e:
         logger.error("analyze_from_text unhandled: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
 
