@@ -1,121 +1,85 @@
 """
-schemas.py — VibeLenz canonical Pydantic models.
+schemas.py - VibeLenz canonical JSON schema definitions.
 
-Contract: do not change field names without backward-compat analysis.
+These are the contract. Do not change field names without backward-compat analysis.
 
 AnalysisResponse structure:
-    - status         : "ok" | "error"
-    - error          : None or error message string
-    - turns          : list of parsed Turn objects
-    - behavior       : output of behavior.py (safety/deterministic layer)
-    - dynamics       : output of relationship_dynamics.py (connection layer)
-    - verifier_score : float 0.0–1.0 (FLAML stub returns 0.5 until trained)
+    - Safety layer: risk_score, flags, confidence, degraded
+    - Relationship layer: relationship (RelationshipInsight)
+    - Shared: request_id, timestamp, summary, recommended_action, extracted_text
 """
 
-from __future__ import annotations
-
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
-# ---------------------------------------------------------------------------
-# Turn — atomic unit of conversation
-# ---------------------------------------------------------------------------
-
-class Turn(BaseModel):
-    speaker: str = Field(..., description="Speaker label extracted from input text.")
-    message: str = Field(..., description="Message content for this turn.")
-
-
-# ---------------------------------------------------------------------------
-# BehaviorResult — output contract for behavior.py
-# ---------------------------------------------------------------------------
-
-class BehaviorResult(BaseModel):
+class RelationshipInsight(BaseModel):
     """
-    Safety/deterministic layer output.
-    Produced by behavior.py. Fields mirror BehaviorProfile.to_feature_vector().
+    Consumer-facing relationship intelligence output.
+    Primary output layer for dating conversation analysis.
+    Produced by relationship_dynamics.py.
     """
-    risk_score: float = Field(..., ge=0.0, le=1.0, description="Overall pressure/risk score.")
-    flags: List[str] = Field(default_factory=list, description="Active behavioral flags.")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence in risk assessment.")
-    degraded: bool = Field(False, description="True if analysis ran in degraded/fail-closed mode.")
-    pressure_score: float = Field(0.0, ge=0.0, le=1.0)
-    isolation_score: float = Field(0.0, ge=0.0, le=1.0)
-    urgency_score: float = Field(0.0, ge=0.0, le=1.0)
-    asymmetry_score: float = Field(0.0, ge=0.0, le=1.0)
-    deterministic_flag: bool = Field(False, description="Hard gate: fired before FLAML.")
-
-
-# ---------------------------------------------------------------------------
-# DynamicsResult — output contract for relationship_dynamics.py
-# ---------------------------------------------------------------------------
-
-class DynamicsResult(BaseModel):
-    """
-    Connection/relationship layer output.
-    Produced by relationship_dynamics.py. Primary consumer-facing signal.
-    """
+    # Core dynamics
     momentum_direction: str = Field(
-        "unclear",
-        description="'building' | 'maintaining' | 'fading' | 'unclear'"
+        ...,
+        description="Conversation trajectory: 'building' | 'maintaining' | 'fading' | 'unclear'"
     )
     energy_balance: str = Field(
-        "unclear",
-        description="'balanced' | 'user_leading' | 'other_leading' | 'mismatched'"
+        ...,
+        description="Effort distribution: 'balanced' | 'user_leading' | 'other_leading' | 'mismatched'"
     )
     intimacy_progression: str = Field(
-        "unclear",
-        description="'healthy' | 'rushing' | 'stalled' | 'unclear'"
+        ...,
+        description="Emotional pace: 'healthy' | 'rushing' | 'stalled' | 'unclear'"
     )
     relationship_stage: str = Field(
-        "initial_contact",
-        description="'initial_contact' | 'building_rapport' | 'exploring_compatibility' | 'deepening' | 'moving_too_fast'"
+        ...,
+        description="Development stage: 'initial_contact' | 'building_rapport' | 'exploring_compatibility' | 'deepening' | 'moving_too_fast'"
     )
-    momentum_score: float = Field(0.0, ge=0.0, le=1.0)
-    compatibility_score: float = Field(0.0, ge=0.0, le=1.0)
-    sustainability_score: float = Field(0.0, ge=0.0, le=1.0)
-    story_arc: str = Field("", description="Plain-language summary of conversation trajectory.")
-    next_natural_step: str = Field("", description="What logically happens next.")
-    growth_indicators: List[str] = Field(default_factory=list)
-    potential_blockers: List[str] = Field(default_factory=list)
-    connection_highlights: List[str] = Field(default_factory=list)
-    tension_points: List[str] = Field(default_factory=list)
-    insufficient_data: bool = Field(False, description="True if fewer than 3 turns — dynamics not computed.")
 
+    # Scores (0.0–1.0)
+    momentum_score: float = Field(..., ge=0.0, le=1.0, description="Forward energy score")
+    compatibility_score: float = Field(..., ge=0.0, le=1.0, description="How well they're clicking")
+    sustainability_score: float = Field(..., ge=0.0, le=1.0, description="Long-term potential score")
 
-# ---------------------------------------------------------------------------
-# AnalysisResponse — top-level API response contract
-# ---------------------------------------------------------------------------
+    # Narrative output (consumer-facing language)
+    story_arc: str = Field(..., description="Plain-language summary of what's happening between these people")
+    next_natural_step: str = Field(..., description="What would logically happen next")
 
-# ---------------------------------------------------------------------------
-# RelationshipInsight — alias of DynamicsResult
-# ---------------------------------------------------------------------------
-# relationship_dynamics.py and vie_benchmark.py both import RelationshipInsight.
-# DynamicsResult is the canonical schema name; RelationshipInsight is an alias
-# preserved for backward compatibility and module-level legibility.
-# They are the same model — changing field names on either requires backward-
-# compat analysis per the contract note at the top of this file.
+    # Lists
+    growth_indicators: List[str] = Field(default_factory=list, description="Signals this could develop positively")
+    potential_blockers: List[str] = Field(default_factory=list, description="What could derail this connection")
+    connection_highlights: List[str] = Field(default_factory=list, description="Moments of genuine connection")
+    tension_points: List[str] = Field(default_factory=list, description="Areas of friction or uncertainty")
 
-RelationshipInsight = DynamicsResult
-
-
-# ---------------------------------------------------------------------------
-# AnalysisResponse — top-level API response contract
-# ---------------------------------------------------------------------------
 
 class AnalysisResponse(BaseModel):
     """
-    Top-level response returned by all /v1/analyze/* endpoints.
+    Top-level API response contract.
+    Do not change field names without backward-compat analysis.
     """
-    status: str = Field(..., description="'ok' | 'error'")
-    error: Optional[str] = Field(None, description="Error message if status='error', else None.")
-    turns: List[Turn] = Field(default_factory=list, description="Parsed conversation turns.")
-    behavior: Optional[BehaviorResult] = Field(None, description="Safety layer output.")
-    dynamics: Optional[DynamicsResult] = Field(None, description="Relationship layer output.")
-    verifier_score: Optional[float] = Field(
-        None,
-        ge=0.0,
-        le=1.0,
-        description="FLAML verifier confidence. Stub returns 0.5 until trained."
+    # Audit / identity
+    request_id: str = Field(..., description="Unique request identifier for audit trail")
+    timestamp: str = Field(..., description="ISO 8601 UTC timestamp of analysis")
+
+    # Safety layer (behavior.py → FLAML verifier)
+    risk_score: int = Field(..., ge=0, le=100, description="Composite risk score 0–100")
+    flags: List[str] = Field(..., description="Human-readable signal labels detected")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Analyzer confidence 0.0–1.0")
+    degraded: bool = Field(default=False, description="True if system is operating in degraded mode")
+
+    # Shared output
+    summary: str = Field(..., description="Plain-language risk summary")
+    recommended_action: str = Field(..., description="Recommended action for the user")
+    extracted_text: str = Field(..., description="Raw OCR output from uploaded images")
+
+    # Relationship layer (relationship_dynamics.py) — Optional: absent if insufficient turns
+    relationship: Optional[RelationshipInsight] = Field(
+        default=None,
+        description="Relationship intelligence output. None if fewer than 3 turns detected."
     )
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    detail: str

@@ -22,8 +22,6 @@ from app.behavior import analyze_behavior             # safety/deterministic lay
 from app.relationship_dynamics import analyze_dynamics  # connection layer
 from app.analyzer_combined import run_combined        # det + LLM unified analyzer
 from app.interpreter import interpret_analysis        # final interpretation pass
-from app.connection_lexicon import score_connection, merge_into_result
-from app.connection_humanizer import humanize_connection_result
 
 logger = logging.getLogger("vibelenz.api")
 
@@ -253,10 +251,10 @@ async def analyze_image(image_path: str) -> AnalysisResponse:
         )
 
     parse_result = parse_turns(raw_text)
-    return await _run_pipeline(parse_result, requested_mode=requested_mode)
+    return await _run_pipeline(parse_result)
 
 
-async def analyze_text(raw_text: str, requested_mode: str = "risk") -> dict:
+async def analyze_text(raw_text: str) -> AnalysisResponse:
     """
     Full pipeline starting from raw conversation text.
     Turn parser → behavior + dynamics → combined → interpreter → AnalysisResponse.
@@ -276,7 +274,4 @@ async def analyze_text(raw_text: str, requested_mode: str = "risk") -> dict:
         )
 
     parse_result = parse_turns(raw_text)
-    return await _run_pipeline(parse_result, requested_mode=requested_mode)
-
-
-
+    return await _run_pipeline(parse_result)

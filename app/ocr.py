@@ -1,26 +1,25 @@
-""" ocr.py - VibeLenz image text extraction with preprocessing.
-
-Architecture: New (Option A)
-  Public interface: extract_text_from_image(image_path: str) -> str
-  Called by api.py with a temp file path written by routes.py.
+"""
+ocr.py - VibeLenz image text extraction with preprocessing.
 
 Strategy:
 1. Preprocess image for optimal OCR (handles dark UIs, chat bubbles, varied contrast)
 2. Primary: pytesseract with tuned config
-3. Fail-closed: any OCR exception is re-raised to caller (api.py handles with structured error)
+3. Fail-closed: any OCR exception is re-raised to caller (main.py handles with 503)
 
 Preprocessing pipeline:
 - Upscale small images (Tesseract performs best at 300+ DPI equivalent)
 - Convert to grayscale
 - Auto-detect dark UI and invert
 - Enhance contrast
-- Sharpen
+- Threshold to clean binary image
 - Run OCR with tuned config
 """
 
+import io
 import logging
 import os
 import statistics
+from typing import List
 
 logger = logging.getLogger("vibelenz.ocr")
 
@@ -35,36 +34,39 @@ try:
     logger.info("pytesseract loaded successfully")
 except ImportError:
     TESSERACT_AVAILABLE = False
-    logger.warning("pytesseract not available — OCR will return empty string")
+    logger.warning("pytesseract not available — OCR will return empty results")
+
 
 # Minimum dimension before upscaling
 MIN_DIMENSION = 1000
 # Upscale factor applied when image is small
 UPSCALE_FACTOR = 2.0
-# Darkness threshold: mean pixel value below this = dark UI
+# Darkness threshold: if mean pixel value below this, treat as dark UI
 DARK_UI_THRESHOLD = 100
 
 
-def extract_text_from_image(image_path: str) -> str:
+def extract_text_from_images(image_bytes_list: List[bytes]) -> str:
     """
-    Accept a file path to a single image. Return extracted text string.
-
-    This is the public interface called by api.py.
-    Raises on unrecoverable error — api.py wraps this in try/except and
-    returns a structured AnalysisResponse(status='error') to the caller.
+    Accept list of raw image bytes. Return combined extracted text string.
+    Raises on unrecoverable error (caller must handle).
     """
-    if not TESSERACT_AVAILABLE:
-        logger.warning("Tesseract unavailable — returning empty string")
+    if not image_bytes_list:
         return ""
 
-    image = Image.open(image_path)
-    processed = _preprocess(image)
+    extracted_parts: List[str] = []
 
-    config = "--psm 6 --oem 3"
-    text = pytesseract.image_to_string(processed, config=config)
+    for idx, image_bytes in enumerate(image_bytes_list):
+        try:
+            text = _extract_single(image_bytes, idx)
+            if text:
+                extracted_parts.append(text.strip())
+        except Exception as e:
+            logger.error(f"OCR failed on image {idx}: {e}")
+            raise RuntimeError(f"OCR failure on image {idx}: {e}") from e
 
-    logger.info("extract_text_from_image: %d chars extracted from %s", len(text), image_path)
-    return text
+    combined = "\n\n".join(extracted_parts)
+    logger.info(f"OCR complete: {len(combined)} chars extracted from {len(image_bytes_list)} image(s)")
+    return combined
 
 
 def _preprocess(image: "Image.Image") -> "Image.Image":
@@ -78,13 +80,13 @@ def _preprocess(image: "Image.Image") -> "Image.Image":
     if min(w, h) < MIN_DIMENSION:
         scale = UPSCALE_FACTOR
         image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-        logger.debug("Upscaled image from %dx%d to %s", w, h, image.size)
+        logger.debug(f"Upscaled image from {w}x{h} to {image.size}")
 
     gray = image.convert("L")
 
     pixels = list(gray.getdata())
     mean_brightness = statistics.mean(pixels)
-    logger.debug("Mean brightness: %.1f", mean_brightness)
+    logger.debug(f"Mean brightness: {mean_brightness:.1f}")
 
     if mean_brightness < DARK_UI_THRESHOLD:
         gray = ImageOps.invert(gray)
@@ -96,3 +98,18 @@ def _preprocess(image: "Image.Image") -> "Image.Image":
     gray = gray.filter(ImageFilter.SHARPEN)
 
     return gray
+
+
+def _extract_single(image_bytes: bytes, idx: int) -> str:
+    """Extract text from a single image's bytes with preprocessing."""
+    if not TESSERACT_AVAILABLE:
+        logger.warning(f"Image {idx}: tesseract unavailable, returning empty")
+        return ""
+
+    image = Image.open(io.BytesIO(image_bytes))
+    processed = _preprocess(image)
+
+    config = "--psm 6 --oem 3"
+    text = pytesseract.image_to_string(processed, config=config)
+    logger.info(f"Image {idx}: extracted {len(text)} chars")
+    return text

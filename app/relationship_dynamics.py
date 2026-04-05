@@ -495,4 +495,3 @@ def analyze_dynamics(turns: List[Dict]) -> Dict[str, Any]:
         }
 
     return insight.model_dump()
-
