@@ -12,7 +12,7 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.analyzer import analyze_text, analyze_turns
+from app.analyzer import analyze_text
 from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
 
@@ -169,11 +169,7 @@ async def analyze_screenshots(
         )
         narrative = interpret_analysis(analysis, requested_mode=requested_mode)
 
-        # Multi-turn analysis — only runs if more than one image uploaded
-        turn_analysis = analyze_turns(
-            text_chunks=[t for t in text_chunks if t.strip()],
-            relationship_type=relationship_type,
-        )
+        turn_analysis = {"turn_count": 0, "arc": "n/a", "turns": []}
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
