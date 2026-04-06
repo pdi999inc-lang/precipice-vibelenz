@@ -12,7 +12,7 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.analyzer import analyze_text
+from app.analyzer_combined import analyze_text
 from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
 
@@ -167,7 +167,7 @@ async def analyze_screenshots(
             relationship_type=relationship_type,
             context_note=context_note,
         )
-        narrative = interpret_analysis(analysis, requested_mode=requested_mode)
+        narrative = interpret_analysis(analysis, extracted_text=extracted_text, requested_mode=requested_mode, use_llm=False)
 
         turn_analysis = {"turn_count": 0, "arc": "n/a", "turns": []}
     except Exception as e:
