@@ -1842,3 +1842,30 @@ def analyze_turns(
         "scores": scores,
         "skipped_chunks": skipped,
     }
+
+def run_combined(
+    turns,
+    behavior_result=None,
+    dynamics_result=None,
+    use_llm: bool = False,
+) -> dict:
+    """
+    Public alias called by api.py pipeline.
+    Converts turn list to text and runs analyze_text.
+    """
+    if hasattr(turns, "__iter__") and not isinstance(turns, str):
+        lines = []
+        for t in turns:
+            if hasattr(t, "speaker") and hasattr(t, "message"):
+                lines.append(f"{t.speaker}: {t.message}")
+            elif isinstance(t, dict):
+                speaker = t.get("speaker", "unknown")
+                message = t.get("message", t.get("text", ""))
+                lines.append(f"{speaker}: {message}")
+            else:
+                lines.append(str(t))
+        text = "\n".join(lines)
+    else:
+        text = str(turns or "")
+
+    return analyze_text(text, use_llm=use_llm)
