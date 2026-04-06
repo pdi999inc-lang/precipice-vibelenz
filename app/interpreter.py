@@ -25,6 +25,13 @@ def _human_label(primary_label: str, lane: str, domain_mode: str) -> str:
         "routine_host_message": "routine logistics",
         "transactional_extraction_pattern": "transactional risk pattern",
         "pressure_with_boundary_violation": "pressure pattern",
+        "high_intent_mutual": "mutual high intent",
+        "fear_driven_urgency": "fear-driven urgency",
+        "mixed_intent_genuine": "genuine mixed signals",
+        "fast_escalation_noncoercive": "fast escalation",
+        "relationship_context": "established relationship",
+        "routine_message": "low-stakes interaction",
+        "mixed_intent": "mixed intent",
     }
     return mapping.get(primary_label, primary_label.replace("_", " "))
 
@@ -63,6 +70,9 @@ def _interest_summary(result: Dict[str, Any]) -> str:
         "warm_receptivity": "positive openness",
         "confusion_then_repair": "improving energy",
         "casual_flirtation": "light interest",
+        "high_intent_mutual": "strong mutual interest",
+        "fear_driven_urgency": "high but pressured",
+        "mixed_intent_genuine": "moderate, still developing",
     }
     return mapping.get(primary_label, "context dependent")
 

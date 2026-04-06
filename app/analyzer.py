@@ -594,10 +594,31 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
     narrative_integrity_score = max(0, 100 - (len(contradiction_signals) * 18))
     confidence = _confidence_score(lane_info["lane"], extracted["signals"], dampeners)
 
-    if domain["domain_mode"] != "dating_social" or lane_info["lane"] in {"FRAUD", "COERCION_RISK"}:
+    primary_label = lane_info["primary_label"]
+    if lane_info["lane"] in {"FRAUD", "COERCION_RISK"}:
         analysis_mode = "safety_only"
         interest_score = None
         interest_label = "Not Applicable"
+    elif primary_label == "high_intent_mutual":
+        analysis_mode = "social_interest"
+        interest_score = 78
+        interest_label = "High"
+    elif primary_label == "fear_driven_urgency":
+        analysis_mode = "social_interest"
+        interest_score = 62
+        interest_label = "High - fear driven"
+    elif primary_label == "mixed_intent_genuine":
+        analysis_mode = "social_interest"
+        interest_score = 48
+        interest_label = "Moderate"
+    elif primary_label in {"playful_reengagement", "light_sexual_reciprocity", "warm_receptivity"}:
+        analysis_mode = "social_interest"
+        interest_score = 65
+        interest_label = "High"
+    elif primary_label in {"casual_flirtation", "confusion_then_repair"}:
+        analysis_mode = "social_interest"
+        interest_score = 45
+        interest_label = "Moderate"
     else:
         analysis_mode = "social_interest"
         interest_score = 55 if reciprocity_level == "HIGH" else 35
