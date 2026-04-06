@@ -190,6 +190,8 @@ async def analyze_screenshots(
         f"Degraded={payload.get('degraded', False)} "
         f"TookMs={int((time.time() - timestamp_start) * 1000)}"
     )
+    logger.info(f"[{request_id}] OCR_TEXT_SAMPLE: {extracted_text[:500]!r}")
+    logger.info(f"[{request_id}] PRIMARY_LABEL: {payload.get('primary_label')} INTEREST_SCORE: {payload.get('interest_score')}")
 
     accept = request.headers.get("accept", "")
     if "application/json" in accept or "text/html" not in accept:
