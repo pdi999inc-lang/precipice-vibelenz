@@ -1141,10 +1141,49 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
     elif playful_count >= 1:
         label = "casual_flirtation"
 
+    # High-intent / vision-building markers
+    high_intent_markers = [
+        "married", "marriage", "wedding", "honeymoon", "destination wedding",
+        "have a baby", "start a family", "settle down", "long term", "long-term",
+        "relationship", "future together", "serious", "commitment", "committed",
+        "sperm donor", "pregnant", "pregnancy", "baby this year"
+    ]
+    fear_urgency_markers = [
+        "alone next christmas", "alone by", "don't want to be alone",
+        "do not want to be alone", "this year", "before the year",
+        "sperm donor", "or at least", "if not we", "no reason to talk",
+        "there is no reason", "there's no reason"
+    ]
+    vision_markers = [
+        "yellowstone", "wyoming", "honeymoon", "destination wedding",
+        "where would we", "where should we", "what would you", "when we",
+        "we would", "we could", "i picture", "i imagine",
+        "i can see us", "i see us"
+    ]
+    high_intent_count = _count_any(t, high_intent_markers)
+    fear_urgency_count = _count_any(t, fear_urgency_markers)
+    vision_count = _count_any(t, vision_markers)
+
+    if high_intent_count >= 1:
+        signals.append("high_intent_present")
+    if fear_urgency_count >= 1:
+        signals.append("fear_driven_urgency")
+    if vision_count >= 2:
+        signals.append("vision_building_present")
+
+    if high_intent_count >= 2 and vision_count >= 1 and not label:
+        label = "high_intent_mutual"
+    elif fear_urgency_count >= 2 and high_intent_count >= 1 and not label:
+        label = "fear_driven_urgency"
+    elif high_intent_count >= 1 and not label:
+        label = "mixed_intent_genuine"
+
     return {
         "connection_signals": signals, "connection_label": label,
         "confusion_count": confusion_count, "repair_count": repair_count,
         "playful_count": playful_count, "warm_count": warm_count, "sexual_count": sexual_count,
+        "high_intent_count": high_intent_count, "fear_urgency_count": fear_urgency_count,
+        "vision_count": vision_count,
     }
 
 
@@ -1259,13 +1298,20 @@ def _assign_lane(
         return {"lane": "FRAUD", "primary_label": "transactional_extraction_pattern"}
     if pressure_present and boundary_violations:
         return {"lane": "COERCION_RISK", "primary_label": "pressure_with_boundary_violation"}
+    connection_labels = {
+        "high_intent_mutual", "fear_driven_urgency", "mixed_intent_genuine",
+        "playful_reengagement", "confusion_then_repair", "light_sexual_reciprocity",
+        "warm_receptivity", "casual_flirtation"
+    }
     if domain_mode == "dating_social":
         if "sexual_directness" in key_signals and reciprocity_level == "HIGH" and not extraction_present and not pressure_present:
             return {"lane": "DATING_AMBIGUOUS", "primary_label": "fast_escalation_noncoercive"}
+        if connection_label and connection_label in connection_labels and not extraction_present and not pressure_present:
+            return {"lane": "BENIGN", "primary_label": connection_label}
         return {"lane": "DATING_AMBIGUOUS", "primary_label": "mixed_intent"}
     if relationship_type in {"dating", "family", "friend"} and not extraction_present and not pressure_present:
         return {"lane": "RELATIONSHIP_NORMAL", "primary_label": "relationship_context"}
-    if connection_label and not extraction_present and not pressure_present:
+    if connection_label and connection_label in connection_labels and not extraction_present and not pressure_present:
         return {"lane": "BENIGN", "primary_label": connection_label}
     return {"lane": "BENIGN", "primary_label": "routine_message"}
 
@@ -1388,8 +1434,19 @@ def _run_deterministic(text: str, relationship_type: str = "stranger") -> Dict[s
     narrative_integrity_score = max(0, 100 - (len(contradiction_signals) * 18))
     confidence = _confidence_score(lane_info["lane"], extracted["signals"], dampeners)
 
-    if domain["domain_mode"] != "dating_social" or lane_info["lane"] in {"FRAUD", "COERCION_RISK"}:
+    _primary = lane_info["primary_label"]
+    if lane_info["lane"] in {"FRAUD", "COERCION_RISK"}:
         analysis_mode, interest_score, interest_label = "safety_only", None, "Not Applicable"
+    elif _primary == "high_intent_mutual":
+        analysis_mode, interest_score, interest_label = "social_interest", 78, "High"
+    elif _primary == "fear_driven_urgency":
+        analysis_mode, interest_score, interest_label = "social_interest", 62, "High - fear driven"
+    elif _primary == "mixed_intent_genuine":
+        analysis_mode, interest_score, interest_label = "social_interest", 48, "Moderate"
+    elif _primary in {"playful_reengagement", "light_sexual_reciprocity", "warm_receptivity"}:
+        analysis_mode, interest_score, interest_label = "social_interest", 65, "High"
+    elif _primary in {"casual_flirtation", "confusion_then_repair"}:
+        analysis_mode, interest_score, interest_label = "social_interest", 45, "Moderate"
     else:
         analysis_mode = "social_interest"
         interest_score = 55 if reciprocity_level == "HIGH" else 35
@@ -1570,7 +1627,7 @@ def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_no
         "positive_signals": positive_signals,
         "labels": labels,
         "lane": "FRAUD" if risk_score >= 75 else ("COERCION_RISK" if risk_score >= 60 else "BENIGN"),
-        "primary_label": flags[0] if flags and flags[0] != "No signals detected" else "routine_message",
+        "primary_label": result.get("primary_label", "routine_message") if result.get("primary_label") else ("routine_message" if not flags or flags[0] == "No signals detected" else "routine_message"),
         "key_signals": flags,
         "key_dampeners": [],
         "domain_mode": "general_unknown",
