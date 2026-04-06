@@ -1164,12 +1164,16 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
     fear_urgency_count = _count_any(t, fear_urgency_markers)
     vision_count = _count_any(t, vision_markers)
 
+    # Positive signals only — no concern signals mixed in
     if high_intent_count >= 1:
         signals.append("high_intent_present")
-    if fear_urgency_count >= 1:
-        signals.append("fear_driven_urgency")
     if vision_count >= 2:
         signals.append("vision_building_present")
+
+    # Concern signals — tracked separately, not in positive_signals
+    concern_signals = []
+    if fear_urgency_count >= 1:
+        concern_signals.append("fear_driven_urgency")
 
     if high_intent_count >= 2 and vision_count >= 1 and not label:
         label = "high_intent_mutual"
@@ -1180,6 +1184,7 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
 
     return {
         "connection_signals": signals, "connection_label": label,
+        "concern_signals": concern_signals,
         "confusion_count": confusion_count, "repair_count": repair_count,
         "playful_count": playful_count, "warm_count": warm_count, "sexual_count": sexual_count,
         "high_intent_count": high_intent_count, "fear_urgency_count": fear_urgency_count,
@@ -1456,6 +1461,10 @@ def _run_deterministic(text: str, relationship_type: str = "stranger") -> Dict[s
     positive_signals = connection_data["connection_signals"][:]
     if reciprocity_level == "HIGH" and "reciprocal_engagement" not in positive_signals:
         positive_signals.append("reciprocal_engagement")
+    # Merge connection concern signals into key_signals so they appear in concern section
+    for cs in connection_data.get("concern_signals", []):
+        if cs not in flags:
+            flags.append(cs)
 
     evidence_data = _score_evidence(extracted["signals"])
 
@@ -1660,7 +1669,7 @@ def analyze_text(
     text: str,
     relationship_type: str = "stranger",
     context_note: str = "",
-    use_llm: bool = True,
+    use_llm: bool = False,
 ) -> Dict[str, Any]:
     """
     Analyze conversation text for fraud, coercion, and manipulation signals.
