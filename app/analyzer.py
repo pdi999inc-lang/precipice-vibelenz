@@ -404,9 +404,17 @@ def _assign_lane(
     if relationship_type in {"dating", "family", "friend"} and not extraction_present and not pressure_present:
         return {"lane": "RELATIONSHIP_NORMAL", "primary_label": "relationship_context"}
 
-    # Connection label detection — fires for general_unknown domain
-    if connection_label and not extraction_present and not pressure_present:
-        return {"lane": "BENIGN", "primary_label": connection_label}
+    # Connection label detection — fires for any non-fraud, non-coercion domain
+    # Includes general_unknown which is where most dating conversations land
+    # when they lack explicit dating_social vocabulary
+    if connection_label and not extraction_present:
+        connection_labels = {
+            "high_intent_mutual", "fear_driven_urgency", "mixed_intent_genuine",
+            "playful_reengagement", "confusion_then_repair", "light_sexual_reciprocity",
+            "warm_receptivity", "casual_flirtation"
+        }
+        if connection_label in connection_labels:
+            return {"lane": "BENIGN", "primary_label": connection_label}
 
     return {"lane": "BENIGN", "primary_label": "routine_message"}
 
