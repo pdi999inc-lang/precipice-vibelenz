@@ -1669,7 +1669,7 @@ def analyze_text(
     text: str,
     relationship_type: str = "stranger",
     context_note: str = "",
-    use_llm: bool = False,
+    use_llm: bool = True,
 ) -> Dict[str, Any]:
     """
     Analyze conversation text for fraud, coercion, and manipulation signals.
@@ -1847,7 +1847,7 @@ def run_combined(
     turns,
     behavior_result=None,
     dynamics_result=None,
-    use_llm: bool = False,
+    use_llm: bool = True,
 ) -> dict:
     """
     Public alias called by api.py pipeline.
