@@ -190,7 +190,7 @@ Respond with ONLY valid JSON, no markdown fences, no preamble:
   "active_combos": ["<combo description if triggered>"],
   "positive_signals": ["reciprocal_engagement", "no_financial_topics"],
   "confidence": <float 0.0-1.0>,
-  "summary": "<plain language risk summary including phase and pattern identification>",
+  "summary": "<3-5 sentences. Name the pattern directly. Explain what specific behaviors you observed, why they matter, and what they suggest about the other person's intent. Be specific to THIS conversation — reference actual things said. Do not hedge.">,
   "recommended_action": "<specific action — if LAW_ENFORCEMENT_REFERRAL, state this explicitly>",
   "degraded": false,
   "signal_breakdown": [
@@ -1596,7 +1596,7 @@ def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_no
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=1400,
+        max_tokens=2400,
         system=active_prompt,
         messages=[{"role": "user", "content": user_content}],
     )
@@ -1644,7 +1644,8 @@ def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_no
         "positive_signals": positive_signals,
         "labels": labels,
         "lane": "FRAUD" if risk_score >= 75 else ("COERCION_RISK" if risk_score >= 60 else "BENIGN"),
-        "primary_label": result.get("primary_label", "routine_message") if result.get("primary_label") else ("routine_message" if not flags or flags[0] == "No signals detected" else "routine_message"),
+        "primary_label": result.get("primary_label", "routine_message") if result.get("primary_label") else "routine_message",
+        "human_label": (result.get("primary_label") or "routine_message").replace("_", " ").lower(),
         "key_signals": flags,
         "key_dampeners": [],
         "domain_mode": "general_unknown",
@@ -1658,6 +1659,9 @@ def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_no
         "interest_label": "Not Applicable",
         "evidence_scoring": _score_evidence([]),
     }
+
+    # Wire signal_breakdown from LLM result
+    merged["signal_breakdown"] = result.get("signal_breakdown") or []
 
     merged = _apply_relationship_guardrails(merged, relationship_type=relationship_type)
     merged["research_patch"] = _build_research_patch(text, relationship_type)
