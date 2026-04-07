@@ -12,23 +12,13 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.analyzer_combined import analyze_text
-from app.db import init_db, log_analysis, log_feedback
-from app.db import init_db, log_analysis, log_feedback
+from app.analyzer import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
 
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
-
-@app.on_event("startup")
-async def startup():
-    init_db()
-
-@app.on_event("startup")
-async def startup():
-    init_db()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -73,16 +63,6 @@ def _build_response_payload(
         int(payload.get("final_risk_score", payload.get("risk_score", 0)))
     )
     payload["turn_analysis"] = turn_analysis
-
-    # Pass signal_breakdown through from analysis
-    if not payload.get("signal_breakdown"):
-        payload["signal_breakdown"] = analysis.get("signal_breakdown", [])
-
-    # Human label fallback for LLM path
-    if not payload.get("human_label"):
-        raw = payload.get("primary_label") or payload.get("lane") or "interaction"
-        payload["human_label"] = raw.replace("_", " ").lower()
-
     return payload
 
 
@@ -118,18 +98,6 @@ async def og_image():
     raise HTTPException(status_code=404, detail="og-image.svg not found")
 
 
-
-
-@app.post("/feedback")
-async def feedback(request: Request):
-    form = await request.form()
-    request_id = str(form.get("request_id", ""))
-    accurate = form.get("accurate", "") == "yes"
-    note = str(form.get("note", ""))
-    if request_id:
-        log_feedback(request_id, accurate, note)
-    return HTMLResponse("<script>history.back()</script>")
-
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -147,7 +115,6 @@ async def analyze_screenshots(
     relationship_type: str = "stranger",
     context_note: str = "",
     requested_mode: str = "risk",
-    user_side: str = "unknown",
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
@@ -194,24 +161,19 @@ async def analyze_screenshots(
     if not extracted_text.strip():
         extracted_text = "[No readable text detected in uploaded images]"
 
-    # Build speaker context
-    speaker_map = {
-        "right": "The user is the person on the RIGHT side of the conversation (purple/dark bubbles). The other person is on the LEFT (white/gray bubbles).",
-        "left": "The user is the person on the LEFT side of the conversation (white/gray bubbles). The other person is on the RIGHT (purple/dark bubbles).",
-        "unknown": "Speaker side is unknown. Do not assume which side belongs to the user.",
-    }
-    speaker_context = speaker_map.get(user_side, speaker_map["unknown"])
-    enriched_context = f"{speaker_context} {context_note}".strip()
-
     try:
         analysis = analyze_text(
             extracted_text,
             relationship_type=relationship_type,
-            context_note=enriched_context,
+            context_note=context_note,
         )
-        narrative = interpret_analysis(analysis, extracted_text=extracted_text, requested_mode=requested_mode, use_llm=True)
+        narrative = interpret_analysis(analysis, requested_mode=requested_mode)
 
-        turn_analysis = {"turn_count": 0, "arc": "n/a", "turns": []}
+        # Multi-turn analysis — only runs if more than one image uploaded
+        turn_analysis = analyze_turns(
+            text_chunks=[t for t in text_chunks if t.strip()],
+            relationship_type=relationship_type,
+        )
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
@@ -225,10 +187,6 @@ async def analyze_screenshots(
         turn_analysis=turn_analysis,
     )
 
-    log_analysis(payload, conversation_text=extracted_text)
-
-    log_analysis(payload, conversation_text=extracted_text)
-
     logger.info(
         f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "
         f"Mode={requested_mode} Turns={turn_analysis.get('turn_count', 0)} "
@@ -236,8 +194,6 @@ async def analyze_screenshots(
         f"Degraded={payload.get('degraded', False)} "
         f"TookMs={int((time.time() - timestamp_start) * 1000)}"
     )
-    logger.info(f"[{request_id}] OCR_TEXT_SAMPLE: {extracted_text[:500]!r}")
-    logger.info(f"[{request_id}] PRIMARY_LABEL: {payload.get('primary_label')} INTEREST_SCORE: {payload.get('interest_score')}")
 
     accept = request.headers.get("accept", "")
     if "application/json" in accept or "text/html" not in accept:
