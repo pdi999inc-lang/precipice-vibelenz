@@ -250,7 +250,7 @@ PHASE DETECTION:
 SCORING: 0-29 healthy, 30-59 concerning, 60-79 significant manipulation, 80-100 severe
 
 Respond with ONLY valid JSON, no markdown:
-{"risk_score": <0-100>, "phase": "<TENSION_BUILDING|INCIDENT|RECONCILIATION|CALM|NONE>", "vie_action": "<WARN|MONITOR|SOFT_FLAG|NONE>", "flags": ["signal labels"], "evidence": {"signal_id": "exact quote"}, "active_combos": ["combo descriptions"], "confidence": <0.0-1.0>, "summary": "<dynamic summary>", "recommended_action": "<practical guidance>", "degraded": false}
+{"risk_score": <0-100>, "phase": "<TENSION_BUILDING|INCIDENT|RECONCILIATION|CALM|NONE>", "vie_action": "<WARN|MONITOR|SOFT_FLAG|NONE>", "flags": ["signal labels"], "evidence": {"signal_id": "exact quote"}, "active_combos": ["combo descriptions"], "confidence": <0.0-1.0>, "summary": "<4-6 sentences. Reference specific things actually said in this conversation. Name the behavioral pattern you observe. Explain what each person's communication style reveals about their intent and interest level. Be direct and specific — not generic. Do not summarize, interpret.">, "recommended_action": "<practical guidance>", "degraded": false}
 
 If no concerning patterns: risk_score 0, phase CALM, flags ["No concerning patterns detected"]."""
 
