@@ -12,7 +12,7 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.analyzer import analyze_text, analyze_turns
+from app.analyzer_combined import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
 
