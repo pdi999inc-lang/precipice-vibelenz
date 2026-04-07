@@ -177,7 +177,7 @@ async def analyze_screenshots(
             relationship_type=relationship_type,
             context_note=context_note,
         )
-        narrative = interpret_analysis(analysis, extracted_text=extracted_text, requested_mode=requested_mode, use_llm=False)
+        narrative = interpret_analysis(analysis, extracted_text=extracted_text, requested_mode=requested_mode, use_llm=True)
 
         turn_analysis = {"turn_count": 0, "arc": "n/a", "turns": []}
     except Exception as e:
