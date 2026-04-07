@@ -125,6 +125,7 @@ async def analyze_screenshots(
     relationship_type: str = "stranger",
     context_note: str = "",
     requested_mode: str = "risk",
+    user_side: str = "unknown",
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
@@ -171,11 +172,20 @@ async def analyze_screenshots(
     if not extracted_text.strip():
         extracted_text = "[No readable text detected in uploaded images]"
 
+    # Build speaker context
+    speaker_map = {
+        "right": "The user is the person on the RIGHT side of the conversation (purple/dark bubbles). The other person is on the LEFT (white/gray bubbles).",
+        "left": "The user is the person on the LEFT side of the conversation (white/gray bubbles). The other person is on the RIGHT (purple/dark bubbles).",
+        "unknown": "Speaker side is unknown. Do not assume which side belongs to the user.",
+    }
+    speaker_context = speaker_map.get(user_side, speaker_map["unknown"])
+    enriched_context = f"{speaker_context} {context_note}".strip()
+
     try:
         analysis = analyze_text(
             extracted_text,
             relationship_type=relationship_type,
-            context_note=context_note,
+            context_note=enriched_context,
         )
         narrative = interpret_analysis(analysis, extracted_text=extracted_text, requested_mode=requested_mode, use_llm=True)
 

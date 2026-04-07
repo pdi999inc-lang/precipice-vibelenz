@@ -159,6 +159,16 @@
         </div>
 
         <div class="field">
+          <label for="user_side">Which side of the conversation are you?</label>
+          <select id="user_side" name="user_side">
+            <option value="unknown" selected>Not sure / Mixed screenshots</option>
+            <option value="right">Right side (purple / dark bubbles)</option>
+            <option value="left">Left side (white / gray bubbles)</option>
+          </select>
+          <div class="help">This helps us read the conversation from your perspective, not theirs.</div>
+        </div>
+
+        <div class="field">
           <label for="context_note">Optional note</label>
           <textarea id="context_note" name="context_note" placeholder="Example: We used to talk a while ago. Or: I think this listing may be fake."></textarea>
         </div>
