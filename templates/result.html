@@ -899,6 +899,25 @@
     </div>
     {% endif %}
 
+    {% if signal_breakdown and signal_breakdown|length > 0 %}
+    <div class="evidence-section">
+      <div class="evidence-eyebrow">Signal breakdown</div>
+      <div style="margin-top: 16px;" class="signal-cards">
+        {% for sig in signal_breakdown %}
+        <div class="signal-card tier-HIGH">
+          <div class="signal-tier-badge HIGH">SIGNAL</div>
+          <div>
+            <div class="signal-content-label">{{ sig.signal | replace("_", " ") | title }}</div>
+            <div class="signal-content-explanation" style="margin-bottom: 8px;">{{ sig.what_it_means }}</div>
+            <div style="font-size: 13px; color: #f2b24d; margin-bottom: 4px;"><strong>What triggered it:</strong> {{ sig.what_triggered_it }}</div>
+            <div style="font-size: 13px; color: #a8c8ff;">{{ sig.why_it_matters_here }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <div class="section">
       <h3>What lowers concern</h3>
       <div class="chips">

@@ -192,7 +192,15 @@ Respond with ONLY valid JSON, no markdown fences, no preamble:
   "confidence": <float 0.0-1.0>,
   "summary": "<plain language risk summary including phase and pattern identification>",
   "recommended_action": "<specific action — if LAW_ENFORCEMENT_REFERRAL, state this explicitly>",
-  "degraded": false
+  "degraded": false,
+  "signal_breakdown": [
+    {
+      "signal": "<signal name>",
+      "what_it_means": "<plain English: what this signal is and why it matters>",
+      "what_triggered_it": "<specific behavior or language from this conversation that triggered it>",
+      "why_it_matters_here": "<1 sentence connecting this signal to the user's specific situation>"
+    }
+  ]
 }
 
 If no risk signals detected return risk_score 0, phase NONE, vie_action NONE, flags ["No signals detected"], evidence {}. However always populate positive_signals with any trust indicators you observed even when risk is 0. A score of 0 with positive signals is the ideal result for a healthy conversation."""

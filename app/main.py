@@ -63,6 +63,16 @@ def _build_response_payload(
         int(payload.get("final_risk_score", payload.get("risk_score", 0)))
     )
     payload["turn_analysis"] = turn_analysis
+
+    # Pass signal_breakdown through from analysis
+    if not payload.get("signal_breakdown"):
+        payload["signal_breakdown"] = analysis.get("signal_breakdown", [])
+
+    # Human label fallback for LLM path
+    if not payload.get("human_label"):
+        raw = payload.get("primary_label") or payload.get("lane") or "interaction"
+        payload["human_label"] = raw.replace("_", " ").lower()
+
     return payload
 
 
