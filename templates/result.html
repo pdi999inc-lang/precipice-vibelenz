@@ -978,6 +978,18 @@
       <pre>{{ extracted_text }}</pre>
     </details>
 
+    <div style="margin: 24px 0; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: 1px solid #243b67; border-radius: 20px; padding: 22px 24px;">
+      <div style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; color: #4a6a96; margin-bottom: 12px;">Was this read accurate?</div>
+      <form method="post" action="/feedback" style="display:flex; flex-direction:column; gap:12px;">
+        <input type="hidden" name="request_id" value="{{ request_id }}">
+        <div style="display:flex; gap:12px;">
+          <button type="submit" name="accurate" value="yes" style="flex:1; padding:14px; border-radius:14px; border:1px solid rgba(61,220,151,0.35); background:rgba(61,220,151,0.08); color:#3ddc97; font-size:15px; font-weight:800; cursor:pointer;">👍 Yes, accurate</button>
+          <button type="submit" name="accurate" value="no" style="flex:1; padding:14px; border-radius:14px; border:1px solid rgba(255,113,113,0.35); background:rgba(255,113,113,0.08); color:#ff7171; font-size:15px; font-weight:800; cursor:pointer;">👎 No, off target</button>
+        </div>
+        <input type="text" name="note" placeholder="Optional: what did we get wrong?" style="width:100%; border:1px solid #243b67; border-radius:12px; padding:12px; background:#0a1530; color:#f5f8ff; font-size:14px;">
+      </form>
+    </div>
+
     <a class="footer-link" href="/">← Analyze another conversation</a>
   </div>
 <script>gtag("event","analysis_complete",{"event_category":"analysis","event_label":"{{ presentation_mode }}","value":{{ final_risk_score if final_risk_score is not none else risk_score }}});</script></body>

@@ -13,12 +13,22 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from app.analyzer_combined import analyze_text
+from app.db import init_db, log_analysis, log_feedback
+from app.db import init_db, log_analysis, log_feedback
 from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
 
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
+
+@app.on_event("startup")
+async def startup():
+    init_db()
+
+@app.on_event("startup")
+async def startup():
+    init_db()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -107,6 +117,18 @@ async def og_image():
         return FileResponse(str(target), media_type="image/svg+xml")
     raise HTTPException(status_code=404, detail="og-image.svg not found")
 
+
+
+
+@app.post("/feedback")
+async def feedback(request: Request):
+    form = await request.form()
+    request_id = str(form.get("request_id", ""))
+    accurate = form.get("accurate", "") == "yes"
+    note = str(form.get("note", ""))
+    if request_id:
+        log_feedback(request_id, accurate, note)
+    return HTMLResponse("<script>history.back()</script>")
 
 @app.get("/health")
 async def health():
@@ -202,6 +224,10 @@ async def analyze_screenshots(
         narrative=narrative,
         turn_analysis=turn_analysis,
     )
+
+    log_analysis(payload, conversation_text=extracted_text)
+
+    log_analysis(payload, conversation_text=extracted_text)
 
     logger.info(
         f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "
