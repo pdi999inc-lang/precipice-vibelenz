@@ -787,11 +787,11 @@
       <div class="meta-grid">
         <div class="mini-card">
           <div class="mini-label">Human read</div>
-          <div class="mini-value">{{ human_label or "risk pattern" }}</div>
+          <div class="mini-value">{{ human_label or primary_label or "risk pattern" }}</div>
         </div>
         <div class="mini-card">
           <div class="mini-label">Domain</div>
-          <div class="mini-value">{{ domain_mode or "Unknown" }}</div>
+          <div class="mini-value">{{ "Dating / Social" if domain_mode == "general_unknown" and analysis_mode == "llm_powered" else domain_mode or "Unknown" }}</div>
         </div>
         <div class="mini-card">
           <div class="mini-label">Confidence</div>
@@ -864,7 +864,7 @@
         </div>
       </div>
 
-      {% if evidence.enriched_signals and evidence.enriched_signals|length > 0 %}
+      {% if evidence.enriched_signals and evidence.enriched_signals|length > 0 and evidence.enriched_signals[0].label != "No risk signals detected" %}
       <div class="evidence-cumulative">
         <div class="evidence-cumulative-label">Cumulative evidence weight — {{ (evidence.cumulative_evidence_score * 100)|round|int }}%</div>
         <div class="evidence-bar-track">
