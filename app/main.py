@@ -105,7 +105,10 @@ async def feedback(request: Request):
     accurate = form.get("accurate", "") == "yes"
     note = str(form.get("note", ""))
     if request_id:
-        log_feedback(request_id, accurate, note)
+        try:
+            log_feedback(request_id, accurate, note)
+        except Exception:
+            pass
     return HTMLResponse("<script>history.back()</script>")
 
 @app.get("/health")
