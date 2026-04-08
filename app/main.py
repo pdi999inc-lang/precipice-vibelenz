@@ -98,6 +98,16 @@ async def og_image():
     raise HTTPException(status_code=404, detail="og-image.svg not found")
 
 
+@app.post("/feedback")
+async def feedback(request: Request):
+    form = await request.form()
+    request_id = str(form.get("request_id", ""))
+    accurate = form.get("accurate", "") == "yes"
+    note = str(form.get("note", ""))
+    if request_id:
+        log_feedback(request_id, accurate, note)
+    return HTMLResponse("<script>history.back()</script>")
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
