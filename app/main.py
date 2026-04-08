@@ -167,7 +167,7 @@ async def analyze_screenshots(
             relationship_type=relationship_type,
             context_note=context_note,
         )
-        narrative = interpret_analysis(analysis, requested_mode=requested_mode)
+        narrative = interpret_analysis(analysis, extracted_text=extracted_text, requested_mode=requested_mode, use_llm=True)
 
         # Multi-turn analysis — only runs if more than one image uploaded
         turn_analysis = analyze_turns(
