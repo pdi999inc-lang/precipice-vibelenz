@@ -957,7 +957,7 @@
       <summary>Show machine detail</summary>
       <div class="machine">
         <div class="machine-card"><div class="k">Lane</div><div class="v">{{ lane or "Unknown" }}</div></div>
-        <div class="machine-card"><div class="k">Primary label</div><div class="v">{{ primary_label or "Unknown" }}</div></div>
+        <div class="machine-card"><div class="k">Primary label</div><div class="v">{{ primary_label or "Unknown" }}</div></div><div class="machine-card"><div class="k">LLM Enriched</div><div class="v">{{ llm_enriched }}</div></div><div class="machine-card"><div class="k">LLM Error</div><div class="v">{{ llm_error or "none" }}</div></div>
         <div class="machine-card"><div class="k">Intent horizon</div><div class="v">{{ intent_horizon or "Unknown" }}</div></div>
         <div class="machine-card"><div class="k">Pressure present</div><div class="v">{{ pressure_present }}</div></div>
         <div class="machine-card"><div class="k">Extraction present</div><div class="v">{{ extraction_present }}</div></div>
