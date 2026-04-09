@@ -12,7 +12,7 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.analyzer_combined import analyze_text, analyze_turns
+from app.analyzer import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
 
@@ -98,19 +98,6 @@ async def og_image():
     raise HTTPException(status_code=404, detail="og-image.svg not found")
 
 
-@app.post("/feedback")
-async def feedback(request: Request):
-    form = await request.form()
-    request_id = str(form.get("request_id", ""))
-    accurate = form.get("accurate", "") == "yes"
-    note = str(form.get("note", ""))
-    if request_id:
-        try:
-            log_feedback(request_id, accurate, note)
-        except Exception:
-            pass
-    return HTMLResponse("<script>history.back()</script>")
-
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -180,7 +167,7 @@ async def analyze_screenshots(
             relationship_type=relationship_type,
             context_note=context_note,
         )
-        narrative = interpret_analysis(analysis, extracted_text=extracted_text, requested_mode=requested_mode, use_llm=True)
+        narrative = interpret_analysis(analysis, requested_mode=requested_mode)
 
         # Multi-turn analysis — only runs if more than one image uploaded
         turn_analysis = analyze_turns(

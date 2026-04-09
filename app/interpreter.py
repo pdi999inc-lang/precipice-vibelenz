@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os
-import json
-import httpx
 from typing import Any, Dict, List
 
 
@@ -25,13 +22,6 @@ def _human_label(primary_label: str, lane: str, domain_mode: str) -> str:
         "routine_host_message": "routine logistics",
         "transactional_extraction_pattern": "transactional risk pattern",
         "pressure_with_boundary_violation": "pressure pattern",
-        "high_intent_mutual": "mutual high intent",
-        "fear_driven_urgency": "fear-driven urgency",
-        "mixed_intent_genuine": "genuine mixed signals",
-        "fast_escalation_noncoercive": "fast escalation",
-        "relationship_context": "established relationship",
-        "routine_message": "low-stakes interaction",
-        "mixed_intent": "mixed intent",
     }
     return mapping.get(primary_label, primary_label.replace("_", " "))
 
@@ -70,9 +60,6 @@ def _interest_summary(result: Dict[str, Any]) -> str:
         "warm_receptivity": "positive openness",
         "confusion_then_repair": "improving energy",
         "casual_flirtation": "light interest",
-        "high_intent_mutual": "strong mutual interest",
-        "fear_driven_urgency": "high but pressured",
-        "mixed_intent_genuine": "moderate, still developing",
     }
     return mapping.get(primary_label, "context dependent")
 
@@ -210,87 +197,13 @@ def _connection_copy(out: Dict[str, Any]) -> Dict[str, Any]:
         next_steps = "Keep it light. Do not make it heavier than it needs to be right now."
         accountability = "Not every good thing needs to be analyzed into the ground. Sometimes easy is just easy."
 
-
-    elif primary_label == "high_intent_mutual":
-        pressure_present = "pressure_present" in _clean(out.get("concern_signals", []))
-        fear_driven = "fear_driven_urgency" in _clean(out.get("concern_signals", []))
-        goal_sub = "goal_substitution" in _clean(out.get("concern_signals", []))
-
-        diagnosis = "Both people are showing up with real intent — this conversation has weight to it."
-        reasoning = (
-            "The alignment here is not surface-level. "
-            "There is shared vision, reciprocal investment, and both people are being direct about what they want. "
-            "That combination is rarer than it looks and worth taking seriously."
-        )
-        if fear_driven or goal_sub:
-            reasoning += (
-                " That said, some of the urgency on her side reads as fear-driven rather than vision-driven. "
-                "She may be operating from a scarcity mindset — avoiding an outcome rather than building toward one. "
-                "That does not disqualify the connection, but it means the timeline pressure is hers, not necessarily yours. "
-                "Enter this clearly, not reactively."
-            )
-        next_steps = (
-            "The conversation has done its job. The next move is a real-world meeting — "
-            "not another exchange, not more rapport-building. "
-            "Ask directly. Something grounded: 'I think we have covered enough ground — are you free this week?'"
-        )
-        if pressure_present:
-            accountability = (
-                "She is moving fast and the energy is compelling. "
-                "Make sure you are choosing her clearly rather than getting swept into her timeline. "
-                "Fast is fine if it is mutual. Fast because she is scared is a different thing."
-            )
-        else:
-            accountability = (
-                "You have the alignment. The only way this stalls now is if you stay in the conversation "
-                "instead of converting it. Get off the app."
-            )
-
-    elif primary_label == "fear_driven_urgency":
-        diagnosis = "She knows what she wants — but some of that urgency is about avoiding something, not just building toward it."
-        reasoning = (
-            "The timeline pressure, the early ultimatums, the substitution of outcomes — "
-            "these are not red flags exactly, but they are signals worth reading clearly. "
-            "A person operating from scarcity will move fast, commit fast, and may accept a suboptimal match "
-            "to resolve the fear. The connection can still be real. "
-            "But the pressure is coming from her internal clock, not from what is actually between you yet."
-        )
-        next_steps = (
-            "Do not match her urgency. Stay grounded. "
-            "If the connection is real it will hold at your pace too. "
-            "If it only works at her pace, that tells you something important."
-        )
-        accountability = (
-            "The risk here is not her intent — it is your clarity. "
-            "Make sure you are making an active choice, not just going along because the energy is strong."
-        )
-
-    elif primary_label == "mixed_intent_genuine":
-        diagnosis = "The signals are mixed, but not in a way that reads as calculated — this just needs more time."
-        reasoning = (
-            "There is enough positive signal here to take seriously, "
-            "but not enough yet to make a confident read in either direction. "
-            "That is not a problem — it is just where this conversation actually is. "
-            "Pushing for a conclusion before the data supports it will only produce a wrong one."
-        )
-        next_steps = (
-            "One or two more direct exchanges will tell you more than any analysis of what you have now. "
-            "Ask something that requires a real answer — not small talk."
-        )
-        accountability = (
-            "Mixed does not mean bad. It means early. "
-            "Stop trying to resolve ambiguity that has not had time to resolve itself."
-        )
-
     else:
         diagnosis = "This is a real human interaction — low stakes, not a threat, just still early."
-        concern_signals = _clean(out.get("concern_signals", []))
-        has_pressure = any("pressure" in s for s in concern_signals)
         reasoning = (
+            "Nothing here points to pressure, danger, or bad intent. "
             "It reads like a normal exchange between two people who are still figuring out the dynamic. "
             "That is not a bad thing — it just means the picture is not complete yet. "
-            + ("There are some early friction signals worth keeping an eye on as things develop. " if has_pressure else "Nothing here points to strong pressure or bad intent. ")
-            + "A few more exchanges will tell you more than any analysis of what you already have."
+            "A few more exchanges will tell you more than any analysis of what you already have."
         )
         next_steps = (
             "Treat it lightly. Let the next few exchanges do the work "
@@ -325,146 +238,12 @@ def _connection_copy(out: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def _llm_enrich(
-    result: Dict[str, Any],
-    extracted_text: str,
-    presentation_mode: str,
-    diagnosis: str,
-    reasoning: str,
-    practical_next_steps: str,
-    accountability: str,
-) -> Dict[str, Any]:
-    """
-    Calls Anthropic to enrich deterministic copy with LLM-generated insight.
-    Falls back to deterministic output if the call fails.
-    """
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return {
-            "diagnosis": diagnosis,
-            "reasoning": reasoning,
-            "practical_next_steps": practical_next_steps,
-            "accountability": accountability,
-            "llm_enriched": False,
-            "llm_error": "no_api_key",
-        }
-
-    primary_label = result.get("primary_label", "unknown")
-    concern_signals = result.get("concern_signals", [])
-    positive_signals = result.get("positive_signals", [])
-    connection_score = result.get("connection_score", None)
-    risk_score = result.get("risk_score", None)
-    lane = result.get("lane", "BENIGN")
-
-    if presentation_mode == "connection":
-        system_prompt = """You are VibeLenz, a relationship dynamics analyst.
-Your job is to give the user a warm, honest, specific read on their dating conversation.
-Write like a thoughtful friend giving real talk — not a therapist, not a security scanner.
-Never use clinical language. Never use words like: pressure, danger, bad intent, threat, coercion, red flag.
-Be specific to what actually happened in the conversation. Avoid generic advice.
-You will receive: the raw conversation, the detected signals, and a deterministic draft.
-Your job is to improve the draft — make it more specific, more human, more useful.
-Return ONLY a JSON object with keys: diagnosis, reasoning, practical_next_steps, accountability.
-No preamble. No markdown. No explanation. Raw JSON only."""
-
-        user_prompt = f"""CONVERSATION:
-{extracted_text}
-
-DETECTED SIGNALS:
-Positive: {json.dumps(positive_signals)}
-Concern: {json.dumps(concern_signals)}
-Primary label: {primary_label}
-Lane: {lane}
-
-DETERMINISTIC DRAFT:
-Diagnosis: {diagnosis}
-Reasoning: {reasoning}
-Next steps: {practical_next_steps}
-Accountability: {accountability}
-
-Rewrite the draft to be more specific to this actual conversation.
-Keep the same structure. Make it warmer, more human, more actionable.
-Return raw JSON only."""
-
-    else:
-        system_prompt = """You are VibeLenz, a conversation safety analyst.
-Your job is to give the user a clear, honest read on risk signals in their conversation.
-Be direct and specific. Do not catastrophize. Do not minimize.
-You will receive: the raw conversation, the detected signals, and a deterministic draft.
-Improve the draft — make it more specific to what actually happened.
-Return ONLY a JSON object with keys: diagnosis, reasoning, practical_next_steps, accountability.
-No preamble. No markdown. No explanation. Raw JSON only."""
-
-        user_prompt = f"""CONVERSATION:
-{extracted_text}
-
-DETECTED SIGNALS:
-Risk signals: {json.dumps(result.get("key_signals", []))}
-Concern signals: {json.dumps(concern_signals)}
-Primary label: {primary_label}
-Lane: {lane}
-Risk score: {risk_score}
-
-DETERMINISTIC DRAFT:
-Diagnosis: {diagnosis}
-Reasoning: {reasoning}
-Next steps: {practical_next_steps}
-Accountability: {accountability}
-
-Rewrite the draft to be more specific to this actual conversation.
-Return raw JSON only."""
-
-    try:
-        response = httpx.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": "claude-haiku-4-5-20251001",
-                "max_tokens": 1024,
-                "system": system_prompt,
-                "messages": [{"role": "user", "content": user_prompt}],
-            },
-            timeout=15.0,
-        )
-        response.raise_for_status()
-        data = response.json()
-        raw = data["content"][0]["text"].strip()
-        # Strip markdown fences if present
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        parsed = json.loads(raw.strip())
-        return {
-            "diagnosis": parsed.get("diagnosis", diagnosis),
-            "reasoning": parsed.get("reasoning", reasoning),
-            "practical_next_steps": parsed.get("practical_next_steps", practical_next_steps),
-            "accountability": parsed.get("accountability", accountability),
-            "llm_enriched": True,
-            "llm_error": None,
-        }
-    except Exception as e:
-        return {
-            "diagnosis": diagnosis,
-            "reasoning": reasoning,
-            "practical_next_steps": practical_next_steps,
-            "accountability": accountability,
-            "llm_enriched": False,
-            "llm_error": str(e),
-        }
-
-
 def interpret_analysis(
     result: Dict[str, Any],
     extracted_text: str = "",
     relationship_type: str = "stranger",
     context_note: str = "",
     requested_mode: str = "risk",
-    use_llm: bool = False,
 ) -> Dict[str, Any]:
     out = dict(result or {})
     requested_mode = str(requested_mode or "risk").lower().strip()
@@ -484,25 +263,4 @@ def interpret_analysis(
         out = _risk_copy(out)
 
     out["requested_mode"] = requested_mode
-
-    if use_llm and extracted_text:
-        enriched = _llm_enrich(
-            result=result,
-            extracted_text=extracted_text,
-            presentation_mode=out.get("presentation_mode", requested_mode),
-            diagnosis=out.get("diagnosis", ""),
-            reasoning=out.get("reasoning", ""),
-            practical_next_steps=out.get("practical_next_steps", ""),
-            accountability=out.get("accountability", ""),
-        )
-        out["diagnosis"] = enriched["diagnosis"]
-        out["reasoning"] = enriched["reasoning"]
-        out["practical_next_steps"] = enriched["practical_next_steps"]
-        out["accountability"] = enriched["accountability"]
-        out["llm_enriched"] = enriched["llm_enriched"]
-        out["llm_error"] = enriched["llm_error"]
-    else:
-        out["llm_enriched"] = False
-        out["llm_error"] = None
-
     return out

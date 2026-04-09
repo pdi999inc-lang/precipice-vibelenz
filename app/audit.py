@@ -5,7 +5,7 @@ VIE Audit Trail v1.0
 Every analysis produces a structured audit record containing:
 - request_id, timestamp, processing_time_ms
 - ocr_char_count, image_count
-- risk_score, phase, vie_action, confidence
+- risk_score, lane, vie_action, confidence
 - signals with evidence
 - active_combos
 - degraded state
@@ -15,22 +15,23 @@ Records are written to:
 2. /tmp/vibelenz_audit_{session_id}.jsonl (one record per line, persists for container session)
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger("vibelenz.audit")
 
-# Session ID — unique per container boot
 SESSION_ID = str(uuid.uuid4())[:8]
 AUDIT_FILE = f"/tmp/vibelenz_audit_{SESSION_ID}.jsonl"
 
-# Write session start marker
-def _init_session():
+
+def _init_session() -> None:
     try:
         with open(AUDIT_FILE, "a") as f:
             record = {
@@ -43,6 +44,7 @@ def _init_session():
         logger.info(f"[AUDIT] Session {SESSION_ID} started. Audit file: {AUDIT_FILE}")
     except Exception as e:
         logger.warning(f"[AUDIT] Could not initialize audit file: {e}")
+
 
 _init_session()
 
@@ -71,10 +73,13 @@ def write_audit_record(
         "image_count": image_count,
         "ocr_char_count": ocr_char_count,
         "risk_score": result.get("risk_score", 0),
-        "phase": result.get("phase", "NONE"),
+        "lane": result.get("lane", "NONE"),           # fixed: was "phase"
         "vie_action": result.get("vie_action", "NONE"),
         "confidence": result.get("confidence", 0.0),
-        "signal_count": len([f for f in result.get("flags", []) if f != "No signals detected"]),
+        "signal_count": len([
+            f for f in result.get("flags", [])
+            if f != "No signals detected"
+        ]),
         "signals": result.get("flags", []),
         "evidence": result.get("evidence", {}),
         "active_combos": result.get("active_combos", []),
@@ -82,10 +87,8 @@ def write_audit_record(
         "error": error,
     }
 
-    # 1. Structured log to Railway
     logger.info(f"[AUDIT] {json.dumps(record)}")
 
-    # 2. Write to session audit file
     try:
         with open(AUDIT_FILE, "a") as f:
             f.write(json.dumps(record) + "\n")
@@ -116,10 +119,10 @@ def get_session_stats() -> Dict[str, Any]:
             "session_id": SESSION_ID,
             "total_analyses": len(records),
             "avg_risk_score": round(sum(scores) / len(scores), 1),
-            "high_risk_count": sum(1 for s in scores if s >= 70),
+            "high_risk_count":   sum(1 for s in scores if s >= 70),
             "medium_risk_count": sum(1 for s in scores if 40 <= s < 70),
-            "low_risk_count": sum(1 for s in scores if s < 40),
-            "degraded_count": sum(1 for r in records if r.get("degraded")),
+            "low_risk_count":    sum(1 for s in scores if s < 40),
+            "degraded_count":    sum(1 for r in records if r.get("degraded")),
             "audit_file": AUDIT_FILE,
         }
     except Exception as e:

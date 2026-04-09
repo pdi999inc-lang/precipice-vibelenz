@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# analyzer.py — VibeLenz / VIE conversation signal analyzer
+# analyzer_combined.py — VibeLenz / VIE conversation signal analyzer
 # Combined deterministic + LLM-powered engine
 # ---------------------------------------------------------------------------
 #

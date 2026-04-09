@@ -59,7 +59,7 @@ POSITIVE_CONNECTION_LEXICON: Dict[str, Dict[str, Any]] = {
     "sexual_reciprocity": {
         "weight": 3.5,
         "terms": [
-            "i still do", "i want your", "your cute", "you're cute",
+            "i still do", "i want your",  "you're cute",
             "want your baby", "your genes", "i want your genes",
             "still do", "definitely do it again", "yes please",
             "you can have", "attracted", "into you",

@@ -16,12 +16,12 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from app.ocr import extract_text_from_image          # returns raw string
-from app.schemas import AnalysisResponse, Turn        # pydantic models
-from app.behavior import analyze_behavior             # safety/deterministic layer
-from app.relationship_dynamics import analyze_dynamics  # connection layer
-from app.analyzer_combined import run_combined        # det + LLM unified analyzer
-from app.interpreter import interpret_analysis        # final interpretation pass
+from ocr import extract_text_from_image          # returns raw string
+from schemas import AnalysisResponse, Turn        # pydantic models
+from behavior import analyze_behavior             # safety/deterministic layer
+from relationship_dynamics import analyze_dynamics  # connection layer
+from analyzer_combined import run_combined        # det + LLM unified analyzer
+from interpreter import interpret_analysis        # final interpretation pass
 
 logger = logging.getLogger("vibelenz.api")
 
@@ -116,7 +116,7 @@ def parse_turns(raw_text: str) -> ParseResult:
 # Core pipeline
 # ---------------------------------------------------------------------------
 
-async def _run_pipeline(parse_result: ParseResult, raw_text: str = "", use_llm: bool = True) -> AnalysisResponse:
+async def _run_pipeline(parse_result: ParseResult) -> AnalysisResponse:
     """
     Runs behavior + relationship_dynamics in parallel, then passes results
     through analyzer_combined and interpreter to produce AnalysisResponse.
@@ -189,7 +189,7 @@ async def _run_pipeline(parse_result: ParseResult, raw_text: str = "", use_llm: 
 
     # Interpreter — produces final AnalysisResponse
     try:
-        response: AnalysisResponse = interpret_analysis(combined_result, extracted_text=raw_text, use_llm=use_llm)
+        response: AnalysisResponse = interpret_analysis(combined_result)
     except Exception as e:
         logger.error("interpret_analysis raised: %s", e, exc_info=True)
         return AnalysisResponse(
@@ -251,7 +251,7 @@ async def analyze_image(image_path: str) -> AnalysisResponse:
         )
 
     parse_result = parse_turns(raw_text)
-    return await _run_pipeline(parse_result, raw_text=raw_text, use_llm=True)
+    return await _run_pipeline(parse_result)
 
 
 async def analyze_text(raw_text: str) -> AnalysisResponse:
@@ -274,4 +274,4 @@ async def analyze_text(raw_text: str) -> AnalysisResponse:
         )
 
     parse_result = parse_turns(raw_text)
-    return await _run_pipeline(parse_result, raw_text=raw_text, use_llm=True)
+    return await _run_pipeline(parse_result)

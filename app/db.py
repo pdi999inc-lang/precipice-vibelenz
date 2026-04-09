@@ -1,8 +1,11 @@
+from __future__ import annotations
+
+import json
 import logging
 import os
-from datetime import datetime, timezone
 
 logger = logging.getLogger("vibelenz.db")
+
 
 def get_conn():
     try:
@@ -15,9 +18,11 @@ def get_conn():
         logger.warning(f"DB connection failed: {e}")
         return None
 
+
 def init_db():
     conn = get_conn()
     if not conn:
+        logger.warning("init_db: no DB connection, skipping")
         return
     try:
         cur = conn.cursor()
@@ -49,6 +54,7 @@ def init_db():
     finally:
         conn.close()
 
+
 def log_analysis(payload: dict, conversation_text: str = ""):
     conn = get_conn()
     if not conn:
@@ -71,8 +77,8 @@ def log_analysis(payload: dict, conversation_text: str = ""):
             payload.get("primary_label"),
             payload.get("lane"),
             payload.get("presentation_mode"),
-            str(payload.get("flags", [])),
-            str(payload.get("positive_signals", [])),
+            json.dumps(payload.get("flags", [])),
+            json.dumps(payload.get("positive_signals", [])),
             conversation_text[:5000] if conversation_text else "",
         ))
         conn.commit()
@@ -81,6 +87,7 @@ def log_analysis(payload: dict, conversation_text: str = ""):
         logger.warning(f"DB log failed: {e}")
     finally:
         conn.close()
+
 
 def log_feedback(request_id: str, accurate: bool, note: str = ""):
     conn = get_conn()
