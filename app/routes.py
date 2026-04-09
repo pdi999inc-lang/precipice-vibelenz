@@ -1,10 +1,14 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from typing import Optional
-import tempfile
+from __future__ import annotations
+
 import os
+import tempfile
+from typing import Optional
+
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+
 from app.api import analyze_image, analyze_text
 
-router = APIRouter()
+router = APIRouter(prefix="/v1")
 
 
 @router.get("/health")
@@ -13,16 +17,15 @@ async def health_check():
 
 
 @router.post("/analyze/image")
-async def analyze_from_image(file: UploadFile = File(...)):
-    """
-    Accept a screenshot of a conversation (PNG/JPG/WEBP).
-    Runs OCR → turn parser → behavior + relationship_dynamics → verifier → AnalysisResponse.
-    """
+async def analyze_from_image(
+    file: UploadFile = File(...),
+    relationship_type: str = Form(default="stranger"),
+    other_gender: str = Form(default="unknown"),
+    context_note: str = Form(default=""),
+    requested_mode: str = Form(default="risk"),
+):
     if file.content_type not in ("image/png", "image/jpeg", "image/jpg", "image/webp"):
-        raise HTTPException(
-            status_code=415,
-            detail="Unsupported file type. Send PNG, JPG, or WEBP."
-        )
+        raise HTTPException(status_code=415, detail="Unsupported file type. Send PNG, JPG, or WEBP.")
 
     tmp_path = None
     try:
@@ -32,32 +35,32 @@ async def analyze_from_image(file: UploadFile = File(...)):
             tmp.write(contents)
             tmp_path = tmp.name
 
-        result = await analyze_image(tmp_path)
+        result = await analyze_image(tmp_path, relationship_type=relationship_type, other_gender=other_gender, context_note=context_note, requested_mode=requested_mode)
         return result
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
 
 
 @router.post("/analyze/text")
-async def analyze_from_text(conversation: str = Form(...)):
-    """
-    Accept raw conversation text (pre-parsed or plain turns).
-    Runs turn parser → behavior + relationship_dynamics → verifier → AnalysisResponse.
-    """
+async def analyze_from_text(
+    conversation: str = Form(...),
+    relationship_type: str = Form(default="stranger"),
+    other_gender: str = Form(default="unknown"),
+    context_note: str = Form(default=""),
+    requested_mode: str = Form(default="risk"),
+):
     if not conversation or not conversation.strip():
         raise HTTPException(status_code=400, detail="Conversation text cannot be empty.")
 
     try:
-        result = await analyze_text(conversation.strip())
+        result = await analyze_text(conversation.strip(), relationship_type=relationship_type, other_gender=other_gender, context_note=context_note, requested_mode=requested_mode)
         return result
-
     except HTTPException:
         raise
     except Exception as e:

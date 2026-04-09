@@ -1,83 +1,87 @@
-"""
-schemas.py - VibeLenz canonical JSON schema definitions.
+from __future__ import annotations
 
-These are the contract. Do not change field names without backward-compat analysis.
-
-AnalysisResponse structure:
-    - Safety layer: risk_score, flags, confidence, degraded
-    - Relationship layer: relationship (RelationshipInsight)
-    - Shared: request_id, timestamp, summary, recommended_action, extracted_text
-"""
-
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
+class Turn(BaseModel):
+    speaker: str
+    message: str
+
+    def to_sender_dict(self) -> Dict[str, Any]:
+        return {"sender": self.speaker, "text": self.message}
+
+
 class RelationshipInsight(BaseModel):
-    """
-    Consumer-facing relationship intelligence output.
-    Primary output layer for dating conversation analysis.
-    Produced by relationship_dynamics.py.
-    """
-    # Core dynamics
-    momentum_direction: str = Field(
-        ...,
-        description="Conversation trajectory: 'building' | 'maintaining' | 'fading' | 'unclear'"
-    )
-    energy_balance: str = Field(
-        ...,
-        description="Effort distribution: 'balanced' | 'user_leading' | 'other_leading' | 'mismatched'"
-    )
-    intimacy_progression: str = Field(
-        ...,
-        description="Emotional pace: 'healthy' | 'rushing' | 'stalled' | 'unclear'"
-    )
-    relationship_stage: str = Field(
-        ...,
-        description="Development stage: 'initial_contact' | 'building_rapport' | 'exploring_compatibility' | 'deepening' | 'moving_too_fast'"
-    )
+    momentum_direction: str
+    energy_balance: str
+    intimacy_progression: str
+    relationship_stage: str
+    momentum_score: float
+    compatibility_score: float
+    sustainability_score: float
+    story_arc: str
+    next_natural_step: str
+    growth_indicators: List[str] = Field(default_factory=list)
+    potential_blockers: List[str] = Field(default_factory=list)
+    connection_highlights: List[str] = Field(default_factory=list)
+    tension_points: List[str] = Field(default_factory=list)
 
-    # Scores (0.0–1.0)
-    momentum_score: float = Field(..., ge=0.0, le=1.0, description="Forward energy score")
-    compatibility_score: float = Field(..., ge=0.0, le=1.0, description="How well they're clicking")
-    sustainability_score: float = Field(..., ge=0.0, le=1.0, description="Long-term potential score")
 
-    # Narrative output (consumer-facing language)
-    story_arc: str = Field(..., description="Plain-language summary of what's happening between these people")
-    next_natural_step: str = Field(..., description="What would logically happen next")
-
-    # Lists
-    growth_indicators: List[str] = Field(default_factory=list, description="Signals this could develop positively")
-    potential_blockers: List[str] = Field(default_factory=list, description="What could derail this connection")
-    connection_highlights: List[str] = Field(default_factory=list, description="Moments of genuine connection")
-    tension_points: List[str] = Field(default_factory=list, description="Areas of friction or uncertainty")
+class BehaviorResult(BaseModel):
+    risk_score: float
+    flags: List[str] = Field(default_factory=list)
+    confidence: float
+    degraded: bool = False
+    pressure_score: float
+    isolation_score: float
+    urgency_score: float
+    asymmetry_score: float
+    deterministic_flag: bool = False
 
 
 class AnalysisResponse(BaseModel):
-    """
-    Top-level API response contract.
-    Do not change field names without backward-compat analysis.
-    """
-    # Audit / identity
-    request_id: str = Field(..., description="Unique request identifier for audit trail")
-    timestamp: str = Field(..., description="ISO 8601 UTC timestamp of analysis")
+    status: str = "ok"
+    error: Optional[str] = None
+    risk_score: int = 0
+    flags: List[str] = Field(default_factory=list)
+    confidence: float = 0.5
+    degraded: bool = False
+    lane: str = "BENIGN"
+    primary_label: str = "routine_message"
+    human_label: str = ""
+    domain_mode: str = "general_unknown"
+    presentation_mode: str = "risk"
+    requested_mode: str = "risk"
+    mode_title: str = ""
+    mode_tagline: str = ""
+    mode_override_note: str = ""
+    diagnosis: str = ""
+    reasoning: str = ""
+    practical_next_steps: str = ""
+    accountability: str = ""
+    social_tone: str = ""
+    interest_summary: str = ""
+    interest_score: Optional[int] = None
+    interest_label: str = ""
+    llm_enriched: bool = False
+    llm_error: Optional[str] = None
+    summary: str = ""
+    recommended_action: str = ""
+    extracted_text: str = ""
+    key_signals: List[str] = Field(default_factory=list)
+    key_dampeners: List[str] = Field(default_factory=list)
+    positive_signals: List[str] = Field(default_factory=list)
+    concern_signals: List[str] = Field(default_factory=list)
+    alternative_explanations: List[str] = Field(default_factory=list)
+    turns: List[Turn] = Field(default_factory=list)
+    turn_analysis: Dict[str, Any] = Field(default_factory=dict)
+    behavior: Optional[BehaviorResult] = None
+    relationship: Optional[RelationshipInsight] = None
+    verifier_score: Optional[float] = None
 
-    # Safety layer (behavior.py → FLAML verifier)
-    risk_score: int = Field(..., ge=0, le=100, description="Composite risk score 0–100")
-    flags: List[str] = Field(..., description="Human-readable signal labels detected")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Analyzer confidence 0.0–1.0")
-    degraded: bool = Field(default=False, description="True if system is operating in degraded mode")
-
-    # Shared output
-    summary: str = Field(..., description="Plain-language risk summary")
-    recommended_action: str = Field(..., description="Recommended action for the user")
-    extracted_text: str = Field(..., description="Raw OCR output from uploaded images")
-
-    # Relationship layer (relationship_dynamics.py) — Optional: absent if insufficient turns
-    relationship: Optional[RelationshipInsight] = Field(
-        default=None,
-        description="Relationship intelligence output. None if fewer than 3 turns detected."
-    )
+    class Config:
+        extra = "allow"
 
 
 class ErrorResponse(BaseModel):
