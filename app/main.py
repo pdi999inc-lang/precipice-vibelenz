@@ -12,8 +12,9 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.analyzer import analyze_text, analyze_turns
-from app.interpreter import interpret_analysis
+from app.api import analyze_text as api_analyze_text
+from app.audit import get_session_stats, write_audit_record
+from app.db import init_db, log_analysis, log_feedback
 from app.ocr import extract_text_from_images
 
 logger = logging.getLogger("vibelenz.main")
@@ -30,9 +31,15 @@ MAX_FILES = 10
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/jpg"}
 
 
+@app.on_event("startup")
+async def startup_event() -> None:
+    init_db()
+
+
 def _simple_page(title: str, body: str) -> HTMLResponse:
     return HTMLResponse(
-        f"<html><head><title>{title}</title></head><body><h1>{title}</h1><p>{body}</p></body></html>"
+        f"<html><head><title>{title}</title></head>"
+        f"<body><h1>{title}</h1><p>{body}</p></body></html>"
     )
 
 
@@ -44,30 +51,8 @@ def _risk_label_from_score(score: int) -> str:
     return "Low"
 
 
-def _build_response_payload(
-    request_id: str,
-    ts: str,
-    extracted_text: str,
-    analysis: dict,
-    narrative: dict,
-    turn_analysis: dict,
-) -> dict:
-    payload = dict(analysis)
-    payload.update(narrative)
-    payload["request_id"] = request_id
-    payload["timestamp"] = ts
-    payload["extracted_text"] = extracted_text
-    payload["summary"] = narrative["diagnosis"]
-    payload["recommended_action"] = narrative["practical_next_steps"]
-    payload["risk_label"] = payload.get("risk_label") or _risk_label_from_score(
-        int(payload.get("final_risk_score", payload.get("risk_score", 0)))
-    )
-    payload["turn_analysis"] = turn_analysis
-    return payload
-
-
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
+async def home(request: Request) -> HTMLResponse:
     index_file = TEMPLATES_DIR / "index.html"
     if index_file.exists():
         return templates.TemplateResponse("index.html", {"request": request})
@@ -75,7 +60,7 @@ async def home(request: Request):
 
 
 @app.get("/pitch", response_class=HTMLResponse)
-async def pitch(request: Request):
+async def pitch(request: Request) -> HTMLResponse:
     pitch_file = TEMPLATES_DIR / "pitch.html"
     if pitch_file.exists():
         return templates.TemplateResponse("pitch.html", {"request": request})
@@ -83,7 +68,7 @@ async def pitch(request: Request):
 
 
 @app.get("/about", response_class=HTMLResponse)
-async def about(request: Request):
+async def about(request: Request) -> HTMLResponse:
     about_file = TEMPLATES_DIR / "about.html"
     if about_file.exists():
         return templates.TemplateResponse("about.html", {"request": request})
@@ -91,21 +76,35 @@ async def about(request: Request):
 
 
 @app.get("/static/og-image.svg")
-async def og_image():
+async def og_image() -> FileResponse:
     target = STATIC_DIR / "og-image.svg"
     if target.exists():
         return FileResponse(str(target), media_type="image/svg+xml")
     raise HTTPException(status_code=404, detail="og-image.svg not found")
 
 
+@app.post("/feedback")
+async def feedback(request: Request) -> HTMLResponse:
+    form = await request.form()
+    request_id = str(form.get("request_id", ""))
+    accurate = form.get("accurate", "") == "yes"
+    note = str(form.get("note", ""))
+    if request_id:
+        try:
+            log_feedback(request_id, accurate, note)
+        except Exception:
+            pass
+    return HTMLResponse("<script>history.back()</script>")
+
+
 @app.get("/health")
-async def health():
+async def health() -> dict:
     return {"status": "ok"}
 
 
 @app.get("/audit/stats")
-async def audit_stats():
-    return {"status": "ok", "audit": "rewrite_stub"}
+async def audit_stats() -> dict:
+    return get_session_stats()
 
 
 @app.post("/analyze-screenshots")
@@ -113,6 +112,7 @@ async def analyze_screenshots(
     request: Request,
     files: List[UploadFile] = File(...),
     relationship_type: str = "stranger",
+    other_gender: str = "unknown",
     context_note: str = "",
     requested_mode: str = "risk",
 ):
@@ -120,7 +120,10 @@ async def analyze_screenshots(
     ts = datetime.now(timezone.utc).isoformat()
     timestamp_start = time.time()
 
-    logger.info(f"[{request_id}] Received {len(files)} file(s), mode={requested_mode} at {ts}")
+    logger.info(
+        f"[{request_id}] Received {len(files)} file(s), "
+        f"mode={requested_mode} gender={other_gender} at {ts}"
+    )
 
     if len(files) > MAX_FILES:
         raise HTTPException(
@@ -134,12 +137,10 @@ async def analyze_screenshots(
         filename = (f.filename or "").lower()
         ext = os.path.splitext(filename)[1]
         content_type = (f.content_type or "").lower()
-
         allowed_by_type = content_type in ALLOWED_TYPES
         allowed_octet_stream_image = (
             content_type == "application/octet-stream" and ext in allowed_exts
         )
-
         if not (allowed_by_type or allowed_octet_stream_image):
             raise HTTPException(
                 status_code=422,
@@ -148,7 +149,6 @@ async def analyze_screenshots(
 
     try:
         image_bytes_list = [await f.read() for f in files]
-        # Extract text per image for multi-turn analysis
         text_chunks = []
         for img_bytes in image_bytes_list:
             chunk = extract_text_from_images([img_bytes])
@@ -162,35 +162,51 @@ async def analyze_screenshots(
         extracted_text = "[No readable text detected in uploaded images]"
 
     try:
-        analysis = analyze_text(
-            extracted_text,
+        response = await api_analyze_text(
+            raw_text=extracted_text,
             relationship_type=relationship_type,
+            other_gender=other_gender,
             context_note=context_note,
+            requested_mode=requested_mode,
         )
-        narrative = interpret_analysis(analysis, requested_mode=requested_mode)
-
-        # Multi-turn analysis — only runs if more than one image uploaded
-        turn_analysis = analyze_turns(
-            text_chunks=[t for t in text_chunks if t.strip()],
-            relationship_type=relationship_type,
-        )
+        if hasattr(response, "model_dump"):
+            payload = response.model_dump()
+        else:
+            payload = dict(response)
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
 
-    payload = _build_response_payload(
-        request_id=request_id,
-        ts=ts,
-        extracted_text=extracted_text,
-        analysis=analysis,
-        narrative=narrative,
-        turn_analysis=turn_analysis,
+    payload["request_id"] = request_id
+    payload["timestamp"] = ts
+    payload["extracted_text"] = extracted_text
+    payload["risk_label"] = payload.get("risk_label") or _risk_label_from_score(
+        int(payload.get("risk_score", 0))
     )
+
+    try:
+        write_audit_record(
+            request_id=request_id,
+            timestamp_start=timestamp_start,
+            image_count=len(files),
+            ocr_char_count=len(extracted_text),
+            result=payload,
+            degraded=payload.get("degraded", False),
+        )
+    except Exception as e:
+        logger.warning(f"[{request_id}] Audit write failed: {e}")
+
+    try:
+        log_analysis(
+            {**payload, "relationship_type": relationship_type, "requested_mode": requested_mode},
+            conversation_text=extracted_text,
+        )
+    except Exception as e:
+        logger.warning(f"[{request_id}] DB log failed: {e}")
 
     logger.info(
         f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "
-        f"Mode={requested_mode} Turns={turn_analysis.get('turn_count', 0)} "
-        f"Arc={turn_analysis.get('arc', 'n/a')} "
+        f"Mode={requested_mode} Gender={other_gender} "
         f"Degraded={payload.get('degraded', False)} "
         f"TookMs={int((time.time() - timestamp_start) * 1000)}"
     )
