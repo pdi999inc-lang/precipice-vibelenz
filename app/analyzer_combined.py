@@ -1663,6 +1663,7 @@ def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_no
     # Wire signal_breakdown from LLM result
     merged["signal_breakdown"] = result.get("signal_breakdown") or []
 
+    merged["reciprocity_level"] = _detect_reciprocity(text)
     merged = _apply_relationship_guardrails(merged, relationship_type=relationship_type)
     merged["research_patch"] = _build_research_patch(text, relationship_type)
 
@@ -1881,3 +1882,5 @@ def run_combined(
         text = str(turns or "")
 
     return analyze_text(text, use_llm=use_llm)
+
+
