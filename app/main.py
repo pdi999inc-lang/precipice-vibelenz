@@ -12,22 +12,13 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from app.analyzer_combined import analyze_text, analyze_turns
-from app.db import init_db, log_analysis, log_feedback
+from app.analyzer import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
-from app.relationship_dynamics import analyze_dynamics
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
-
-
-@app.on_event("startup")
-async def startup():
-    init_db()
-
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -53,27 +44,6 @@ def _risk_label_from_score(score: int) -> str:
     return "Low"
 
 
-def _parse_turns_for_dynamics(text_chunks: List[str], user_side: str) -> List[dict]:
-    turns = []
-    for chunk in text_chunks:
-        if not chunk.strip():
-            continue
-        lines = [l.strip() for l in chunk.splitlines() if l.strip()]
-        for j, line in enumerate(lines):
-            if user_side == "right":
-                sender = "user" if j % 2 == 1 else "other"
-            elif user_side == "left":
-                sender = "user" if j % 2 == 0 else "other"
-            else:
-                sender = "user" if j % 2 == 0 else "other"
-            turns.append({
-                "turn_id": f"T{len(turns) + 1}",
-                "sender": sender,
-                "text": line,
-            })
-    return turns
-
-
 def _build_response_payload(
     request_id: str,
     ts: str,
@@ -81,7 +51,6 @@ def _build_response_payload(
     analysis: dict,
     narrative: dict,
     turn_analysis: dict,
-    dynamics: dict,
 ) -> dict:
     payload = dict(analysis)
     payload.update(narrative)
@@ -94,15 +63,6 @@ def _build_response_payload(
         int(payload.get("final_risk_score", payload.get("risk_score", 0)))
     )
     payload["turn_analysis"] = turn_analysis
-    payload["relationship_dynamics"] = dynamics
-
-    if not payload.get("signal_breakdown"):
-        payload["signal_breakdown"] = analysis.get("signal_breakdown", [])
-
-    if not payload.get("human_label"):
-        raw = payload.get("primary_label") or payload.get("lane") or "interaction"
-        payload["human_label"] = raw.replace("_", " ").lower()
-
     return payload
 
 
@@ -138,20 +98,6 @@ async def og_image():
     raise HTTPException(status_code=404, detail="og-image.svg not found")
 
 
-@app.post("/feedback")
-async def feedback(request: Request):
-    form = await request.form()
-    request_id = str(form.get("request_id", ""))
-    accurate = form.get("accurate", "") == "yes"
-    note = str(form.get("note", ""))
-    if request_id:
-        try:
-            log_feedback(request_id, accurate, note)
-        except Exception:
-            pass
-    return HTMLResponse("<script>history.back()</script>")
-
-
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -169,7 +115,6 @@ async def analyze_screenshots(
     relationship_type: str = "stranger",
     context_note: str = "",
     requested_mode: str = "risk",
-    user_side: str = "unknown",
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
@@ -189,10 +134,12 @@ async def analyze_screenshots(
         filename = (f.filename or "").lower()
         ext = os.path.splitext(filename)[1]
         content_type = (f.content_type or "").lower()
+
         allowed_by_type = content_type in ALLOWED_TYPES
         allowed_octet_stream_image = (
             content_type == "application/octet-stream" and ext in allowed_exts
         )
+
         if not (allowed_by_type or allowed_octet_stream_image):
             raise HTTPException(
                 status_code=422,
@@ -201,6 +148,7 @@ async def analyze_screenshots(
 
     try:
         image_bytes_list = [await f.read() for f in files]
+        # Extract text per image for multi-turn analysis
         text_chunks = []
         for img_bytes in image_bytes_list:
             chunk = extract_text_from_images([img_bytes])
@@ -213,33 +161,19 @@ async def analyze_screenshots(
     if not extracted_text.strip():
         extracted_text = "[No readable text detected in uploaded images]"
 
-    speaker_map = {
-        "right": "The user is the person on the RIGHT side of the conversation (purple/dark bubbles). The other person is on the LEFT (white/gray bubbles).",
-        "left": "The user is the person on the LEFT side of the conversation (white/gray bubbles). The other person is on the RIGHT (purple/dark bubbles).",
-        "unknown": "Speaker side is unknown. Do not assume which side belongs to the user.",
-    }
-    speaker_context = speaker_map.get(user_side, speaker_map["unknown"])
-    enriched_context = f"{speaker_context} {context_note}".strip()
-
     try:
         analysis = analyze_text(
             extracted_text,
             relationship_type=relationship_type,
-            context_note=enriched_context,
+            context_note=context_note,
         )
-        narrative = interpret_analysis(
-            analysis,
-            extracted_text=extracted_text,
-            requested_mode=requested_mode,
-            use_llm=True,
-        )
+        narrative = interpret_analysis(analysis, requested_mode=requested_mode)
+
+        # Multi-turn analysis — only runs if more than one image uploaded
         turn_analysis = analyze_turns(
-            text_chunks,
+            text_chunks=[t for t in text_chunks if t.strip()],
             relationship_type=relationship_type,
         )
-        dynamics_turns = _parse_turns_for_dynamics(text_chunks, user_side)
-        dynamics = analyze_dynamics(dynamics_turns)
-
     except Exception as e:
         logger.error(f"[{request_id}] Analysis failure: {e}")
         raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
@@ -251,18 +185,13 @@ async def analyze_screenshots(
         analysis=analysis,
         narrative=narrative,
         turn_analysis=turn_analysis,
-        dynamics=dynamics,
     )
-
-    try:
-        log_analysis(payload, conversation_text=extracted_text)
-    except Exception:
-        pass
 
     logger.info(
         f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "
-        f"Mode={requested_mode} LLM={payload.get('llm_enriched')} "
-        f"Dynamics={dynamics.get('momentum_direction')} "
+        f"Mode={requested_mode} Turns={turn_analysis.get('turn_count', 0)} "
+        f"Arc={turn_analysis.get('arc', 'n/a')} "
+        f"Degraded={payload.get('degraded', False)} "
         f"TookMs={int((time.time() - timestamp_start) * 1000)}"
     )
 
