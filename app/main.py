@@ -208,3 +208,22 @@ async def analyze_screenshots(
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
 
+
+
+@app.get("/diag/llm")
+async def diag_llm():
+    import os
+    import anthropic as _anthropic
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {"status": "error", "detail": "ANTHROPIC_API_KEY not set"}
+    try:
+        client = _anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "hi"}],
+        )
+        return {"status": "ok", "response": msg.content[0].text, "key_prefix": api_key[:12]}
+    except Exception as e:
+        return {"status": "error", "detail": str(e), "key_prefix": api_key[:12]}
