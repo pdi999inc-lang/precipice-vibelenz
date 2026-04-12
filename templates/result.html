@@ -244,7 +244,7 @@
     <div class="grid-2">
       <div class="section connection-section next-steps">
         <h3>What to do next</h3>
-        <p>{{ practical_next_steps or recommended_action or "No next steps available." }}</p>
+        <p>{{ practical_next_steps | join(" ") if practical_next_steps is iterable and practical_next_steps is not string else (practical_next_steps or recommended_action or "No next steps available.") }}</p>
       </div>
       <div class="section connection-section honest-check">
         <h3>Honest check</h3>
@@ -405,7 +405,7 @@
     </div>
 
     <div class="grid-2">
-      <div class="section"><h3>Recommended action</h3><p>{{ practical_next_steps or recommended_action or "No next steps available." }}</p></div>
+      <div class="section"><h3>Recommended action</h3><p>{{ practical_next_steps | join(" ") if practical_next_steps is iterable and practical_next_steps is not string else (practical_next_steps or recommended_action or "No next steps available.") }}</p></div>
       <div class="section"><h3>Keep yourself honest</h3><p>{{ accountability or "No accountability guidance available." }}</p></div>
     </div>
 
@@ -534,3 +534,4 @@
   </div>
 <script>gtag("event","analysis_complete",{"event_category":"analysis","event_label":"{{ presentation_mode }}","value":{{ final_risk_score if final_risk_score is not none else risk_score }}});</script></body>
 </html>
+
