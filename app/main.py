@@ -227,3 +227,19 @@ async def diag_llm():
         return {"status": "ok", "response": msg.content[0].text, "key_prefix": api_key[:12]}
     except Exception as e:
         return {"status": "error", "detail": str(e), "key_prefix": api_key[:12]}
+
+@app.post("/feedback")
+async def feedback(request: Request):
+    try:
+        body = await request.json()
+        request_id = body.get("request_id", "unknown")
+        rating = body.get("rating", "unknown")
+        note = body.get("note", "")
+        from app.db import log_feedback
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).isoformat()
+        log_feedback(request_id=request_id, timestamp=ts, rating=rating, note=note)
+        return JSONResponse({"status": "ok"})
+    except Exception as e:
+        logger.error(f"Feedback endpoint error: {e}")
+        return JSONResponse({"status": "error"}, status_code=500)
