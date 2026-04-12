@@ -174,6 +174,16 @@ Also detect these trust-building signals and return them in positive_signals lis
 - no_coercion: No threats, ultimatums, or fear-based pressure
 - adult_consensual_tone: Tone appears adult and consensual in visible exchange
 
+CRITICAL POSITIVE SIGNAL RULES:
+- Only include a signal if it is directly observable in the conversation text
+- Do NOT infer signals from absence of negatives
+- reciprocal_engagement: only if both parties are asking questions and engaging — not if one party is redirecting or advising
+- boundary_respect: only if someone explicitly accepted a limit — not if no boundary was tested
+- meeting_willingness: only if someone explicitly agreed or offered to meet — not if they just did not refuse
+- mutual_joking: only if both parties are visibly joking or bantering — a softening "lol" on criticism does not count
+- patient_pacing: only if someone is genuinely giving space — not if they are raising standards or redirecting
+- no_coercion: only if there are zero ultimatums or "you need to" framing — repeated prescriptive demands are mild coercion
+
 ## EVIDENCE LINKER
 For each detected signal, extract the shortest exact quote from the conversation that triggered it.
 Quote must be verbatim text from the conversation — not paraphrased. Keep quotes under 20 words.
@@ -1882,5 +1892,7 @@ def run_combined(
         text = str(turns or "")
 
     return analyze_text(text, use_llm=use_llm)
+
+
 
 
