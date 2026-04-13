@@ -108,3 +108,5 @@ def log_feedback(request_id: str, accurate: bool, note: str = ""):
         logger.warning(f"DB feedback failed: {e}")
     finally:
         conn.close()
+
+
