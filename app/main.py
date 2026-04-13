@@ -236,10 +236,11 @@ async def feedback(request: Request):
         rating = body.get("rating", "unknown")
         note = body.get("note", "")
         from app.db import log_feedback
-        ts = datetime.now(timezone.utc).isoformat()
-        log_feedback(request_id=request_id, timestamp=ts, rating=rating, note=note)
+        accurate = str(rating).lower() in {"yes", "accurate", "true", "1", "thumbs_up"}
+        log_feedback(request_id=request_id, accurate=accurate, note=note)
         return JSONResponse({"status": "ok"})
     except Exception as e:
         logger.error(f"Feedback endpoint error: {e}")
         return JSONResponse({"status": "error"}, status_code=500)
+
 
