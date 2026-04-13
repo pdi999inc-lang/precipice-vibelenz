@@ -187,13 +187,6 @@ async def analyze_screenshots(
         turn_analysis=turn_analysis,
     )
 
-    try:
-        from app.db import log_analysis
-        utm_source = request.query_params.get("utm_source") or None
-        log_analysis(request_id=request_id, timestamp=ts, payload={**payload, "relationship_type": relationship_type}, utm_source=utm_source)
-    except Exception as db_err:
-        logger.warning(f"[{request_id}] DB log failed (non-blocking): {db_err}")
-
     logger.info(
         f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "
         f"Mode={requested_mode} Turns={turn_analysis.get('turn_count', 0)} "
@@ -243,7 +236,6 @@ async def feedback(request: Request):
         rating = body.get("rating", "unknown")
         note = body.get("note", "")
         from app.db import log_feedback
-        from datetime import datetime, timezone
         ts = datetime.now(timezone.utc).isoformat()
         log_feedback(request_id=request_id, timestamp=ts, rating=rating, note=note)
         return JSONResponse({"status": "ok"})
