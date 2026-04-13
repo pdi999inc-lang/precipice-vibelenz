@@ -1674,6 +1674,17 @@ def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_no
     merged["signal_breakdown"] = result.get("signal_breakdown") or []
 
     merged["reciprocity_level"] = _detect_reciprocity(text)
+
+    # Override LLM positive_signals with deterministic connection signals
+    # LLM hallucinates positive signals — deterministic is grounded in actual text
+    _conn = _detect_connection_signals(text)
+    _det_signals = list(_conn.get("connection_signals", []))
+    if merged.get("reciprocity_level") == "HIGH" and "reciprocal_engagement" not in _det_signals:
+        _det_signals.append("reciprocal_engagement")
+    _llm_positives = set(merged.get("positive_signals", []) or [])
+    _safe_llm = {s for s in _llm_positives if s in {"no_financial_topics", "transparent_intentions", "adult_consensual_tone", "verifiable_details", "consistent_identity"}}
+    merged["positive_signals"] = list(dict.fromkeys(_det_signals + list(_safe_llm)))
+
     merged = _apply_relationship_guardrails(merged, relationship_type=relationship_type)
     merged["research_patch"] = _build_research_patch(text, relationship_type)
 
@@ -1892,6 +1903,8 @@ def run_combined(
         text = str(turns or "")
 
     return analyze_text(text, use_llm=use_llm)
+
+
 
 
 
