@@ -255,10 +255,13 @@
     <div class="section connection-section">
       <h3>What feels positive here</h3>
       <div class="chips">
-        {% if positive_signals %}
+        {% set show_positives = presentation_mode == "risk" or (risk_level or "LOW")|upper != "LOW" %}
+        {% if show_positives and positive_signals %}
           {% for item in positive_signals %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
-        {% else %}
+        {% elif show_positives %}
           <span class="chip">No strong positive cues surfaced</span>
+        {% else %}
+          <span class="chip neutral">Read the analysis above — signals in context matter more than labels here</span>
         {% endif %}
       </div>
     </div>
@@ -534,6 +537,7 @@
   </div>
 <script>gtag("event","analysis_complete",{"event_category":"analysis","event_label":"{{ presentation_mode }}","value":{{ final_risk_score if final_risk_score is not none else risk_score }}});</script></body>
 </html>
+
 
 
 
