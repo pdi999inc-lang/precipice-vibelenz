@@ -33,6 +33,17 @@ logger = logging.getLogger("vibelenz.relationship")
 MIN_TURNS = 3
 
 
+def _to_dict(turn: Any) -> Dict[str, Any]:
+    """Safely convert Turn object or dict to dict."""
+    if isinstance(turn, dict):
+        return turn
+    if hasattr(turn, "model_dump"):
+        return turn.model_dump()
+    if hasattr(turn, "__dict__"):
+        return turn.__dict__
+    return {"sender": "unknown", "text": str(turn)}
+
+
 # ---------------------------------------------------------------------------
 # Signal patterns
 # ---------------------------------------------------------------------------
@@ -137,6 +148,7 @@ class RelationshipAnalyzer:
             return None  # fail-closed
 
     def _analyze(self, turns: List[Dict]) -> RelationshipInsight:
+        turns = [_to_dict(t) for t in turns]
         user_turns = [t for t in turns if t.get("sender") == "user"]
         other_turns = [t for t in turns if t.get("sender") == "other"]
 
@@ -495,3 +507,4 @@ def analyze_dynamics(turns: List[Dict]) -> Dict[str, Any]:
         }
 
     return insight.model_dump()
+
