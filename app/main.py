@@ -186,6 +186,11 @@ async def analyze_screenshots(
         narrative=narrative,
         turn_analysis=turn_analysis,
     )
+    try:
+        from app.db import log_analysis
+        log_analysis(payload, conversation_text=extracted_text)
+    except Exception as _db_err:
+        logger.warning(f"DB log skipped: {_db_err}")
 
     logger.info(
         f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "
@@ -242,6 +247,7 @@ async def feedback(request: Request):
     except Exception as e:
         logger.error(f"Feedback endpoint error: {e}")
         return JSONResponse({"status": "error"}, status_code=500)
+
 
 
 
