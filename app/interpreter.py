@@ -402,6 +402,7 @@ def interpret_analysis(
         out = _risk_copy(out)
     out["requested_mode"] = requested_mode
     if use_llm and extracted_text:
+        result["relationship_type"] = relationship_type
         enriched = _llm_enrich(result=result, extracted_text=extracted_text, presentation_mode=out.get("presentation_mode", requested_mode), diagnosis=out.get("diagnosis", ""), reasoning=out.get("reasoning", ""), practical_next_steps=out.get("practical_next_steps", ""), accountability=out.get("accountability", ""))
         out["diagnosis"] = enriched["diagnosis"]
         out["reasoning"] = enriched["reasoning"]
@@ -413,6 +414,7 @@ def interpret_analysis(
         out["llm_enriched"] = False
         out["llm_error"] = None
     return out
+
 
 
 
