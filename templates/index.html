@@ -1,191 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><script async src="https://www.googletagmanager.com/gtag/js?id=G-E4TDZ5JEQ7"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","G-E4TDZ5JEQ7");</script>
+<head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VibeLenz</title>
+  <title>VibeLenz — Bring Their Intentions Into Focus</title>
+  <script async src='https://www.googletagmanager.com/gtag/js?id=G-E4TDZ5JEQ7'></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-E4TDZ5JEQ7');</script>
   <style>
-    :root {
-      --bg: #071022;
-      --panel: #0e1830;
-      --panel-2: #101d39;
-      --border: #243b67;
-      --text: #f5f8ff;
-      --muted: #b8c4dc;
-      --accent: #75a8ff;
-      --shadow: 0 18px 40px rgba(0,0,0,0.28);
-    }
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: linear-gradient(180deg, #061021 0%, #09142b 100%);
-      color: var(--text);
-    }
-    .page {
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 28px 18px 48px;
-    }
-    .hero, form {
-      background: linear-gradient(180deg, var(--panel), var(--panel-2));
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      padding: 24px;
-      box-shadow: var(--shadow);
-    }
-    .hero { margin-bottom: 22px; }
-    .eyebrow {
-      color: var(--accent);
-      font-size: 13px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
-      margin-bottom: 10px;
-    }
-    h1 {
-      margin: 0 0 10px;
-      font-size: 34px;
-      letter-spacing: -0.4px;
-    }
-    .hero p, .help {
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1.7;
-    }
-    .section {
-      margin-bottom: 22px;
-    }
-    .section-title {
-      font-size: 18px;
-      font-weight: 800;
-      margin-bottom: 10px;
-    }
-    .field {
+      background: #0d0d0d;
+      color: #e8e8e8;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      margin-bottom: 16px;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
     }
-    .field label {
-      font-size: 14px;
-      font-weight: 700;
-      color: #dce6fb;
-    }
-    input[type="file"], select, textarea {
-      width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 14px;
-      background: #0a1530;
-      color: var(--text);
-      font-size: 15px;
-    }
-    textarea {
-      resize: vertical;
-      min-height: 110px;
-    }
-    .button-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 14px;
-    }
-    button {
-      border: none;
-      border-radius: 18px;
-      padding: 18px 18px;
-      font-size: 16px;
-      font-weight: 800;
-      cursor: pointer;
-      text-align: left;
-    }
-    .btn-connection {
-      background: linear-gradient(180deg, #8fc0ff, #6ea6ff);
-      color: #071022;
-    }
-    .btn-risk {
-      background: linear-gradient(180deg, #ffd0d0, #ff9e9e);
-      color: #3a0d0d;
-    }
-    .btn-title {
-      display: block;
-      font-size: 18px;
-      margin-bottom: 6px;
-    }
-    .btn-copy {
-      display: block;
-      font-size: 13px;
-      line-height: 1.5;
-      opacity: 0.9;
-      font-weight: 700;
-    }
-    @media (max-width: 820px) {
-      .button-grid { grid-template-columns: 1fr; }
-      h1 { font-size: 28px; }
-    }
+    .wrapper { max-width: 520px; width: 100%; }
+    .pitch { margin-bottom: 2.5rem; text-align: center; }
+    .logo { font-size: 1.6rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+    .logo span { color: #60a5fa; }
+    .tagline { font-size: 1.25rem; font-weight: 600; color: #c9d8f0; line-height: 1.4; margin-bottom: 0.75rem; }
+    .subline { font-size: 0.92rem; color: #7a9cc4; line-height: 1.7; margin-bottom: 1.25rem; }
+    .proof-row { display: flex; justify-content: center; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .proof-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #5580aa; }
+    .proof-dot { width: 6px; height: 6px; border-radius: 50%; background: #60a5fa; flex-shrink: 0; }
+    .card { background: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 12px; padding: 1.75rem; width: 100%; }
+    .card-label { font-size: 0.85rem; color: #aaa; margin-bottom: 1rem; text-align: center; }
+    .relation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+    .relation-option { display: flex; align-items: center; gap: 0.5rem; background: #111; border: 1px solid #333; border-radius: 8px; padding: 0.6rem 0.75rem; cursor: pointer; font-size: 0.82rem; color: #ccc; }
+    .relation-option.full { grid-column: span 2; }
+    .context-label { font-size: 0.82rem; color: #aaa; margin-bottom: 0.4rem; display: block; }
+    .context-input { width: 100%; padding: 0.65rem 0.9rem; background: #111; border: 1px solid #333; border-radius: 8px; color: #ccc; font-size: 0.82rem; outline: none; margin-bottom: 1rem; }
+    .upload-zone { border: 2px dashed #2d2d2d; border-radius: 8px; padding: 1.75rem; text-align: center; cursor: pointer; transition: border-color 0.2s; margin-bottom: 1rem; }
+    .upload-zone:hover { border-color: #555; }
+    .upload-zone input[type="file"] { display: none; }
+    .upload-icon { font-size: 1.75rem; margin-bottom: 0.4rem; }
+    .upload-text { color: #888; font-size: 0.88rem; }
+    .upload-text span { color: #60a5fa; cursor: pointer; }
+    #file-list { margin-bottom: 1rem; font-size: 0.82rem; color: #aaa; list-style: none; }
+    .btn { width: 100%; padding: 0.85rem; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn:hover { background: #1d4ed8; }
+    .btn:disabled { background: #1e2a3a; color: #3a5070; cursor: not-allowed; }
+    .note { margin-top: 0.75rem; font-size: 0.72rem; color: #444; text-align: center; }
+    .spinner { display: none; text-align: center; margin-top: 1rem; color: #555; font-size: 0.85rem; }
   </style>
+  <meta property="og:title" content="VibeLenz — Bring Their Intentions Into Focus" />
+  <meta property="og:description" content="Upload a conversation screenshot. Get a clear read on what's really happening — positive signals and red flags both. Free during beta." />
+  <meta property="og:image" content="https://appvibelenz.com/static/og-image.svg" />
+  <meta property="og:url" content="https://appvibelenz.com" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://appvibelenz.com/static/og-image.svg" />
 </head>
 <body>
-  <div class="page">
-    <div class="hero">
-      <div class="eyebrow">Choose the kind of read you want</div>
-      <h1>One app. Two ways to read the conversation.</h1>
-      <p>
-        Choose <strong>Connection Analysis</strong> when you want a warm read on chemistry, receptivity, flirtation, and what to do next.
-        Choose <strong>Risk Analysis</strong> when you want a sharper read on scams, contradiction, pressure, manipulation, or safety.
-      </p>
+  <div class="wrapper">
+    <div class="pitch">
+      <div class="logo">Vibe<span>Lenz</span></div>
+      <p class="tagline">You know when you first start talking to someone and the vibe just isn't clear?</p>
+      <p class="subline">Bring their intentions into focus.<br><br>Upload a screenshot of any conversation — dating app, text, DM — and VibeLenz helps you see what may be happening before you invest your time, your trust, or your money.</p>
+      <div class="proof-row">
+        <div class="proof-item"><div class="proof-dot"></div>Financial pressure</div>
+        <div class="proof-item"><div class="proof-dot"></div>Manipulation tactics</div>
+        <div class="proof-item"><div class="proof-dot"></div>Scam patterns</div>
+        <div class="proof-item"><div class="proof-dot"></div>Romance fraud</div>
+      </div>
+      <p style="font-size:0.78rem;color:#2563eb;margin-top:0.75rem;font-weight:500;">Get your first analysis free</p>
     </div>
 
-    <form method="post" enctype="multipart/form-data">
-      <div class="section">
-        <div class="section-title">Upload screenshots</div>
+    <div class="card">
+      <p class="card-label">Upload 1-5 conversation screenshots</p>
 
-        <div class="field">
-          <label for="files">Screenshots</label>
-          <input id="files" name="files" type="file" accept="image/png,image/jpeg,image/jpg" multiple required>
-          <div class="help">Upload one or more screenshots from the same interaction for a stronger read.</div>
+      <form id="upload-form" method="post" action="/analyze-screenshots" enctype="multipart/form-data">
+        <div style="margin-bottom:1rem;">
+          <label class="context-label">Who is this conversation with?</label>
+          <div class="relation-grid">
+            <label class="relation-option">
+              <input type="radio" name="relationship_type" value="stranger" checked style="accent-color:#2563eb;"> New contact
+            </label>
+            <label class="relation-option">
+              <input type="radio" name="relationship_type" value="dating" style="accent-color:#2563eb;"> Dating
+            </label>
+            <label class="relation-option">
+              <input type="radio" name="relationship_type" value="family" style="accent-color:#2563eb;"> Family / Co-parent
+            </label>
+            <label class="relation-option">
+              <input type="radio" name="relationship_type" value="friend" style="accent-color:#2563eb;"> Friend
+            </label>
+            <label class="relation-option full">
+              <input type="radio" name="relationship_type" value="business" style="accent-color:#2563eb;"> Business contact (vendor, client, recruiter)
+            </label>
+          </div>
         </div>
 
-        <div class="field">
-          <label for="relationship_type">Relationship context</label>
-          <select id="relationship_type" name="relationship_type">
-            <option value="stranger" selected>Stranger / New person</option>
-            <option value="dating">Dating / Romantic</option>
-            <option value="friend">Friend / Familiar person</option>
-            <option value="family">Family</option>
-            <option value="business">Business / Transactional</option>
-          </select>
+        <label class="context-label">Context <span style="color:#555;">(optional)</span></label>
+        <input type="text" name="context_note" maxlength="120" placeholder="e.g. Met on Hinge last week, asked me for money" class="context-input" />
+
+        <div class="upload-zone" id="drop-zone">
+          <div class="upload-icon">📎</div>
+          <div class="upload-text">Drop screenshots here or <span id="browse-link">browse</span></div>
+          <input type="file" name="files" id="file-input" accept=".png,.jpg,.jpeg" multiple />
         </div>
+        <ul id="file-list"></ul>
+        <button type="submit" class="btn" id="submit-btn" disabled>Analyze This Conversation</button>
+      </form>
 
-        <div class="field">
-          <label for="user_side">Which side of the conversation are you?</label>
-          <select id="user_side" name="user_side">
-            <option value="unknown" selected>Not sure / Mixed screenshots</option>
-            <option value="right">Right side (purple / dark bubbles)</option>
-            <option value="left">Left side (white / gray bubbles)</option>
-          </select>
-          <div class="help">This helps us read the conversation from your perspective, not theirs.</div>
-        </div>
-
-        <div class="field">
-          <label for="context_note">Optional note</label>
-          <textarea id="context_note" name="context_note" placeholder="Example: We used to talk a while ago. Or: I think this listing may be fake."></textarea>
-        </div>
-      </div>
-
-      <div class="button-grid">
-        <button type="submit" class="btn-connection" formaction="/analyze-screenshots?requested_mode=connection">
-          <span class="btn-title">Analyze Connection</span>
-          <span class="btn-copy">Warm read on chemistry, confusion vs repair, flirtation, and the best next move.</span>
-        </button>
-
-        <button type="submit" class="btn-risk" formaction="/analyze-screenshots?requested_mode=risk">
-          <span class="btn-title">Analyze Risk</span>
-          <span class="btn-copy">Sharper read on contradiction, pressure, extraction, manipulation, and safety concerns.</span>
-        </button>
-      </div>
-    </form>
+      <div class="spinner" id="spinner">Analyzing your conversation...</div>
+      <p class="note">Max 5 images · PNG, JPG · No data stored · Results in seconds</p>
+      <p class="note" style="margin-top:0.25rem;">Built to highlight risk signals and conversation patterns, not replace your judgment.</p>
+    </div>
   </div>
+
+  <script>
+    var input = document.getElementById('file-input');
+    var browseLink = document.getElementById('browse-link');
+    var dropZone = document.getElementById('drop-zone');
+    var fileList = document.getElementById('file-list');
+    var submitBtn = document.getElementById('submit-btn');
+    var form = document.getElementById('upload-form');
+    var spinner = document.getElementById('spinner');
+
+    browseLink.addEventListener('click', function() { input.click(); });
+    dropZone.addEventListener('click', function(e) { if (e.target !== browseLink) input.click(); });
+    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.style.borderColor = '#60a5fa'; });
+    dropZone.addEventListener('dragleave', function() { dropZone.style.borderColor = '#2d2d2d'; });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      dropZone.style.borderColor = '#2d2d2d';
+      var dt = new DataTransfer();
+      Array.from(e.dataTransfer.files).slice(0, 5).forEach(function(f) { dt.items.add(f); });
+      input.files = dt.files;
+      updateList();
+    });
+
+    input.addEventListener('change', updateList);
+
+    function updateList() {
+      fileList.innerHTML = '';
+      var files = Array.from(input.files).slice(0, 5);
+      files.forEach(function(f) {
+        var li = document.createElement('li');
+        li.textContent = '✓ ' + f.name;
+        fileList.appendChild(li);
+      });
+      submitBtn.disabled = files.length === 0;
+    }
+
+    form.addEventListener('submit', function() {
+      submitBtn.disabled = true;
+      spinner.style.display = 'block';
+    });
+  </script>
 </body>
 </html>
