@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
@@ -114,7 +114,7 @@ async def analyze_screenshots(
     files: List[UploadFile] = File(...),
     relationship_type: str = "stranger",
     context_note: str = "",
-    requested_mode: str = "risk",
+    requested_mode: str = Form("risk"),
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
@@ -247,6 +247,7 @@ async def feedback(request: Request):
     except Exception as e:
         logger.error(f"Feedback endpoint error: {e}")
         return JSONResponse({"status": "error"}, status_code=500)
+
 
 
 
