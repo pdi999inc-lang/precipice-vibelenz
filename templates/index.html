@@ -1,158 +1,171 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VibeLenz — Bring Their Intentions Into Focus</title>
-  <script async src='https://www.googletagmanager.com/gtag/js?id=G-E4TDZ5JEQ7'></script>
-  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-E4TDZ5JEQ7');</script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #0d0d0d;
-      color: #e8e8e8;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem 1.5rem;
-    }
-    .wrapper { max-width: 520px; width: 100%; }
-    .pitch { margin-bottom: 2.5rem; text-align: center; }
-    .logo { font-size: 1.6rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
-    .logo span { color: #60a5fa; }
-    .tagline { font-size: 1.25rem; font-weight: 600; color: #c9d8f0; line-height: 1.4; margin-bottom: 0.75rem; }
-    .subline { font-size: 0.92rem; color: #7a9cc4; line-height: 1.7; margin-bottom: 1.25rem; }
-    .proof-row { display: flex; justify-content: center; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-    .proof-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #5580aa; }
-    .proof-dot { width: 6px; height: 6px; border-radius: 50%; background: #60a5fa; flex-shrink: 0; }
-    .card { background: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 12px; padding: 1.75rem; width: 100%; }
-    .card-label { font-size: 0.85rem; color: #aaa; margin-bottom: 1rem; text-align: center; }
-    .relation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
-    .relation-option { display: flex; align-items: center; gap: 0.5rem; background: #111; border: 1px solid #333; border-radius: 8px; padding: 0.6rem 0.75rem; cursor: pointer; font-size: 0.82rem; color: #ccc; }
-    .relation-option.full { grid-column: span 2; }
-    .context-label { font-size: 0.82rem; color: #aaa; margin-bottom: 0.4rem; display: block; }
-    .context-input { width: 100%; padding: 0.65rem 0.9rem; background: #111; border: 1px solid #333; border-radius: 8px; color: #ccc; font-size: 0.82rem; outline: none; margin-bottom: 1rem; }
-    .upload-zone { border: 2px dashed #2d2d2d; border-radius: 8px; padding: 1.75rem; text-align: center; cursor: pointer; transition: border-color 0.2s; margin-bottom: 1rem; }
-    .upload-zone:hover { border-color: #555; }
-    .upload-zone input[type="file"] { display: none; }
-    .upload-icon { font-size: 1.75rem; margin-bottom: 0.4rem; }
-    .upload-text { color: #888; font-size: 0.88rem; }
-    .upload-text span { color: #60a5fa; cursor: pointer; }
-    #file-list { margin-bottom: 1rem; font-size: 0.82rem; color: #aaa; list-style: none; }
-    .btn { width: 100%; padding: 0.85rem; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-    .btn:hover { background: #1d4ed8; }
-    .btn:disabled { background: #1e2a3a; color: #3a5070; cursor: not-allowed; }
-    .note { margin-top: 0.75rem; font-size: 0.72rem; color: #444; text-align: center; }
-    .spinner { display: none; text-align: center; margin-top: 1rem; color: #555; font-size: 0.85rem; }
-  </style>
-  <meta property="og:title" content="VibeLenz — Bring Their Intentions Into Focus" />
-  <meta property="og:description" content="Upload a conversation screenshot. Get a clear read on what's really happening — positive signals and red flags both. Free during beta." />
-  <meta property="og:image" content="https://appvibelenz.com/static/og-image.svg" />
-  <meta property="og:url" content="https://appvibelenz.com" />
-  <meta property="og:type" content="website" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="https://appvibelenz.com/static/og-image.svg" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<title>VibeLenz</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-E4TDZ5JEQ7"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-E4TDZ5JEQ7');</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:hidden;background:#030d1f;}
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+.page{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 18px 70px;}
+.hd{text-align:center;padding:36px 0 18px;}
+.brand-wrap{position:relative;display:inline-block;}
+.brand{font-size:3rem;font-weight:900;font-style:italic;letter-spacing:-1px;line-height:1;color:#fff;text-shadow:0 0 8px rgba(255,255,255,0.9),0 0 20px rgba(100,200,255,1),0 0 40px rgba(60,160,255,0.9),0 0 80px rgba(30,120,255,0.7);}
+.bolt{position:absolute;top:2px;font-size:1.2rem;filter:drop-shadow(0 0 8px rgba(100,220,255,1));animation:blink 2s ease-in-out infinite;}
+.bolt-l{left:-26px;}.bolt-r{right:-26px;}
+@keyframes blink{0%,100%{opacity:0.6;}50%{opacity:1;}}
+.brand-sub{font-size:0.62rem;font-weight:600;letter-spacing:0.24em;text-transform:uppercase;color:rgba(180,225,255,0.75);margin-top:5px;}
+.headline{font-size:1.85rem;font-weight:800;line-height:1.18;margin-top:18px;color:#fff;}
+.choose-lbl{font-size:0.92rem;color:rgba(200,230,255,0.8);margin-top:9px;}
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:16px;}
+.mode-card{border-radius:20px;padding:18px 14px 32px;cursor:pointer;transition:all 0.25s ease;position:relative;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1.5px solid;}
+.mode-card.sel{background:linear-gradient(145deg,rgba(120,190,255,0.30) 0%,rgba(80,150,240,0.20) 40%,rgba(100,170,255,0.25) 100%);border-color:rgba(160,215,255,0.70);box-shadow:0 0 25px rgba(100,180,255,0.50),0 0 60px rgba(60,140,255,0.25),inset 0 1px 0 rgba(255,255,255,0.30);}
+.mode-card:not(.sel){background:linear-gradient(145deg,rgba(90,115,165,0.25) 0%,rgba(70,95,145,0.18) 100%);border-color:rgba(150,180,220,0.30);}
+.m-icon{width:60px;height:60px;margin:0 auto 13px;display:flex;align-items:center;justify-content:center;}
+.m-icon svg{width:58px;height:58px;}
+.mode-card.sel .m-icon svg{filter:drop-shadow(0 0 12px rgba(180,230,255,0.9));}
+.mode-card:not(.sel) .m-icon svg{opacity:0.45;}
+.mode-card h3{font-size:1rem;font-weight:800;text-align:center;margin-bottom:13px;}
+.mode-card.sel h3{color:#fff;}
+.mode-card:not(.sel) h3{color:rgba(200,220,255,0.65);}
+.mode-card ul{list-style:none;display:flex;flex-direction:column;gap:7px;}
+.mode-card ul li{font-size:0.74rem;line-height:1.4;display:flex;align-items:flex-start;gap:6px;}
+.mode-card.sel ul li{color:rgba(225,242,255,0.92);}
+.mode-card:not(.sel) ul li{color:rgba(180,205,235,0.50);}
+.li-i{flex-shrink:0;font-size:0.68rem;margin-top:2px;}
+.card-ft{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);font-size:0.68rem;white-space:nowrap;font-weight:500;}
+.mode-card.sel .card-ft{color:rgba(160,220,255,1);}
+.mode-card:not(.sel) .card-ft{color:rgba(180,205,235,0.40);}
+.sh{font-size:0.96rem;font-weight:700;color:#fff;margin:22px 0 9px;}
+.up-bar{background:rgba(255,255,255,0.09);border:1px solid rgba(180,215,255,0.28);border-radius:13px;padding:13px 14px;display:flex;align-items:center;gap:9px;cursor:pointer;backdrop-filter:blur(14px);transition:border-color 0.2s;}
+.up-bar:hover{border-color:rgba(120,195,255,0.55);}
+.up-ic{font-size:1rem;}.up-lbl{font-size:0.88rem;font-weight:600;}.up-cnt{flex:1;font-size:0.82rem;color:rgba(200,228,255,0.8);}.up-mgr{font-size:0.8rem;color:rgba(120,205,255,0.9);text-decoration:underline;cursor:pointer;}
+#fi{display:none;}
+.thumbs{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;}
+.ti{position:relative;width:72px;height:86px;animation:pop .2s ease both;filter:drop-shadow(2px 4px 10px rgba(0,0,0,0.6));}
+.ti img{width:72px;height:86px;object-fit:cover;border-radius:8px;border:1.5px solid rgba(255,255,255,0.22);}
+.ti:nth-child(1) img{transform:rotate(-2deg);}.ti:nth-child(2) img{transform:rotate(1.5deg);}.ti:nth-child(3) img{transform:rotate(-1deg);}.ti:nth-child(4) img{transform:rotate(2deg);}
+.ti-rm{position:absolute;top:-6px;right:-5px;width:18px;height:18px;background:rgba(20,30,60,0.9);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:50%;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+@keyframes pop{from{opacity:0;transform:scale(0.7);}to{opacity:1;transform:scale(1);}}
+.gl-sel{font-family:'Inter',sans-serif;font-size:0.88rem;color:#fff;background:rgba(255,255,255,0.09);border:1px solid rgba(180,215,255,0.28);border-radius:13px;padding:13px 42px 13px 15px;width:100%;outline:none;-webkit-appearance:none;appearance:none;backdrop-filter:blur(14px);cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(180,215,255,0.7)' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center;}
+.gl-sel option{background:#0a1a40;color:#fff;}
+.role-wrap{position:relative;}
+.role-disp{background:rgba(255,255,255,0.09);border:1px solid rgba(180,215,255,0.28);border-radius:13px;padding:13px 15px;font-size:0.88rem;color:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;backdrop-filter:blur(14px);user-select:none;}
+.role-dd{display:none;position:absolute;right:0;top:0;min-width:210px;background:rgba(8,20,60,0.97);border:1px solid rgba(100,170,255,0.35);border-radius:16px;overflow:hidden;z-index:20;box-shadow:0 12px 45px rgba(0,0,0,0.65);backdrop-filter:blur(22px);}
+.role-dd.open{display:block;}
+.r-opt{padding:12px 15px;font-size:0.86rem;color:#fff;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;}
+.r-opt:hover{background:rgba(100,165,255,0.16);}
+.r-opt.act{background:rgba(100,165,255,0.10);}
+.rav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;}
+.rav-b{background:linear-gradient(135deg,#4a80ff,#2a5fd0);}.rav-p{background:linear-gradient(135deg,#e04075,#a02055);}.rav-v{background:linear-gradient(135deg,#7040e0,#4020b0);}
+.r-arr{color:rgba(180,215,255,0.55);font-size:0.7rem;}
+.gl-ta{font-family:'Inter',sans-serif;font-size:0.85rem;color:rgba(200,228,255,0.7);background:rgba(255,255,255,0.09);border:1px solid rgba(180,215,255,0.28);border-radius:13px;padding:13px 15px;width:100%;resize:none;height:66px;outline:none;backdrop-filter:blur(14px);font-style:italic;}
+.gl-ta::placeholder{color:rgba(160,205,245,0.45);font-style:italic;}
+.cta{width:100%;padding:19px;border:none;border-radius:50px;font-family:'Inter',sans-serif;font-size:1rem;font-weight:900;letter-spacing:0.12em;color:#fff;background:linear-gradient(90deg,#f0247a 0%,#c0145a 30%,#1a5aff 68%,#00ddff 100%);cursor:pointer;margin-top:26px;position:relative;overflow:hidden;box-shadow:0 4px 30px rgba(220,30,100,0.50),0 4px 30px rgba(0,190,255,0.28);transition:transform 0.2s;display:flex;align-items:center;justify-content:center;gap:10px;}
+.cta::before{content:'';position:absolute;top:-50%;left:-75%;width:50%;height:200%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.22),transparent);transform:skewX(-20deg);animation:shine 2.5s ease-in-out infinite;}
+@keyframes shine{0%,100%{left:-75%;}60%{left:130%;}}
+.cta:hover{transform:translateY(-2px);}
+.ov{display:none;position:fixed;inset:0;background:rgba(3,13,31,0.93);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(10px);}
+.ov.on{display:flex;}
+.sp{width:52px;height:52px;border:3px solid rgba(100,185,255,0.20);border-top-color:#00ccff;border-radius:50%;animation:rot .8s linear infinite;}
+@keyframes rot{to{transform:rotate(360deg);}}
+.ov-t{font-size:1.05rem;font-weight:700;}.ov-s{font-size:0.78rem;color:rgba(200,228,255,0.75);}
+</style>
 </head>
 <body>
-  <div class="wrapper">
-    <div class="pitch">
-      <div class="logo">Vibe<span>Lenz</span></div>
-      <p class="tagline">You know when you first start talking to someone and the vibe just isn't clear?</p>
-      <p class="subline">Bring their intentions into focus.<br><br>Upload a screenshot of any conversation — dating app, text, DM — and VibeLenz helps you see what may be happening before you invest your time, your trust, or your money.</p>
-      <div class="proof-row">
-        <div class="proof-item"><div class="proof-dot"></div>Financial pressure</div>
-        <div class="proof-item"><div class="proof-dot"></div>Manipulation tactics</div>
-        <div class="proof-item"><div class="proof-dot"></div>Scam patterns</div>
-        <div class="proof-item"><div class="proof-dot"></div>Romance fraud</div>
-      </div>
-      <p style="font-size:0.78rem;color:#2563eb;margin-top:0.75rem;font-weight:500;">Get your first analysis free</p>
-    </div>
-
-    <div class="card">
-      <p class="card-label">Upload 1-5 conversation screenshots</p>
-
-      <form id="upload-form" method="post" action="/analyze-screenshots" enctype="multipart/form-data">
-        <div style="margin-bottom:1rem;">
-          <label class="context-label">Who is this conversation with?</label>
-          <div class="relation-grid">
-            <label class="relation-option">
-              <input type="radio" name="relationship_type" value="stranger" checked style="accent-color:#2563eb;"> New contact
-            </label>
-            <label class="relation-option">
-              <input type="radio" name="relationship_type" value="dating" style="accent-color:#2563eb;"> Dating
-            </label>
-            <label class="relation-option">
-              <input type="radio" name="relationship_type" value="family" style="accent-color:#2563eb;"> Family / Co-parent
-            </label>
-            <label class="relation-option">
-              <input type="radio" name="relationship_type" value="friend" style="accent-color:#2563eb;"> Friend
-            </label>
-            <label class="relation-option full">
-              <input type="radio" name="relationship_type" value="business" style="accent-color:#2563eb;"> Business contact (vendor, client, recruiter)
-            </label>
-          </div>
-        </div>
-
-        <label class="context-label">Context <span style="color:#555;">(optional)</span></label>
-        <input type="text" name="context_note" maxlength="120" placeholder="e.g. Met on Hinge last week, asked me for money" class="context-input" />
-
-        <div class="upload-zone" id="drop-zone">
-          <div class="upload-icon">📎</div>
-          <div class="upload-text">Drop screenshots here or <span id="browse-link">browse</span></div>
-          <input type="file" name="files" id="file-input" accept=".png,.jpg,.jpeg" multiple />
-        </div>
-        <ul id="file-list"></ul>
-        <button type="submit" class="btn" id="submit-btn" disabled>Analyze This Conversation</button>
-      </form>
-
-      <div class="spinner" id="spinner">Analyzing your conversation...</div>
-      <p class="note">Max 5 images · PNG, JPG · No data stored · Results in seconds</p>
-      <p class="note" style="margin-top:0.25rem;">Built to highlight risk signals and conversation patterns, not replace your judgment.</p>
-    </div>
-  </div>
-
-  <script>
-    var input = document.getElementById('file-input');
-    var browseLink = document.getElementById('browse-link');
-    var dropZone = document.getElementById('drop-zone');
-    var fileList = document.getElementById('file-list');
-    var submitBtn = document.getElementById('submit-btn');
-    var form = document.getElementById('upload-form');
-    var spinner = document.getElementById('spinner');
-
-    browseLink.addEventListener('click', function() { input.click(); });
-    dropZone.addEventListener('click', function(e) { if (e.target !== browseLink) input.click(); });
-    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.style.borderColor = '#60a5fa'; });
-    dropZone.addEventListener('dragleave', function() { dropZone.style.borderColor = '#2d2d2d'; });
-    dropZone.addEventListener('drop', function(e) {
-      e.preventDefault();
-      dropZone.style.borderColor = '#2d2d2d';
-      var dt = new DataTransfer();
-      Array.from(e.dataTransfer.files).slice(0, 5).forEach(function(f) { dt.items.add(f); });
-      input.files = dt.files;
-      updateList();
-    });
-
-    input.addEventListener('change', updateList);
-
-    function updateList() {
-      fileList.innerHTML = '';
-      var files = Array.from(input.files).slice(0, 5);
-      files.forEach(function(f) {
-        var li = document.createElement('li');
-        li.textContent = '✓ ' + f.name;
-        fileList.appendChild(li);
-      });
-      submitBtn.disabled = files.length === 0;
-    }
-
-    form.addEventListener('submit', function() {
-      submitBtn.disabled = true;
-      spinner.style.display = 'block';
-    });
-  </script>
+<canvas id="bgCanvas"></canvas>
+<div class="ov" id="ov"><div class="sp"></div><div class="ov-t">Reading the situation…</div><div class="ov-s">Analyzing your screenshots</div></div>
+<div class="page">
+<div class="hd">
+<div class="brand-wrap"><span class="bolt bolt-l">⚡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">⚡</span></div>
+<div class="brand-sub">Dating Intelligence</div>
+<h1 class="headline">How can we help you read this interaction?</h1>
+<p class="choose-lbl">Choose your focus:</p>
+</div>
+<form id="mf">
+<input type="hidden" id="selMode" value="connection"/>
+<input type="hidden" id="selRole" value="mix"/>
+<div class="mode-grid">
+<div class="mode-card sel" id="cC" onclick="pickMode('connection')">
+<div class="m-icon"><svg viewBox="0 0 80 80" fill="none"><circle cx="28" cy="46" r="18" stroke="white" stroke-width="3.5"/><circle cx="50" cy="46" r="18" stroke="white" stroke-width="3.5"/><line x1="56" y1="16" x2="56" y2="24" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="52" y1="20" x2="60" y2="20" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="67" y1="23" x2="67" y2="29" stroke="white" stroke-width="1.6" stroke-linecap="round"/><line x1="64" y1="26" x2="70" y2="26" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+<h3>Analyze Connection</h3>
+<ul><li><span class="li-i">✓</span>Assess chemistry and receptivity</li><li><span class="li-i">✓</span>Detect flirtation and interest</li><li><span class="li-i">✓</span>Determine the best next move</li><li><span class="li-i">✓</span>Repair misunderstandings</li></ul>
+<div class="card-ft" id="ftC">Chosen</div>
+</div>
+<div class="mode-card" id="cR" onclick="pickMode('risk')">
+<div class="m-icon"><svg viewBox="0 0 80 80" fill="none"><path d="M40 8 L66 20 L66 45 C66 60 40 72 40 72 C40 72 14 60 14 45 L14 20 Z" stroke="white" stroke-width="3.2" stroke-linejoin="round"/><line x1="40" y1="30" x2="40" y2="48" stroke="white" stroke-width="4" stroke-linecap="round"/><circle cx="40" cy="57" r="3" fill="white"/><path d="M56 56 L64 70 L48 70 Z" stroke="white" stroke-width="2" stroke-linejoin="round" fill="none"/><line x1="56" y1="61" x2="56" y2="64.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/><circle cx="56" cy="67" r="1.4" fill="white"/></svg></div>
+<h3>Analyze Risk</h3>
+<ul><li><span class="li-i">⚠</span>Spot scams and fraud</li><li><span class="li-i">⚠</span>Uncover contradictions and pressure</li><li><span class="li-i">⚠</span>Identify manipulative tactics</li><li><span class="li-i">⚠</span>Check for safety concerns</li></ul>
+<div class="card-ft" id="ftR">unselected</div>
+</div>
+</div>
+<div class="sh">1. Upload your screenshots</div>
+<div class="up-bar" onclick="document.getElementById('fi').click()">
+<span class="up-ic">📷</span><span class="up-lbl">Select file(s)</span>
+<span class="up-cnt" id="upCnt"></span>
+<span class="up-mgr" id="upMgr" style="display:none" onclick="event.stopPropagation();clearFiles()">Manage</span>
+<input type="file" id="fi" accept="image/png,image/jpeg,image/jpg" multiple onchange="addFiles(this.files)"/>
+</div>
+<div class="thumbs" id="thumbs"></div>
+<div class="sh">2. Who are you talking to?</div>
+<select class="gl-sel" id="relType"><option value="stranger">Stranger / New person</option><option value="match">Dating app match</option><option value="friend">Friend</option><option value="ex">Ex / Past partner</option><option value="partner">Current partner</option></select>
+<div class="sh">3. Which side are you?</div>
+<div class="role-wrap">
+<div class="role-disp" onclick="tDD()"><span id="rlbl">Sender (Me) / Mix of roles</span><span class="r-arr">▾</span></div>
+<div class="role-dd" id="rdd">
+<div class="r-opt" id="ro-me" onclick="setRole('me','me')"><div class="rav rav-b">👤</div><span>me</span></div>
+<div class="r-opt" id="ro-sender" onclick="setRole('sender','Sender (Me)')"><div class="rav rav-p">👤</div><span>Sender (Me)</span></div>
+<div class="r-opt act" id="ro-mix" onclick="setRole('mix','Mix of roles')"><div class="rav rav-v">👥</div><span>Mix of roles</span></div>
+</div>
+</div>
+<div class="sh">4. Add an optional note <span style="font-weight:400;color:rgba(180,215,255,0.45);font-size:0.78rem;">(optional)</span></div>
+<textarea class="gl-ta" id="ctx" placeholder="e.g., I'm getting mixed signals from this match…"></textarea>
+<button type="submit" class="cta">START MY ANALYSIS <span>✦</span></button>
+</form>
+</div>
+<script>
+(function(){
+const C=document.getElementById('bgCanvas'),ctx=C.getContext('2d');
+let W,H,t=0;
+function resize(){W=C.width=window.innerWidth;H=C.height=window.innerHeight;}
+resize();window.addEventListener('resize',resize);
+const NODES=[];
+for(let i=0;i<80;i++)NODES.push({x:Math.random()*1.3-0.15,y:Math.random(),r:Math.random()*2.5+0.8,speed:Math.random()*0.0004+0.0001,phase:Math.random()*Math.PI*2,alpha:Math.random()*0.7+0.3});
+function makeBolt(x1,y1,x2,y2,r,d){if(d===0)return[[x1,y1,x2,y2]];const mx=(x1+x2)/2+(Math.random()-0.5)*r,my=(y1+y2)/2+(Math.random()-0.5)*r;return[...makeBolt(x1,y1,mx,my,r*0.5,d-1),...makeBolt(mx,my,x2,y2,r*0.5,d-1)];}
+const BOLTS=[];
+function spawnBolt(){const l=Math.random()<0.5,sx=l?W*0.01+Math.random()*W*0.08:W*0.88+Math.random()*W*0.1,sy=Math.random()*H*0.35,ex=sx+(Math.random()-0.5)*80,ey=sy+H*0.20+Math.random()*H*0.25;BOLTS.push({segs:makeBolt(sx,sy,ex,ey,70,5),life:0,maxLife:20+Math.floor(Math.random()*15),alpha:0.9});}
+for(let i=0;i<4;i++)spawnBolt();
+const CURVES=[];
+for(let i=0;i<18;i++)CURVES.push({startX:Math.random(),startY:0.3+Math.random()*0.7,cp1x:Math.random(),cp1y:0.1+Math.random()*0.6,cp2x:Math.random(),cp2y:0.2+Math.random()*0.7,endX:Math.random(),endY:0.4+Math.random()*0.6,speed:0.0002+Math.random()*0.0004,phase:Math.random()*Math.PI*2,hue:185+Math.random()*35,alpha:0.20+Math.random()*0.25});
+function draw(){
+ctx.clearRect(0,0,W,H);
+const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#030d1f');bg.addColorStop(0.4,'#071830');bg.addColorStop(1,'#030d1f');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+const tG=ctx.createRadialGradient(W/2,-H*0.02,0,W/2,H*0.2,W*0.75);tG.addColorStop(0,'rgba(30,110,255,0.85)');tG.addColorStop(0.2,'rgba(20,80,230,0.55)');tG.addColorStop(0.5,'rgba(10,50,180,0.25)');tG.addColorStop(1,'transparent');ctx.fillStyle=tG;ctx.fillRect(0,0,W,H);
+const gL=ctx.createRadialGradient(W*0.05,H*0.08,0,W*0.05,H*0.08,W*0.5);gL.addColorStop(0,'rgba(10,100,255,0.55)');gL.addColorStop(0.5,'rgba(5,60,200,0.18)');gL.addColorStop(1,'transparent');ctx.fillStyle=gL;ctx.fillRect(0,0,W,H);
+const gR=ctx.createRadialGradient(W*0.95,H*0.05,0,W*0.95,H*0.05,W*0.4);gR.addColorStop(0,'rgba(0,80,220,0.40)');gR.addColorStop(1,'transparent');ctx.fillStyle=gR;ctx.fillRect(0,0,W,H);
+t+=0.016;
+CURVES.forEach(cv=>{const ph=t*cv.speed*1000+cv.phase,am=Math.sin(ph)*0.07,pulse=0.5+0.5*Math.sin(ph*2),a=cv.alpha*(0.6+pulse*0.4);ctx.beginPath();ctx.moveTo(cv.startX*W,cv.startY*H);ctx.bezierCurveTo((cv.cp1x+Math.sin(ph)*0.12)*W,(cv.cp1y+am)*H,(cv.cp2x+Math.cos(ph)*0.09)*W,(cv.cp2y-am)*H,(cv.endX+Math.sin(ph*1.3)*0.06)*W,(cv.endY+Math.cos(ph)*0.05)*H);ctx.strokeStyle=`hsla(${cv.hue},90%,70%,${a})`;ctx.lineWidth=1.5+pulse*2.5;ctx.shadowColor=`hsla(${cv.hue},90%,70%,0.9)`;ctx.shadowBlur=10+pulse*16;ctx.stroke();ctx.shadowBlur=0;});
+NODES.forEach(nd=>{const px=nd.x*W+Math.sin(t*nd.speed*1000+nd.phase)*32,py=nd.y*H+Math.cos(t*nd.speed*800+nd.phase)*22,pulse=0.5+0.5*Math.sin(t*nd.speed*2000+nd.phase),r=nd.r*(1+pulse*0.6),g=ctx.createRadialGradient(px,py,0,px,py,r*7);g.addColorStop(0,`rgba(120,215,255,${nd.alpha*pulse})`);g.addColorStop(0.4,`rgba(70,165,255,${nd.alpha*0.45*pulse})`);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(px,py,r*7,0,Math.PI*2);ctx.fill();ctx.fillStyle=`rgba(200,240,255,${0.6+pulse*0.4})`;ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);ctx.fill();});
+for(let i=BOLTS.length-1;i>=0;i--){const b=BOLTS[i];b.life++;if(b.life>b.maxLife){BOLTS.splice(i,1);continue;}const pr=b.life/b.maxLife;let a=b.alpha;if(pr<0.15)a*=pr/0.15;else if(pr>0.65)a*=(1-pr)/0.35;b.segs.forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=`rgba(140,220,255,${a*0.5})`;ctx.lineWidth=5;ctx.shadowColor='rgba(100,210,255,0.9)';ctx.shadowBlur=18;ctx.stroke();ctx.strokeStyle=`rgba(255,255,255,${a})`;ctx.lineWidth=1.2;ctx.shadowBlur=8;ctx.stroke();ctx.shadowBlur=0;});}
+if(Math.random()<0.025&&BOLTS.length<6)spawnBolt();
+ctx.save();ctx.globalAlpha=0.06;for(let y=H*0.45;y<H;y+=16){ctx.beginPath();ctx.moveTo(W*0.35,y);ctx.lineTo(W,y);ctx.strokeStyle='rgba(80,170,255,1)';ctx.lineWidth=0.5;ctx.stroke();}for(let x=W*0.35;x<W;x+=16){ctx.beginPath();ctx.moveTo(x,H*0.45);ctx.lineTo(x,H);ctx.strokeStyle='rgba(80,170,255,1)';ctx.lineWidth=0.5;ctx.stroke();}ctx.restore();
+requestAnimationFrame(draw);}
+draw();
+})();
+function pickMode(m){document.getElementById('selMode').value=m;document.getElementById('cC').classList.toggle('sel',m==='connection');document.getElementById('cR').classList.toggle('sel',m==='risk');document.getElementById('ftC').textContent=m==='connection'?'Chosen':'unselected';document.getElementById('ftR').textContent=m==='risk'?'Chosen':'unselected';}
+function tDD(){document.getElementById('rdd').classList.toggle('open');}
+function setRole(v,lbl){document.getElementById('selRole').value=v;document.getElementById('rlbl').textContent=lbl;document.getElementById('rdd').classList.remove('open');document.querySelectorAll('.r-opt').forEach(o=>o.classList.remove('act'));document.getElementById('ro-'+v).classList.add('act');}
+document.addEventListener('click',e=>{if(!e.target.closest('.role-wrap'))document.getElementById('rdd').classList.remove('open');});
+let files=[];
+function addFiles(fl){files=files.concat(Array.from(fl)).slice(0,10);render();}
+function removeFile(i){files.splice(i,1);render();}
+function clearFiles(){files=[];render();}
+function render(){const s=document.getElementById('thumbs'),c=document.getElementById('upCnt'),m=document.getElementById('upMgr');s.innerHTML='';if(!files.length){c.textContent='';m.style.display='none';return;}c.textContent=`${files.length} image${files.length>1?'s':''} selected`;m.style.display='inline';files.forEach((f,i)=>{const u=URL.createObjectURL(f),el=document.createElement('div');el.className='ti';el.innerHTML=`<img src="${u}" alt=""/><button type="button" class="ti-rm" onclick="removeFile(${i})">✕</button>`;s.appendChild(el);});}
+document.getElementById('mf').addEventListener('submit',async e=>{e.preventDefault();if(!files.length){alert('Please upload at least one screenshot.');return;}document.getElementById('ov').classList.add('on');const fd=new FormData();files.forEach(f=>fd.append('files',f));fd.append('relationship_type',document.getElementById('relType').value);fd.append('context_note',document.getElementById('ctx').value);fd.append('requested_mode',document.getElementById('selMode').value);try{const res=await fetch('/analyze-screenshots',{method:'POST',body:fd,headers:{'Accept':'text/html'}});if(res.ok){const h=await res.text();document.open();document.write(h);document.close();}else{document.getElementById('ov').classList.remove('on');alert('Analysis failed.');}}catch{document.getElementById('ov').classList.remove('on');alert('Network error.');}});
+</script>
 </body>
 </html>
