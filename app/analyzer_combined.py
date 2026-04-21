@@ -1793,8 +1793,8 @@ def _arc_label(scores: List[int], labels: List[str]) -> Dict[str, Any]:
     first, last = scores[0], scores[-1]
     delta = last - first
     swing = max(scores) - min(scores)
-    early_confused = any(l in {"routine_message", "confusion_then_repair", "playful_reengagement"}
-                         for l in labels[:max(1, len(labels) // 2)])
+    early_confused = any(l in {"confusion_then_repair"}
+                         for l in labels[:max(1, len(labels) // 2)]) and scores[0] >= 20
     late_warm = any(l in {"warm_receptivity", "casual_flirtation", "playful_reengagement",
                           "light_sexual_reciprocity", "confusion_then_repair"}
                     for l in labels[len(labels) // 2:])
@@ -1810,7 +1810,7 @@ def _arc_label(scores: List[int], labels: List[str]) -> Dict[str, Any]:
     elif max(scores) >= 60:
         arc, arc_label, direction = "flat_high", "Consistently elevated risk across all screenshots", "concerning"
     elif early_confused and late_warm:
-        arc, arc_label, direction = "repair", "Started confused or defensive, ended warm — classic repair pattern", "improving"
+        arc, arc_label, direction = "repair", "Started with some friction, then settled into warmer territory", "improving"
     else:
         arc, arc_label, direction = "flat_low", "Low and stable — nothing escalated across these screenshots", "neutral"
 
@@ -1903,6 +1903,8 @@ def run_combined(
         text = str(turns or "")
 
     return analyze_text(text, use_llm=use_llm)
+
+
 
 
 
