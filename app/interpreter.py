@@ -413,7 +413,16 @@ def interpret_analysis(
     else:
         out["llm_enriched"] = False
         out["llm_error"] = None
+
+    # Sanitize forward-looking contrast language — strip failure framing
+    _bad_phrases = ["initial analysis failed", "analysis failed", "the initial read failed", "first pass failed"]
+    for _field in ("diagnosis", "reasoning", "practical_next_steps", "accountability"):
+        _val = out.get(_field, "") or ""
+        for _phrase in _bad_phrases:
+            if _phrase in _val.lower():
+                out[_field] = _val.replace(_phrase, "the first read was limited").replace(_phrase.capitalize(), "The first read was limited")
     return out
+
 
 
 
