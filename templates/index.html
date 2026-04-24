@@ -88,7 +88,7 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 </div>
 <form id="mf">
 <input type="hidden" id="selMode" value="connection"/>
-<input type="hidden" id="selRole" value="mix"/>
+<input type="hidden" id="selRole" value="left_white"/>
 <div class="mode-grid">
 <div class="mode-card sel" id="cC" onclick="pickMode('connection')">
 <div class="m-icon"><svg viewBox="0 0 80 80" fill="none"><circle cx="28" cy="46" r="18" stroke="white" stroke-width="3.5"/><circle cx="50" cy="46" r="18" stroke="white" stroke-width="3.5"/><line x1="56" y1="16" x2="56" y2="24" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="52" y1="20" x2="60" y2="20" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="67" y1="23" x2="67" y2="29" stroke="white" stroke-width="1.6" stroke-linecap="round"/><line x1="64" y1="26" x2="70" y2="26" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg></div>
@@ -115,11 +115,11 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 <select class="gl-sel" id="relType"><option value="stranger">Stranger / New person</option><option value="match">Dating app match</option><option value="friend">Friend</option><option value="ex">Ex / Past partner</option><option value="partner">Current partner</option></select>
 <div class="sh">3. Which side are you?</div>
 <div class="role-wrap">
-<div class="role-disp" onclick="tDD()"><span id="rlbl">Sender (Me) / Mix of roles</span><span class="r-arr">▾</span></div>
+<div class="role-disp" onclick="tDD()"><span id="rlbl">Left / White</span><span class="r-arr">▾</span></div>
 <div class="role-dd" id="rdd">
-<div class="r-opt" id="ro-me" onclick="setRole('me','me')"><div class="rav rav-b">👤</div><span>me</span></div>
-<div class="r-opt" id="ro-sender" onclick="setRole('sender','Sender (Me)')"><div class="rav rav-p">👤</div><span>Sender (Me)</span></div>
-<div class="r-opt act" id="ro-mix" onclick="setRole('mix','Mix of roles')"><div class="rav rav-v">👥</div><span>Mix of roles</span></div>
+<div class="r-opt" id="ro-left_white" class="r-opt act" onclick="setRole('left_white','Left / White')"><div class="rav rav-b">👤</div><span>Left / White</span></div>
+<div class="r-opt" id="ro-right_blue" onclick="setRole('right_blue','Right / Blue')"><div class="rav rav-p">👤</div><span>Right / Blue</span></div>
+<div class="r-opt" id="ro-mix" onclick="setRole('mix','Mix of roles')"><div class="rav rav-v">👥</div><span>Mix of roles</span></div>
 </div>
 </div>
 <div class="sh">4. Add an optional note <span style="font-weight:400;color:rgba(180,215,255,0.45);font-size:0.78rem;">(optional)</span></div>
