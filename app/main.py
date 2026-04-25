@@ -113,7 +113,7 @@ async def analyze_screenshots(
     request: Request,
     files: List[UploadFile] = File(...),
     relationship_type: str = Form("stranger"),
-    context_note: str = "",
+    context_note: str = Form(""),
     requested_mode: str = Form("risk"),
 ):
     request_id = str(uuid.uuid4())
@@ -251,6 +251,7 @@ async def feedback(request: Request):
     except Exception as e:
         logger.error(f"Feedback endpoint error: {e}")
         return JSONResponse({"status": "ok"})
+
 
 
 
