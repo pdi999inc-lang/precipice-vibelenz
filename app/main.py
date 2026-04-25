@@ -206,6 +206,7 @@ async def analyze_screenshots(
 
     template_payload = dict(payload)
     template_payload["request"] = request
+    template_payload.setdefault("final_risk_score", template_payload.get("risk_score", 0))
 
     result_file = TEMPLATES_DIR / "result.html"
     if result_file.exists():
@@ -250,6 +251,7 @@ async def feedback(request: Request):
     except Exception as e:
         logger.error(f"Feedback endpoint error: {e}")
         return JSONResponse({"status": "ok"})
+
 
 
 
