@@ -1540,6 +1540,7 @@ def _run_deterministic(text: str, relationship_type: str = "stranger") -> Dict[s
         "interest_label": interest_label,
         "evidence_scoring": evidence_data,
         "research_patch": research_patch,
+        "concern_signals": connection_data.get("concern_signals", []),
     }
 
 
@@ -1903,6 +1904,7 @@ def run_combined(
         text = str(turns or "")
 
     return analyze_text(text, use_llm=use_llm)
+
 
 
 
