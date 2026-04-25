@@ -186,6 +186,8 @@ async def analyze_screenshots(
         narrative=narrative,
         turn_analysis=turn_analysis,
     )
+    payload["relationship_type"] = relationship_type
+    payload["requested_mode"] = requested_mode
     try:
         from app.db import log_analysis
         log_analysis(payload, conversation_text=extracted_text)
@@ -207,6 +209,8 @@ async def analyze_screenshots(
     template_payload = dict(payload)
     template_payload["request"] = request
     template_payload.setdefault("final_risk_score", template_payload.get("risk_score", 0))
+    template_payload["relationship_type"] = relationship_type
+    template_payload["requested_mode"] = requested_mode
 
     result_file = TEMPLATES_DIR / "result.html"
     if result_file.exists():
@@ -235,16 +239,17 @@ async def diag_llm():
         return {"status": "error", "detail": str(e), "key_prefix": api_key[:12]}
 
 @app.post("/feedback")
-async def feedback(request: Request):
+async def feedback(
+    request: Request,
+    request_id: str = Form("unknown"),
+    accurate: str = Form("no"),
+    note: str = Form(""),
+):
     try:
-        body = await request.json()
-        request_id = body.get("request_id", "unknown")
-        rating = body.get("rating", "unknown")
-        note = body.get("note", "")
-        accurate = str(rating).lower() in {"yes", "accurate", "true", "1", "thumbs_up"}
+        is_accurate = str(accurate).lower() in {"yes", "accurate", "true", "1", "thumbs_up"}
         try:
             from app.db import log_feedback
-            log_feedback(request_id=request_id, accurate=accurate, note=note)
+            log_feedback(request_id=request_id, accurate=is_accurate, note=note)
         except Exception as db_err:
             logger.warning(f"Feedback DB log skipped: {db_err}")
         return JSONResponse({"status": "ok"})
