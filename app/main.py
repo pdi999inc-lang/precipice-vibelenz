@@ -112,7 +112,7 @@ async def audit_stats():
 async def analyze_screenshots(
     request: Request,
     files: List[UploadFile] = File(...),
-    relationship_type: str = "stranger",
+    relationship_type: str = Form("stranger"),
     context_note: str = "",
     requested_mode: str = Form("risk"),
 ):
