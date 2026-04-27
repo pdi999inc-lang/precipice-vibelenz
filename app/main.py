@@ -15,6 +15,8 @@ from fastapi.templating import Jinja2Templates
 from app.analyzer_combined import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
+from app.degradation import assess_degradation, apply_degradation, DegradationState
+from app.audit import write_audit_record, get_session_stats
 
 logger = logging.getLogger("vibelenz.main")
 
@@ -105,7 +107,7 @@ async def health():
 
 @app.get("/audit/stats")
 async def audit_stats():
-    return {"status": "ok", "audit": "rewrite_stub"}
+    return get_session_stats()
 
 
 @app.post("/analyze-screenshots")
@@ -146,20 +148,43 @@ async def analyze_screenshots(
                 detail=f"Unsupported file type: {content_type}. Allowed: png, jpg, jpeg.",
             )
 
+    # --- OCR ---
+    ocr_char_count = 0
+
     try:
         image_bytes_list = [await f.read() for f in files]
-        # Extract text per image for multi-turn analysis
         text_chunks = []
         for img_bytes in image_bytes_list:
             chunk = extract_text_from_images([img_bytes])
             text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
+        ocr_char_count = len(extracted_text)
     except Exception as e:
         logger.error(f"[{request_id}] OCR failure: {e}")
-        raise HTTPException(status_code=503, detail="OCR processing failed. System blocked.")
+        write_audit_record(
+            request_id=request_id,
+            timestamp_start=timestamp_start,
+            image_count=len(files),
+            ocr_char_count=0,
+            result={},
+            degraded=True,
+            error=f"OCR failure: {e}",
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "fail_closed",
+                "reason": "OCR processing failed. System blocked.",
+                "request_id": request_id,
+                "degradation_state": DegradationState.FAIL_CLOSED.value,
+            },
+        )
 
     if not extracted_text.strip():
         extracted_text = "[No readable text detected in uploaded images]"
+
+    # --- Analysis ---
+    analysis_error: str | None = None
 
     try:
         analysis = analyze_text(
@@ -167,17 +192,77 @@ async def analyze_screenshots(
             relationship_type=relationship_type,
             context_note=context_note,
         )
-        narrative = interpret_analysis(analysis, extracted_text=extracted_text, requested_mode=requested_mode, relationship_type=relationship_type, use_llm=True)
-
-        # Multi-turn analysis — only runs if more than one image uploaded
+        narrative = interpret_analysis(
+            analysis,
+            extracted_text=extracted_text,
+            requested_mode=requested_mode,
+            relationship_type=relationship_type,
+            use_llm=True,
+        )
         turn_analysis = analyze_turns(
             text_chunks=[t for t in text_chunks if t.strip()],
             relationship_type=relationship_type,
         )
     except Exception as e:
+        analysis_error = str(e)
         logger.error(f"[{request_id}] Analysis failure: {e}")
-        raise HTTPException(status_code=503, detail="Analysis engine failed. System blocked.")
+        write_audit_record(
+            request_id=request_id,
+            timestamp_start=timestamp_start,
+            image_count=len(files),
+            ocr_char_count=ocr_char_count,
+            result={},
+            degraded=True,
+            error=f"Analysis failure: {e}",
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "fail_closed",
+                "reason": "Analysis engine failed. System blocked.",
+                "request_id": request_id,
+                "degradation_state": DegradationState.FAIL_CLOSED.value,
+            },
+        )
 
+    # --- Degradation assessment ---
+    processing_time_ms = int((time.time() - timestamp_start) * 1000)
+    confidence = float(analysis.get("confidence", 0.5))
+
+    assessment = assess_degradation(
+        ocr_char_count=ocr_char_count,
+        confidence=confidence,
+        processing_time_ms=processing_time_ms,
+        api_error=analysis_error,
+        result_degraded=bool(analysis.get("degraded", False)),
+    )
+
+    if assessment.should_block:
+        logger.error(f"[{request_id}] FAIL_CLOSED triggered — reasons: {assessment.reasons}")
+        write_audit_record(
+            request_id=request_id,
+            timestamp_start=timestamp_start,
+            image_count=len(files),
+            ocr_char_count=ocr_char_count,
+            result=analysis,
+            degraded=True,
+            error=f"FAIL_CLOSED: {assessment.reasons}",
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "fail_closed",
+                "reason": "System integrity check failed. Analysis blocked.",
+                "degradation_state": DegradationState.FAIL_CLOSED.value,
+                "degradation_reasons": assessment.reasons,
+                "request_id": request_id,
+            },
+        )
+
+    # Apply soft/hard degradation penalties
+    analysis = apply_degradation(analysis, assessment)
+
+    # --- Build payload ---
     payload = _build_response_payload(
         request_id=request_id,
         ts=ts,
@@ -186,18 +271,30 @@ async def analyze_screenshots(
         narrative=narrative,
         turn_analysis=turn_analysis,
     )
+
+    # --- DB log ---
     try:
         from app.db import log_analysis
         log_analysis(payload, conversation_text=extracted_text)
     except Exception as _db_err:
         logger.warning(f"DB log skipped: {_db_err}")
 
+    # --- Audit record ---
+    write_audit_record(
+        request_id=request_id,
+        timestamp_start=timestamp_start,
+        image_count=len(files),
+        ocr_char_count=ocr_char_count,
+        result=payload,
+        degraded=bool(payload.get("degraded", False)),
+    )
+
     logger.info(
         f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "
         f"Mode={requested_mode} Turns={turn_analysis.get('turn_count', 0)} "
         f"Arc={turn_analysis.get('arc', 'n/a')} "
-        f"Degraded={payload.get('degraded', False)} "
-        f"TookMs={int((time.time() - timestamp_start) * 1000)}"
+        f"Degraded={payload.get('degraded', False)} DegState={assessment.state.value} "
+        f"TookMs={processing_time_ms}"
     )
 
     accept = request.headers.get("accept", "")
@@ -215,10 +312,8 @@ async def analyze_screenshots(
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
 
 
-
 @app.get("/diag/llm")
 async def diag_llm():
-    import os
     import anthropic as _anthropic
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -233,6 +328,7 @@ async def diag_llm():
         return {"status": "ok", "response": msg.content[0].text, "key_prefix": api_key[:12]}
     except Exception as e:
         return {"status": "error", "detail": str(e), "key_prefix": api_key[:12]}
+
 
 @app.post("/feedback")
 async def feedback(request: Request):
@@ -251,15 +347,3 @@ async def feedback(request: Request):
     except Exception as e:
         logger.error(f"Feedback endpoint error: {e}")
         return JSONResponse({"status": "ok"})
-
-
-
-
-
-
-
-
-
-
-
-
