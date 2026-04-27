@@ -17,10 +17,17 @@ from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
 from app.degradation import assess_degradation, apply_degradation, DegradationState
 from app.audit import write_audit_record, get_session_stats
+from app.db import init_db
 
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize DB schema on every startup. Idempotent — safe to run repeatedly."""
+    init_db()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -29,7 +36,10 @@ STATIC_DIR = BASE_DIR / "static"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 MAX_FILES = 10
+MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB hard cap per file
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/jpg"}
+# Magic byte prefixes for PNG and JPEG — validated after read, before OCR.
+IMAGE_MAGIC = (b"\x89PNG", b"\xff\xd8\xff")
 # PATCH-003: Hard minimum OCR char threshold.
 # Below this = image unreadable. Analysis must not run on noise or placeholder text.
 MIN_OCR_CHARS = 50
@@ -173,6 +183,20 @@ async def analyze_screenshots(
 
     try:
         image_bytes_list = [await f.read() for f in files]
+
+        # Safety invariant: enforce file size cap and magic byte integrity.
+        # Fail closed — reject before OCR if either check fails.
+        for idx, img_bytes in enumerate(image_bytes_list):
+            if len(img_bytes) > MAX_FILE_BYTES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"File {idx + 1} exceeds 10 MB limit. Reduce file size and retry.",
+                )
+            if not img_bytes.startswith(IMAGE_MAGIC):
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"File {idx + 1} failed format validation. Only PNG and JPEG are accepted.",
+                )
         text_chunks = []
         for img_bytes in image_bytes_list:
             chunk = extract_text_from_images([img_bytes])
