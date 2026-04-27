@@ -1217,16 +1217,26 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
 
     money_terms = ["deposit", "lease agreement", "move in", "application fee", "rent", "$", "paid"]
     money_action_verbs = ["send", "wire", "transfer", "pay", "submit", "provide", "need", "require", "must pay", "owe", "collect"]
-    pressure_terms = ["urgent", "immediately", "right now", "must", "need to", "asap", "today"]
+    # PATCH-004: Pressure terms tightened. Removed "must", "need to", "today" --
+    # these fire constantly on benign dating conversation ("you must be fun",
+    # "free today?", "I need to tell you something"). Kept high-specificity terms only.
+    pressure_terms = ["urgent", "immediately", "right now", "asap", "do it now", "hurry up", "act now"]
     sensitive_terms = ["ssn", "social security", "password", "login", "verification code", "otp", "pin"]
 
     if _fuzzy_contains_any(t, sensitive_terms):
         signals.append("credential_or_sensitive_info_signal")
-    if _contains_any(t, pressure_terms):
-        signals.append("pressure_present")
+
+    # PATCH-004: Pressure requires 2+ term matches to fire standalone.
+    # Single isolated pressure term on benign text no longer triggers.
+    # Exception: 1 term fires if extraction is also detected (compound risk).
+    _pressure_count = _count_any(t, pressure_terms)
+    _pressure_triggered_standalone = _pressure_count >= 2
+
     if domain_mode == "dating_social" and _contains_any(t, ["come over", "hook up", "hookup", "sexy", "horny"]):
         signals.append("sexual_directness")
-    if _contains_any(t, ["stop contacting me", "leave me alone", "not comfortable", "do not contact me"]):
+    # PATCH-004: Boundary detection tightened. Removed "not comfortable" --
+    # fires on "I'm not comfortable with Thai food". Kept unambiguous rejection language only.
+    if _contains_any(t, ["stop contacting me", "leave me alone", "do not contact me", "please stop messaging"]):
         signals.append("boundary_language_present")
 
     if domain_mode == "housing_rental":
@@ -1284,6 +1294,17 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
 
         if _contains_any(t, money_terms) and _contains_any(t, money_action_verbs):
             signals.append("money_request")
+
+    # PATCH-004: Resolve pressure with extraction context.
+    # If extraction IS present and at least 1 pressure term fired, treat as pressure.
+    # Preserves detection of real coercive extraction patterns (1 term + money = pressure).
+    _extraction_candidate = any(s in signals for s in [
+        "credential_or_sensitive_info_signal",
+        "payment_before_verification",
+        "money_request",
+    ])
+    if _pressure_triggered_standalone or (_pressure_count >= 1 and _extraction_candidate):
+        signals.append("pressure_present")
 
     extraction_present = any(s in signals for s in [
         "credential_or_sensitive_info_signal",
@@ -1928,6 +1949,7 @@ def run_combined(
         text = str(turns or "")
 
     return analyze_text(text, use_llm=use_llm)
+
 
 
 
