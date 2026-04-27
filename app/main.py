@@ -377,9 +377,9 @@ async def diag_llm():
             max_tokens=10,
             messages=[{"role": "user", "content": "hi"}],
         )
-        return {"status": "ok", "response": msg.content[0].text, "key_prefix": api_key[:12]}
+        return {"status": "ok", "response": msg.content[0].text}
     except Exception as e:
-        return {"status": "error", "detail": str(e), "key_prefix": api_key[:12]}
+        return {"status": "error", "detail": str(e)}
 
 
 @app.post("/feedback")
@@ -399,4 +399,6 @@ async def feedback(request: Request):
     except Exception as e:
         logger.error(f"Feedback endpoint error: {e}")
         return JSONResponse({"status": "ok"})
+
+
 
