@@ -1605,6 +1605,48 @@ def _extract_first_json_object(raw_text: str) -> Dict[str, Any]:
     raise ValueError("No complete balanced JSON object found in Claude response")
 
 
+
+# ---------------------------------------------------------------------------
+# SAFETY INVARIANT #3 — Prompt Injection Detection
+# Checks OCR-extracted text for instruction-override patterns before LLM send.
+# Fail-closed: matched text is NEVER passed to the LLM or deterministic engine.
+# ---------------------------------------------------------------------------
+import re as _re
+
+_INJECTION_PATTERNS = [
+    r"ignore\s+(all\s+)?(previous|prior|above|your)\s+instructions",
+    r"disregard\s+(all\s+)?(previous|prior|above|your)\s+instructions",
+    r"forget\s+(all\s+)?(previous|prior|above|your)\s+instructions",
+    r"override\s+(all\s+)?(previous\s+)?instructions",
+    r"new\s+system\s+prompt",
+    r"act\s+as\s+(a\s+|an\s+)?\w+\s+without\s+(any\s+)?restrictions",
+    r"pretend\s+(you\s+are|to\s+be)",
+    r"you\s+are\s+now\s+(a\s+|an\s+)?(?!talking|speaking|looking)",
+    r"your\s+(new\s+)?role\s+is\s+to",
+    r"do\s+anything\s+now",
+    r"developer\s+mode\s+(enabled|on|active)",
+    r"jailbreak",
+    r"<\|im_start\|>",
+    r"<\|endoftext\|>",
+    r"\[system\]\s*:",
+    r"<system>",
+]
+_INJECTION_RE = _re.compile(
+    "|".join(_INJECTION_PATTERNS),
+    _re.IGNORECASE,
+)
+
+
+def _check_prompt_injection(text: str):
+    """
+    Returns (detected: bool, matched: str).
+    Matched is the first pattern hit, empty string if clean.
+    """
+    m = _INJECTION_RE.search(text)
+    if m:
+        return True, m.group(0)[:80]
+    return False, ""
+
 def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_note: str = "") -> Dict[str, Any]:
     """Call Claude API with full 30-signal VIE library. Fail-closed on any error."""
     import anthropic as _anthropic
@@ -1775,6 +1817,28 @@ def analyze_text(
         result = _apply_relationship_guardrails(result, relationship_type)
         result = _sanitize_prohibited_claims(result)
         return result
+
+    # Safety invariant #3: block prompt injection before any analysis path.
+    _injected, _matched = _check_prompt_injection(text)
+    if _injected:
+        logger.warning("Prompt injection detected. Blocking analysis. Matched: %r", _matched)
+        return {
+            "risk_score": 100,
+            "risk_level": "HIGH",
+            "lane": "BLOCKED",
+            "primary_label": "prompt_injection_detected",
+            "vie_action": "BLOCK",
+            "flags": ["prompt_injection_detected"],
+            "evidence": {},
+            "active_combos": [],
+            "positive_signals": [],
+            "confidence": 1.0,
+            "summary": "Analysis blocked. Instruction-override content detected in uploaded image.",
+            "summary_logic": "Prompt injection guard triggered.",
+            "recommended_action": "Do not share this conversation. Content appears manipulated.",
+            "degraded": False,
+            "injection_blocked": True,
+        }
 
     try:
         return _run_llm_analysis(text, relationship_type, context_note)
