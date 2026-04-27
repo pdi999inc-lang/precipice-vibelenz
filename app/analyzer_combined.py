@@ -1598,12 +1598,36 @@ def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_no
         text = text[:8000] + "\n[truncated]"
 
     relationship_type = str(relationship_type or "stranger").lower()
+    _pre_domain = _detect_domain_mode(text)
+    _pre_recip = _detect_reciprocity(text)
+    _pre_intent = _detect_intent_horizon(text, _pre_domain["domain_mode"])
+    _pre_extracted = _extract_key_signals(text, _pre_domain["domain_mode"])
+    _pre_conn = _detect_connection_signals(text)
+    _pre_lane = _assign_lane(
+        domain_mode=_pre_domain["domain_mode"],
+        reciprocity_level=_pre_recip,
+        intent_horizon=_pre_intent,
+        extraction_present=_pre_extracted["extraction_present"],
+        pressure_present=_pre_extracted["pressure_present"],
+        boundary_violations=_pre_extracted["boundary_violations"],
+        key_signals=_pre_extracted["signals"],
+        relationship_type=relationship_type,
+        text=text,
+        connection_label=_pre_conn["connection_label"],
+    )
+    _lane_constraint = f"""DETERMINISTIC PRE-CLASSIFICATION:
+lane: {_pre_lane["lane"]}
+primary_label: {_pre_lane["primary_label"]}
+
+You must treat this lane as the controlling interpretation context.
+Do not escalate beyond this lane unless the conversation contains clear extraction, coercion, identity deception, or boundary violation."""
+
     if relationship_type in ("dating", "family", "friend", "business"):
         active_prompt = RELATIONSHIP_PROMPT
-        user_content = f"Relationship type: {relationship_type}\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+        user_content = f"{_lane_constraint}\n\nRelationship type: {relationship_type}\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
     else:
         active_prompt = SYSTEM_PROMPT
-        user_content = f"Context note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+        user_content = f"{_lane_constraint}\n\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
 
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
