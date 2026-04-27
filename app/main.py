@@ -30,6 +30,9 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 MAX_FILES = 10
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/jpg"}
+# PATCH-003: Hard minimum OCR char threshold.
+# Below this = image unreadable. Analysis must not run on noise or placeholder text.
+MIN_OCR_CHARS = 50
 
 
 def _simple_page(title: str, body: str) -> HTMLResponse:
@@ -59,12 +62,29 @@ def _build_response_payload(
     payload["request_id"] = request_id
     payload["timestamp"] = ts
     payload["extracted_text"] = extracted_text
-    payload["summary"] = narrative["diagnosis"]
-    payload["recommended_action"] = narrative["practical_next_steps"]
+    # PATCH-003: Use .get() with safe defaults.
+    # KeyError here would break all responses — defensive defaults protect every path.
+    payload["summary"] = narrative.get("diagnosis", "Analysis complete.")
+    payload["recommended_action"] = narrative.get("practical_next_steps", "Stay observant.")
     payload["risk_label"] = payload.get("risk_label") or _risk_label_from_score(
         int(payload.get("final_risk_score", payload.get("risk_score", 0)))
     )
     payload["turn_analysis"] = turn_analysis
+    # PATCH-003: Guarantee all template-required keys exist.
+    # Interpreter always sets these, but degraded or partial paths may not.
+    payload.setdefault("mode_title", "Analysis")
+    payload.setdefault("mode_tagline", "")
+    payload.setdefault("presentation_mode", "risk")
+    payload.setdefault("accountability", "")
+    payload.setdefault("alternative_explanations", [])
+    payload.setdefault("key_dampeners", [])
+    payload.setdefault("social_tone", "")
+    payload.setdefault("interest_summary", "")
+    payload.setdefault("human_label", "")
+    payload.setdefault("mode_override_note", "")
+    payload.setdefault("degraded", False)
+    payload.setdefault("degradation_state", "NOMINAL")
+    payload.setdefault("degradation_reasons", [])
     return payload
 
 
@@ -180,8 +200,40 @@ async def analyze_screenshots(
             },
         )
 
-    if not extracted_text.strip():
-        extracted_text = "[No readable text detected in uploaded images]"
+    # PATCH-003: Hard OCR guard.
+    # If image yields fewer than MIN_OCR_CHARS, it is unreadable.
+    # Return an explicit, honest response. Do NOT analyze noise or placeholder text.
+    # A result with no text is not a clean read and must not be logged as one.
+    if ocr_char_count < MIN_OCR_CHARS:
+        logger.warning(
+            f"[{request_id}] OCR returned {ocr_char_count} chars -- below MIN_OCR_CHARS={MIN_OCR_CHARS}. "
+            f"Returning insufficient-data response. No analysis run."
+        )
+        write_audit_record(
+            request_id=request_id,
+            timestamp_start=timestamp_start,
+            image_count=len(files),
+            ocr_char_count=ocr_char_count,
+            result={},
+            degraded=True,
+            error=f"OCR insufficient: {ocr_char_count} chars < {MIN_OCR_CHARS} minimum",
+        )
+        return JSONResponse(
+            status_code=422,
+            content={
+                "request_id": request_id,
+                "timestamp": ts,
+                "error": "insufficient_ocr_data",
+                "message": (
+                    "We could not read enough text from your screenshot. "
+                    "Try uploading a clearer image with visible conversation text."
+                ),
+                "ocr_char_count": ocr_char_count,
+                "min_required": MIN_OCR_CHARS,
+                "degraded": True,
+                "degradation_state": DegradationState.FAIL_CLOSED.value,
+            },
+        )
 
     # --- Analysis ---
     analysis_error: str | None = None
@@ -347,3 +399,4 @@ async def feedback(request: Request):
     except Exception as e:
         logger.error(f"Feedback endpoint error: {e}")
         return JSONResponse({"status": "ok"})
+
