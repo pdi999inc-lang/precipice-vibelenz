@@ -1500,6 +1500,10 @@ def _run_deterministic(text: str, relationship_type: str = "stranger") -> Dict[s
     positive_signals = connection_data["connection_signals"][:]
     if reciprocity_level == "HIGH" and "reciprocal_engagement" not in positive_signals:
         positive_signals.append("reciprocal_engagement")
+    # C6 FIX: Suppress positive signals when lane is high-risk — contradictory trust signals
+    # on a FRAUD or COERCION_RISK lane erode user trust in the output.
+    if lane_info["lane"] in {"FRAUD", "COERCION_RISK"} or risk["risk_level"] == "HIGH":
+        positive_signals = []
     # Merge connection concern signals into key_signals so they appear in concern section
     for cs in connection_data.get("concern_signals", []):
         if cs not in flags:
@@ -1772,6 +1776,9 @@ Do not escalate beyond this lane unless the conversation contains clear extracti
     _llm_positives = set(merged.get("positive_signals", []) or [])
     _safe_llm = {s for s in _llm_positives if s in {"no_financial_topics", "transparent_intentions", "adult_consensual_tone", "verifiable_details", "consistent_identity"}}
     merged["positive_signals"] = list(dict.fromkeys(_det_signals + list(_safe_llm)))
+    # C6 FIX: Suppress positive signals on high-risk lanes (LLM path mirrors deterministic gate)
+    if merged.get("lane") in {"FRAUD", "COERCION_RISK"} or int(merged.get("risk_score", 0) or 0) >= 60:
+        merged["positive_signals"] = []
 
     merged = _apply_relationship_guardrails(merged, relationship_type=relationship_type)
     merged["research_patch"] = _build_research_patch(text, relationship_type)
