@@ -95,6 +95,13 @@ def _build_response_payload(
     payload.setdefault("degraded", False)
     payload.setdefault("degradation_state", "NOMINAL")
     payload.setdefault("degradation_reasons", [])
+    # C5: Non-blocking schema validation — detects field drift without blocking responses.
+    # Any mismatch is logged as a warning; the payload is still returned to the caller.
+    try:
+        from app.schemas import AnalysisResponse
+        AnalysisResponse(**payload)
+    except Exception as _schema_err:
+        logger.warning(f"[schema_drift] AnalysisResponse validation failed: {_schema_err}")
     return payload
 
 
@@ -137,6 +144,42 @@ async def health():
 
 @app.get("/audit/stats")
 async def audit_stats():
+    # H5: Query Postgres directly — get_session_stats() reads /tmp/ which resets on container restart.
+    # Fallback to session stats if DB is unavailable.
+    db_url = os.environ.get("DATABASE_URL", "")
+    if db_url:
+        try:
+            import psycopg2
+            conn = psycopg2.connect(db_url)
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM analyses;")
+            total = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM analyses WHERE created_at > NOW() - INTERVAL '24 hours';")
+            last_24h = cur.fetchone()[0]
+            cur.execute("SELECT COUNT(*) FROM analyses WHERE degraded = FALSE;")
+            clean = cur.fetchone()[0]
+            cur.execute("SELECT AVG(risk_score)::int, MAX(risk_score) FROM analyses;")
+            row = cur.fetchone()
+            avg_risk = int(row[0] or 0)
+            max_risk = int(row[1] or 0)
+            cur.close()
+            conn.close()
+            return {
+                "status": "ok",
+                "source": "postgres",
+                "governance_gate": {
+                    "current": total,
+                    "target": 200,
+                    "clean_reads": clean,
+                    "remaining": max(0, 200 - total),
+                },
+                "total_analyses": total,
+                "last_24h": last_24h,
+                "avg_risk_score": avg_risk,
+                "max_risk_score": max_risk,
+            }
+        except Exception as _db_err:
+            logger.warning(f"DB stats query failed, falling back to session stats: {_db_err}")
     return get_session_stats()
 
 
@@ -423,6 +466,7 @@ async def feedback(request: Request):
     except Exception as e:
         logger.error(f"Feedback endpoint error: {e}")
         return JSONResponse({"status": "ok"})
+
 
 
 
