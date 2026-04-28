@@ -295,6 +295,45 @@ def _copy_mixed_intent_genuine(g: str) -> Dict[str, str]:
     }
 
 
+def _copy_relationship_context(g: str) -> Dict[str, str]:
+    if g == "female":
+        return {
+            "diagnosis": "You know each other — this is not a stranger dynamic, so the normal early-read rules do not apply.",
+            "reasoning": "There is an established baseline here. What matters is whether this exchange tracks with how she normally shows up, or departs from it. A single screenshot is a narrow window into an ongoing dynamic. Your broader context is more informative than any isolated message.",
+            "practical_next_steps": "Do not analyze this like a new interaction — you already have a pattern to compare against. If this feels consistent with her, it probably is. If something feels different, that departure is the data worth paying attention to.",
+            "accountability": "The risk with people you know is normalizing gradual shifts. If the tone, availability, or effort level is consistently different from the established baseline, trust that read over the individual message.",
+        }
+    elif g == "male":
+        return {
+            "diagnosis": "You know each other — this is not a stranger dynamic, so the normal early-read rules do not apply.",
+            "reasoning": "There is an established baseline here. What matters is whether this exchange tracks with how he normally shows up, or departs from it. A single screenshot is a narrow window into an ongoing dynamic. Your broader context is more informative than any isolated message.",
+            "practical_next_steps": "Do not analyze this like a new interaction — you already have a pattern to compare against. If this feels consistent with him, it probably is. If something feels different, that departure is the data worth paying attention to.",
+            "accountability": "The risk with people you know is normalizing gradual shifts. If the tone, availability, or effort level is consistently different from the established baseline, trust that read over the individual message.",
+        }
+    else:
+        return {
+            "diagnosis": "You know each other — this is not a stranger dynamic, so the normal early-read rules do not apply.",
+            "reasoning": "There is an established baseline between you. A single exchange is a narrow window into an ongoing dynamic. What matters is whether this tracks with the pattern you already know or departs from it.",
+            "practical_next_steps": "Compare this to the broader pattern, not just the screenshot. Your existing context is more informative than any snapshot analysis.",
+            "accountability": "The risk in known relationships is normalizing gradual shifts. If something consistently feels different from the established baseline, trust that read.",
+        }
+
+
+def _copy_mixed_intent(g: str, out: Dict[str, Any]) -> Dict[str, str]:
+    concern_signals = _clean(out.get("concern_signals", []))
+    has_pressure = any("pressure" in s for s in concern_signals)
+    return {
+        "diagnosis": "The signals here are pointing in more than one direction — not a clear positive read, not a clear red flag.",
+        "reasoning": (
+            "Mixed intent is not a problem in itself — it just means the picture is not resolved yet. "
+            + ("There are some friction signals here worth tracking as this develops. " if has_pressure else "Nothing here looks deliberately deceptive, but the motivation is not yet clear. ")
+            + "Trying to force a confident read from ambiguous data usually produces a wrong one."
+        ),
+        "practical_next_steps": "Do not try to resolve this on the analysis side. One or two direct exchanges will produce more clarity than any interpretation of what you already have. Ask something that requires a genuine answer — not small talk.",
+        "accountability": "Mixed does not mean bad — it means more information is needed. Stop trying to reach a conclusion before the picture has had time to form.",
+    }
+
+
 def _copy_generic(g: str, out: Dict[str, Any]) -> Dict[str, str]:
     concern_signals = _clean(out.get("concern_signals", []))
     has_pressure = any("pressure" in s for s in concern_signals)
@@ -322,6 +361,8 @@ def _connection_copy(out: Dict[str, Any], other_gender: str = "unknown") -> Dict
         "high_intent_mutual":       lambda: _copy_high_intent_mutual(g, out),
         "fear_driven_urgency":      lambda: _copy_fear_driven_urgency(g),
         "mixed_intent_genuine":     lambda: _copy_mixed_intent_genuine(g),
+        "relationship_context":     lambda: _copy_relationship_context(g),
+        "mixed_intent":             lambda: _copy_mixed_intent(g, out),
     }
     copy = dispatch.get(primary_label, lambda: _copy_generic(g, out))()
     out["presentation_mode"] = "connection"
@@ -422,6 +463,7 @@ def interpret_analysis(
             if _phrase in _val.lower():
                 out[_field] = _val.replace(_phrase, "the first read was limited").replace(_phrase.capitalize(), "The first read was limited")
     return out
+
 
 
 
