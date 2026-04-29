@@ -169,7 +169,10 @@
 </head>
 <body>
   <div class="page">
-    {% set badge = (risk_level or risk_label or 'LOW')|lower %}
+    {% set badge_base = (risk_level or risk_label or 'LOW')|lower %}
+    {% set _cs_str = (concern_signals or [])|join(' ') %}
+    {% set _has_financial = presentation_mode == "connection" and ('trust_calibration' in _cs_str or 'vulnerability_narrative' in _cs_str or 'financial' in _cs_str or 'extraction' in _cs_str) %}
+    {% set badge = 'medium' if (_has_financial and badge_base == 'low') else badge_base %}
 
     <div class="topbar">
       <div>
@@ -179,7 +182,7 @@
       </div>
       <div>
         <span class="badge {% if badge.startswith('high') %}high{% elif badge.startswith('med') %}medium{% else %}low{% endif %}">
-          {{ risk_level or risk_label or "LOW" }}
+          {{ 'MEDIUM' if (_has_financial and badge_base == 'low') else (risk_level or risk_label or "LOW") }}
         </span>
       </div>
     </div>
