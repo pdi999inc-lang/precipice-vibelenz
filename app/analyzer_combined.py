@@ -1042,6 +1042,8 @@ def _detect_domain_mode(text: str) -> Dict[str, Any]:
     dating_terms = [
         "date", "dating", "cute", "beautiful", "babe", "baby", "kiss",
         "miss you", "love you", "come over", "hook up", "hookup", "sexy",
+        "make my night", "night out", "take me out", "buy me", "you're so",
+        "you are so", "my type", "your type", "attracted", "interested in you",
     ]
     marketplace_terms = [
         "facebook marketplace", "seller", "buyer", "pickup", "shipping",
@@ -1235,8 +1237,10 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
     if domain_mode == "dating_social" and _contains_any(t, ["come over", "hook up", "hookup", "sexy", "horny"]):
         signals.append("sexual_directness")
 
-    if domain_mode == "dating_social":
-        # Small financial ask in dating context — food delivery, money transfer, gift cards
+    # Financial extraction signals — fire for dating_social AND general_unknown.
+    # Lure-and-pivot and food delivery asks are identifiable regardless of domain classification.
+    if domain_mode in ("dating_social", "general_unknown"):
+        # Small financial ask — food delivery, money transfer, gift cards
         _food_delivery = _contains_any(t, [
             "uber eats", "ubereats", "doordash", "grubhub",
             "buy me breakfast", "buy me lunch", "buy me dinner",
