@@ -47,9 +47,31 @@ def _human_label(primary_label: str, lane: str, domain_mode: str) -> str:
     return mapping.get(primary_label, primary_label.replace("_", " "))
 
 
+_FINANCIAL_SIGNALS = frozenset({
+    "trust_calibration_small_ask",
+    "vulnerability_narrative_early",
+    "financial_extraction",
+    "money_request",
+    "gift_card_request",
+    "wire_transfer_request",
+})
+
+
+def _has_financial_signals(concern_signals: List[str]) -> bool:
+    """True if any concern signal indicates financial extraction attempt."""
+    cs = _clean(concern_signals)
+    return any(
+        s in _FINANCIAL_SIGNALS or "financial" in s or "extraction" in s
+        for s in cs
+    )
+
+
 def _social_tone(result: Dict[str, Any]) -> str:
     positives = _clean(result.get("positive_signals", []))
     primary_label = str(result.get("primary_label", "low_information_neutral"))
+    # Financial extraction signals override tone — never call this "low-stakes"
+    if _has_financial_signals(result.get("concern_signals", [])):
+        return "financial request detected — not a routine interaction"
     if "sexual_reciprocity_present" in positives or primary_label == "light_sexual_reciprocity":
         return "playful, flirtatious, and reciprocal"
     if primary_label == "playful_reengagement":
@@ -381,7 +403,11 @@ def _connection_copy(out: Dict[str, Any], other_gender: str = "unknown") -> Dict
     out["accountability"] = copy["accountability"]
     out["social_tone"] = _social_tone(out)
     out["interest_summary"] = _interest_summary(out)
-    out["mode_override_note"] = ""
+    # Surface a warning when financial extraction signals are present in connection mode
+    if _has_financial_signals(out.get("concern_signals", [])):
+        out["mode_override_note"] = "Financial extraction signals were detected. Connection mode framing does not soften what the content is showing — read the analysis below as a risk read."
+    else:
+        out["mode_override_note"] = ""
     return out
 
 
