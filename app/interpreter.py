@@ -106,10 +106,16 @@ def _risk_copy(out: Dict[str, Any]) -> Dict[str, Any]:
             next_steps = "Pause the interaction and verify independently before you give money, sensitive information, or control."
             accountability = "Do not explain away real risk signals just because the delivery feels smooth."
     elif lane == "COERCION_RISK":
-        diagnosis = "This is starting to feel like pressure, not just awkwardness."
-        reasoning = "What pushes this upward is not mere discomfort. The visible pattern starts to lean on pressure or boundary friction, which matters more than tone alone."
-        next_steps = "Tighten the boundary. State it clearly once, then watch whether the other person respects it without needing a long argument."
-        accountability = "Do not explain away pressure just because it arrives wrapped in charm, confusion, or emotion."
+        if domain_mode == "housing_rental":
+            diagnosis = "This rental interaction shows deliberate pressure patterns — legitimate landlords and agents do not operate this way."
+            reasoning = "Legitimate rentals do not require commitment before a showing, create artificial urgency around availability, or gate identity verification behind payment. Those are extraction patterns designed to move you toward sending money or documents before you can independently confirm anything."
+            next_steps = "Stop. Verify independently — search the address, call the county assessor, confirm the listing on the original platform. Do not send money, a deposit, or personal documents until you have physically met someone at the property."
+            accountability = "Polite tone and professional language do not change what the process is asking you to do. A well-scripted pressure tactic is still a pressure tactic."
+        else:
+            diagnosis = "This is starting to feel like pressure, not just awkwardness."
+            reasoning = "What pushes this upward is not mere discomfort. The visible pattern starts to lean on pressure or boundary friction, which matters more than tone alone."
+            next_steps = "Tighten the boundary. State it clearly once, then watch whether the other person respects it without needing a long argument."
+            accountability = "Do not explain away pressure just because it arrives wrapped in charm, confusion, or emotion."
     else:
         diagnosis = "This does not currently read like a strong risk pattern."
         reasoning = "Nothing shown here strongly supports fraud, coercion, or extraction as the main story."
