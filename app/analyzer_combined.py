@@ -1234,6 +1234,43 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
 
     if domain_mode == "dating_social" and _contains_any(t, ["come over", "hook up", "hookup", "sexy", "horny"]):
         signals.append("sexual_directness")
+
+    if domain_mode == "dating_social":
+        # Small financial ask in dating context — food delivery, money transfer, gift cards
+        _food_delivery = _contains_any(t, [
+            "uber eats", "ubereats", "doordash", "grubhub",
+            "buy me breakfast", "buy me lunch", "buy me dinner",
+            "order me food", "get me food", "send me food", "order me breakfast",
+        ])
+        _small_transfer = _contains_any(t, [
+            "venmo me", "cash app me", "zelle me", "paypal me",
+            "send me some money", "can you send me", "could you send me",
+        ])
+        _gift_request = _contains_any(t, ["gift card", "amazon gift", "apple pay me"])
+        _has_dating_financial_ask = _food_delivery or _small_transfer or _gift_request
+
+        if _has_dating_financial_ask:
+            signals.append("trust_calibration_small_ask")
+
+        # Lure and pivot: flattering/suggestive opener used to set up a financial ask
+        _lure_present = _contains_any(t, [
+            "want to make my night", "make my night", "make it up to me",
+            "cheer me up", "surprise me", "do something for me",
+            "what can you do for me", "you can help me",
+        ])
+        if _lure_present and _has_dating_financial_ask:
+            signals.append("lure_and_pivot")
+
+        # Vulnerability narrative used to justify a financial ask
+        _vulnerability_present = _contains_any(t, [
+            "paycheck is late", "paycheck late", "my paycheck",
+            "lost my job", "can't afford", "cannot afford",
+            "in the hospital", "hospital bill", "medical bill",
+            "rent is due", "about to be evicted",
+            "need money for", "short on money", "tight on money",
+        ])
+        if _vulnerability_present and _has_dating_financial_ask:
+            signals.append("vulnerability_narrative_early")
     # PATCH-004: Boundary detection tightened. Removed "not comfortable" --
     # fires on "I'm not comfortable with Thai food". Kept unambiguous rejection language only.
     if _contains_any(t, ["stop contacting me", "leave me alone", "do not contact me", "please stop messaging"]):
@@ -1442,6 +1479,24 @@ def _confidence_score(lane: str, key_signals: List[str], key_dampeners: List[str
     return round(max(0.35, min(0.95, score)), 2)
 
 
+_FINANCIAL_CONCERN_SIGNALS = frozenset({
+    "trust_calibration_small_ask",
+    "lure_and_pivot",
+    "vulnerability_narrative_early",
+})
+
+
+def _merge_financial_concern_signals(
+    existing: List[str], key_signals: List[str]
+) -> List[str]:
+    """Promote financial manipulation signals from key_signals into concern_signals."""
+    merged = list(existing)
+    for sig in key_signals:
+        if sig in _FINANCIAL_CONCERN_SIGNALS and sig not in merged:
+            merged.append(sig)
+    return merged
+
+
 def _run_deterministic(text: str, relationship_type: str = "stranger") -> Dict[str, Any]:
     """Pure pattern-matching analysis — no API required."""
     normalized_text = (text or "").strip()
@@ -1565,7 +1620,9 @@ def _run_deterministic(text: str, relationship_type: str = "stranger") -> Dict[s
         "interest_label": interest_label,
         "evidence_scoring": evidence_data,
         "research_patch": research_patch,
-        "concern_signals": connection_data.get("concern_signals", []),
+        "concern_signals": _merge_financial_concern_signals(
+            connection_data.get("concern_signals", []), extracted["signals"]
+        ),
     }
 
 

@@ -259,7 +259,7 @@
       <h3>What feels positive here</h3>
       <div class="chips">
         {% set score_val = (final_risk_score if final_risk_score is not none else risk_score)|int %}
-        {% set suppress_badges = score_val < 35 and presentation_mode == "connection" and (accountability and ("don" in accountability|lower or "not" in accountability|lower or "watch" in accountability|lower or "caution" in accountability|lower)) %}
+        {% set suppress_badges = _has_financial or (score_val < 35 and presentation_mode == "connection" and (accountability and ("don" in accountability|lower or "not" in accountability|lower or "watch" in accountability|lower or "caution" in accountability|lower))) %}
         {% if not suppress_badges and positive_signals %}
           {% for item in positive_signals %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
         {% elif not suppress_badges %}
