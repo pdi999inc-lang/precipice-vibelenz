@@ -413,7 +413,7 @@
       <div class="section"><h3>Keep yourself honest</h3><p>{{ accountability or "No accountability guidance available." }}</p></div>
     </div>
 
-    {% if evidence %}
+    {% if evidence and evidence.enriched_signals and evidence.enriched_signals|length > 0 and evidence.enriched_signals[0].label != "No risk signals detected" %}
     <div class="evidence-section">
       <div class="evidence-header">
         <div>
@@ -422,7 +422,6 @@
         </div>
         <div class="evidence-verdict-pill {{ evidence.evidence_verdict }}">{{ evidence.evidence_verdict }}</div>
       </div>
-      {% if evidence.enriched_signals and evidence.enriched_signals|length > 0 and evidence.enriched_signals[0].label != "No risk signals detected" %}
       <div class="evidence-cumulative">
         <div class="evidence-cumulative-label">Cumulative evidence weight — {{ (evidence.cumulative_evidence_score * 100)|round|int }}%</div>
         <div class="evidence-bar-track"><div class="evidence-bar-fill {{ evidence.evidence_verdict }}" style="width: {{ (evidence.cumulative_evidence_score * 100)|round|int }}%;"></div></div>
@@ -436,15 +435,6 @@
         </div>
         {% endfor %}
       </div>
-      {% else %}
-      <div class="signal-cards">
-        <div class="signal-card tier-LOW">
-          <div class="signal-tier-badge LOW">NONE</div>
-          <div><div class="signal-content-label">No risk signals detected</div><div class="signal-content-explanation">This conversation did not trigger any signals in the evidence registry.</div></div>
-          <div class="signal-weight">0%</div>
-        </div>
-      </div>
-      {% endif %}
     </div>
     {% endif %}
 
