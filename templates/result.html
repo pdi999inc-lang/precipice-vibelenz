@@ -193,7 +193,7 @@
       <div class="hero-top-connection">
         <div class="eyebrow">What's going on</div>
         <div class="connection-headline">{{ diagnosis or "Analysis complete." }}</div>
-        <div class="connection-tone-pill">{{ social_tone or "low-stakes interaction" }}</div>
+        <div class="connection-tone-pill">{{ 'financial request detected — not a routine interaction' if _has_financial else (social_tone or "low-stakes interaction") }}</div>
         <p class="connection-read">{{ reasoning or "No additional reasoning available." }}</p>
         {% if mode_override_note %}<div class="note">{{ mode_override_note }}</div>{% endif %}
         <div class="connection-scores-row">
