@@ -1501,6 +1501,11 @@ def _merge_financial_concern_signals(
     return merged
 
 
+def _has_financial_concern_signals(concern_signals: List[str]) -> bool:
+    """True if any financial manipulation signal is present in concern_signals."""
+    return any(s in _FINANCIAL_CONCERN_SIGNALS for s in concern_signals)
+
+
 def _run_deterministic(text: str, relationship_type: str = "stranger") -> Dict[str, Any]:
     """Pure pattern-matching analysis — no API required."""
     normalized_text = (text or "").strip()
@@ -1846,6 +1851,15 @@ Do not escalate beyond this lane unless the conversation contains clear extracti
 
     if merged["research_patch"]["data_sufficiency"]["level"] == "low":
         merged["confidence"] = min(float(merged.get("confidence", 0.5)), 0.55)
+
+    # Wire deterministic concern_signals into LLM result.
+    # _run_llm_analysis() never sets this key — chips in the UI would be blank without it.
+    merged["concern_signals"] = _merge_financial_concern_signals(
+        _pre_conn.get("concern_signals", []), _pre_extracted["signals"]
+    )
+    # If financial concern signals present, clear positive_signals — matches deterministic gate.
+    if _has_financial_concern_signals(merged["concern_signals"]):
+        merged["positive_signals"] = []
 
     merged = _sanitize_prohibited_claims(merged)
     return merged
