@@ -13,30 +13,31 @@ class Turn(BaseModel):
 
 
 class RelationshipInsight(BaseModel):
-    momentum_direction: str
-    energy_balance: str
-    intimacy_progression: str
-    relationship_stage: str
-    momentum_score: float
-    compatibility_score: float
-    sustainability_score: float
-    story_arc: str
-    next_natural_step: str
+    momentum_direction: str = "unclear"
+    energy_balance: str = "unclear"
+    intimacy_progression: str = "unclear"
+    relationship_stage: str = "initial_contact"
+    momentum_score: float = 0.0
+    compatibility_score: float = 0.0
+    sustainability_score: float = 0.0
+    story_arc: str = ""
+    next_natural_step: str = ""
     growth_indicators: List[str] = Field(default_factory=list)
     potential_blockers: List[str] = Field(default_factory=list)
     connection_highlights: List[str] = Field(default_factory=list)
     tension_points: List[str] = Field(default_factory=list)
+    insufficient_data: bool = False
 
 
 class BehaviorResult(BaseModel):
-    risk_score: float
+    risk_score: float = Field(ge=0.0, le=1.0)
     flags: List[str] = Field(default_factory=list)
     confidence: float
     degraded: bool = False
-    pressure_score: float
-    isolation_score: float
-    urgency_score: float
-    asymmetry_score: float
+    pressure_score: float = 0.0
+    isolation_score: float = 0.0
+    urgency_score: float = 0.0
+    asymmetry_score: float = 0.0
     deterministic_flag: bool = False
 
 
@@ -78,7 +79,7 @@ class AnalysisResponse(BaseModel):
     turn_analysis: Dict[str, Any] = Field(default_factory=dict)
     behavior: Optional[BehaviorResult] = None
     relationship: Optional[RelationshipInsight] = None
-    verifier_score: Optional[float] = None
+    verifier_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
     class Config:
         extra = "allow"

@@ -70,6 +70,12 @@ _PRESSURE_PHRASES = [
     "if you don't", "if you do not", "trust me on this",
 ]
 
+# Pre-compiled at module load — prevents re-compiling on every call.
+_FINANCIAL_PATTERNS  = [re.compile(r"\b" + re.escape(p) + r"\b") for p in _FINANCIAL_TERMS]
+_URGENCY_PATTERNS    = [re.compile(r"\b" + re.escape(p) + r"\b") for p in _URGENCY_TERMS]
+_ISOLATION_PATTERNS  = [re.compile(r"\b" + re.escape(p) + r"\b") for p in _ISOLATION_TERMS]
+_PRESSURE_PATTERNS   = [re.compile(r"\b" + re.escape(p) + r"\b") for p in _PRESSURE_PHRASES]
+
 _QUESTION_RE = re.compile(r"\?")
 _WORD_RE = re.compile(r"\b\w+\b")
 
@@ -93,7 +99,7 @@ class BehaviorProfile:
     forward_movement_score: float = 0.0  # future-oriented language
 
     # Safety scores
-    pressure_score: float = 0.0          # urgency + financial + isolation combined
+    pressure_score: float = 0.0          # urgency + financial + isolation + phrase combined
     isolation_score: float = 0.0         # isolation signal density
     urgency_score: float = 0.0           # urgency signal density
     asymmetry_score: float = 0.0         # turn-count asymmetry from "other"
@@ -131,6 +137,7 @@ class BehaviorProfile:
             "financial_mentions":      self.financial_mentions,
             "urgency_mentions":        self.urgency_mentions,
             "isolation_mentions":      self.isolation_mentions,
+            "pressure_phrase_hits":    self.pressure_phrase_hits,
             "deterministic_flag":      self.deterministic_flag,
             "turn_count":              self.turn_count,
         }
@@ -183,13 +190,9 @@ def _norm(text: str) -> str:
     return " ".join((text or "").lower().split())
 
 
-def _count_hits(text: str, phrases: List[str]) -> int:
-    """Word-boundary match — prevents 'send' matching 'sender', 'pay' matching 'payment'."""
-    t = _norm(text)
-    return sum(
-        1 for p in phrases
-        if re.search(r"\b" + re.escape(p) + r"\b", t)
-    )
+def _count_hits(normed_text: str, patterns: list) -> int:
+    """Word-boundary match on pre-normalized text — prevents 'send' matching 'sender', etc."""
+    return sum(1 for p in patterns if p.search(normed_text))
 
 
 _FUTURE_RE = re.compile(
@@ -247,20 +250,22 @@ class BehaviorExtractor:
         asymmetry_score   = self._asymmetry(other_count, total)
 
         # --- Safety signals (from "other" turns only — that's the party being analysed) ---
-        financial_mentions   = _count_hits(all_other_text, _FINANCIAL_TERMS)
-        urgency_mentions     = _count_hits(all_other_text, _URGENCY_TERMS)
-        isolation_mentions   = _count_hits(all_other_text, _ISOLATION_TERMS)
-        pressure_phrase_hits = _count_hits(all_other_text, _PRESSURE_PHRASES)
+        all_other_norm = _norm(all_other_text)
+        financial_mentions   = _count_hits(all_other_norm, _FINANCIAL_PATTERNS)
+        urgency_mentions     = _count_hits(all_other_norm, _URGENCY_PATTERNS)
+        isolation_mentions   = _count_hits(all_other_norm, _ISOLATION_PATTERNS)
+        pressure_phrase_hits = _count_hits(all_other_norm, _PRESSURE_PATTERNS)
 
         # Normalise to [0, 1] against reasonable maximums
         urgency_score   = _clamp(urgency_mentions / 4.0)
         isolation_score = _clamp(isolation_mentions / 3.0)
 
-        # Pressure = weighted combination of financial, urgency, isolation
+        # Pressure = weighted combination of financial, urgency, isolation, pressure phrases
         financial_weight = _clamp(financial_mentions / 3.0) * 0.50
         urgency_weight   = urgency_score * 0.30
         isolation_weight = isolation_score * 0.20
-        pressure_score   = _clamp(financial_weight + urgency_weight + isolation_weight)
+        phrase_weight    = _clamp(pressure_phrase_hits / 3.0) * 0.10
+        pressure_score   = _clamp(financial_weight + urgency_weight + isolation_weight + phrase_weight)
 
         # Hard gate: pressure crosses threshold AND conversation is asymmetric
         deterministic_flag = (
@@ -302,7 +307,7 @@ class BehaviorExtractor:
         """How balanced is the conversation? 1.0 = perfectly even."""
         if total == 0:
             return 0.0
-        ratio = min(user_count, other_count) / max(max(user_count, other_count), 1)
+        ratio = min(user_count, other_count) / max(user_count, other_count)
         return _clamp(ratio)
 
     def _initiative(self, other_turns: List[Dict], total: int) -> float:
@@ -316,7 +321,7 @@ class BehaviorExtractor:
             len(_QUESTION_RE.findall(t.get("text", "")))
             for t in other_turns
         )
-        return _clamp(q_count / max(total, 1))
+        return _clamp(q_count / total)
 
     def _engagement_depth(self, turns: List[Dict]) -> float:
         """
