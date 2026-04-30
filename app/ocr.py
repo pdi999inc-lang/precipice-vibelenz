@@ -101,15 +101,92 @@ def _preprocess(image: "Image.Image") -> "Image.Image":
 
 
 def _extract_single(image_bytes: bytes, idx: int) -> str:
-    """Extract text from a single image's bytes with preprocessing."""
+    """
+    Extract text from a single image with speaker attribution.
+
+    Uses pytesseract image_to_data to get bounding boxes per word, then
+    groups words into lines by y-coordinate and assigns speaker labels
+    (YOU / THEM) based on x-position relative to image center.
+
+    Right-aligned bubbles (x_center > 52% of image width) = YOU (user).
+    Left-aligned bubbles  (x_center < 48% of image width) = THEM (other person).
+    Ambiguous center text (timestamps, app UI) is included unlabeled.
+
+    Falls back to flat image_to_string if image_to_data fails.
+    """
     if not TESSERACT_AVAILABLE:
         logger.warning(f"Image {idx}: tesseract unavailable, returning empty")
         return ""
 
     image = Image.open(io.BytesIO(image_bytes))
     processed = _preprocess(image)
+    img_width = processed.width
 
     config = "--psm 6 --oem 3"
-    text = pytesseract.image_to_string(processed, config=config)
-    logger.info(f"Image {idx}: extracted {len(text)} chars")
-    return text
+
+    try:
+        data = pytesseract.image_to_data(
+            processed, config=config, output_type=pytesseract.Output.DICT
+        )
+
+        # Group words into line buckets by top-coordinate (15px tolerance)
+        line_bucket_px = 15
+        lines: dict = {}
+        for i in range(len(data["text"])):
+            word = (data["text"][i] or "").strip()
+            if not word:
+                continue
+            conf = int(data["conf"][i])
+            if conf < 20:  # discard very-low-confidence noise
+                continue
+            top = data["top"][i]
+            left = data["left"][i]
+            width = data["width"][i]
+            center_x = left + width / 2
+
+            bucket = (top // line_bucket_px) * line_bucket_px
+            if bucket not in lines:
+                lines[bucket] = {"words": [], "cx_sum": 0.0, "cx_count": 0}
+            lines[bucket]["words"].append((left, word))
+            lines[bucket]["cx_sum"] += center_x
+            lines[bucket]["cx_count"] += 1
+
+        if not lines:
+            raise ValueError("No lines detected by image_to_data")
+
+        result_parts: list = []
+        prev_speaker: str | None = None
+
+        for bucket in sorted(lines.keys()):
+            line = lines[bucket]
+            avg_cx = line["cx_sum"] / line["cx_count"]
+            rel_x = avg_cx / img_width  # 0.0 = far left, 1.0 = far right
+
+            if rel_x > 0.52:
+                speaker = "YOU"
+            elif rel_x < 0.48:
+                speaker = "THEM"
+            else:
+                speaker = None  # timestamp / UI chrome — include without label
+
+            words_sorted = " ".join(w for _, w in sorted(line["words"], key=lambda x: x[0]))
+
+            if speaker and speaker != prev_speaker:
+                result_parts.append(f"\n{speaker}: {words_sorted}")
+            elif speaker:
+                result_parts.append(words_sorted)
+            else:
+                result_parts.append(words_sorted)
+
+            if speaker:
+                prev_speaker = speaker
+
+        text = " ".join(result_parts).strip()
+        logger.info(f"Image {idx}: layout-aware OCR extracted {len(text)} chars")
+        return text
+
+    except Exception as layout_err:
+        logger.warning(f"Image {idx}: layout OCR failed ({layout_err}), falling back to flat OCR")
+        text = pytesseract.image_to_string(processed, config=config)
+        logger.info(f"Image {idx}: flat OCR fallback extracted {len(text)} chars")
+        return text
