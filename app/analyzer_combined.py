@@ -1195,6 +1195,21 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
     if fear_urgency_count >= 1:
         concern_signals.append("fear_driven_urgency")
 
+    # Blame inversion / performative availability — promote directly to concern chips
+    _t = _norm(text)
+    if _contains_any(_t, [
+        "won't force myself", "won't force things", "make myself a priority",
+        "should come naturally", "your actions don't match", "words don't match",
+        "you would have made it work", "if you truly wanted to", "if you really wanted",
+        "would have found a way", "would have made the effort",
+    ]):
+        concern_signals.append("blame_inversion")
+    if "blame_inversion" in concern_signals and _contains_any(_t, [
+        "fell asleep at the wheel", "couldn't do the drive", "barely made it",
+        "something came up", "can't make it anymore", "not going to make it",
+    ]):
+        concern_signals.append("plan_collapse_blame_inversion")
+
     if high_intent_count >= 2 and vision_count >= 1 and not label:
         label = "high_intent_mutual"
     elif fear_urgency_count >= 2 and high_intent_count >= 1 and not label:
@@ -1279,6 +1294,28 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
     # fires on "I'm not comfortable with Thai food". Kept unambiguous rejection language only.
     if _contains_any(t, ["stop contacting me", "leave me alone", "do not contact me", "please stop messaging"]):
         signals.append("boundary_language_present")
+
+    # Performative availability + blame inversion:
+    # Pattern: plans nearly confirmed → last-minute exit → blame shifted to user for the failure.
+    # Signal phrases: "won't force myself", "make myself a priority", "actions don't match",
+    # "words don't match", "should come naturally", "you would have made it work".
+    _blame_inversion = _contains_any(t, [
+        "won't force myself", "won't force things", "make myself a priority",
+        "force myself to be", "should come naturally", "naturally a priority",
+        "your actions don't match", "actions don't match your words",
+        "words don't match", "you would have made it work",
+        "if you truly wanted to", "if you really wanted",
+        "would have made the effort", "would have found a way",
+    ])
+    _last_minute_exit = _contains_any(t, [
+        "fell asleep at the wheel", "barely made it", "couldn't do the drive",
+        "something came up", "can't make it anymore", "not going to make it",
+        "fell asleep driving", "too tired to drive",
+    ])
+    if _blame_inversion:
+        signals.append("blame_inversion")
+    if _blame_inversion and _last_minute_exit:
+        signals.append("plan_collapse_blame_inversion")
 
     if domain_mode == "housing_rental":
         withheld_phrases = [
