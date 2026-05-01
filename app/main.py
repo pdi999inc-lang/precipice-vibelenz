@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -8,7 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+import html as _html
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
@@ -22,6 +26,19 @@ from app.db import init_db
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+def _require_internal_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+) -> None:
+    """Gate internal-only endpoints behind INTERNAL_API_TOKEN env var."""
+    token = os.environ.get("INTERNAL_API_TOKEN", "")
+    if not token:
+        return  # token not configured — allow access (dev/staging without the var set)
+    if not credentials or credentials.credentials != token:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
 
 @app.on_event("startup")
@@ -46,8 +63,10 @@ MIN_OCR_CHARS = 50
 
 
 def _simple_page(title: str, body: str) -> HTMLResponse:
+    t = _html.escape(title)
+    b = _html.escape(body)
     return HTMLResponse(
-        f"<html><head><title>{title}</title></head><body><h1>{title}</h1><p>{body}</p></body></html>"
+        f"<html><head><title>{t}</title></head><body><h1>{t}</h1><p>{b}</p></body></html>"
     )
 
 
@@ -143,11 +162,12 @@ async def health():
 
 
 @app.get("/audit/stats")
-async def audit_stats():
+async def audit_stats(_: None = Depends(_require_internal_token)):
     # H5: Query Postgres directly — get_session_stats() reads /tmp/ which resets on container restart.
     # Fallback to session stats if DB is unavailable.
     db_url = os.environ.get("DATABASE_URL", "")
     if db_url:
+        conn = None
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
@@ -163,7 +183,6 @@ async def audit_stats():
             avg_risk = int(row[0] or 0)
             max_risk = int(row[1] or 0)
             cur.close()
-            conn.close()
             return {
                 "status": "ok",
                 "source": "postgres",
@@ -180,6 +199,9 @@ async def audit_stats():
             }
         except Exception as _db_err:
             logger.warning(f"DB stats query failed, falling back to session stats: {_db_err}")
+        finally:
+            if conn:
+                conn.close()
     return get_session_stats()
 
 
@@ -188,7 +210,7 @@ async def analyze_screenshots(
     request: Request,
     files: List[UploadFile] = File(...),
     relationship_type: str = Form("stranger"),
-    context_note: str = "",
+    context_note: str = Form(""),
     requested_mode: str = Form("risk"),
 ):
     request_id = str(uuid.uuid4())
@@ -246,6 +268,8 @@ async def analyze_screenshots(
             text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
         ocr_char_count = len(extracted_text)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[{request_id}] OCR failure: {e}")
         write_audit_record(
@@ -306,19 +330,22 @@ async def analyze_screenshots(
     analysis_error: str | None = None
 
     try:
-        analysis = analyze_text(
+        analysis = await asyncio.to_thread(
+            analyze_text,
             extracted_text,
             relationship_type=relationship_type,
             context_note=context_note,
         )
-        narrative = interpret_analysis(
+        narrative = await asyncio.to_thread(
+            interpret_analysis,
             analysis,
             extracted_text=extracted_text,
             requested_mode=requested_mode,
             relationship_type=relationship_type,
             use_llm=True,
         )
-        turn_analysis = analyze_turns(
+        turn_analysis = await asyncio.to_thread(
+            analyze_turns,
             text_chunks=[t for t in text_chunks if t.strip()],
             relationship_type=relationship_type,
         )
@@ -432,7 +459,7 @@ async def analyze_screenshots(
 
 
 @app.get("/diag/llm")
-async def diag_llm():
+async def diag_llm(_: None = Depends(_require_internal_token)):
     import anthropic as _anthropic
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:

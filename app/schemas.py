@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Turn(BaseModel):
@@ -81,8 +81,7 @@ class AnalysisResponse(BaseModel):
     relationship: Optional[RelationshipInsight] = None
     verifier_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ErrorResponse(BaseModel):

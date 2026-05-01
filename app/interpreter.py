@@ -5,7 +5,7 @@ import logging
 import os
 from typing import Any, Dict, List
 
-import httpx
+import anthropic as _anthropic
 
 logger = logging.getLogger("vibelenz.interpreter")
 
@@ -471,15 +471,14 @@ def _llm_enrich(result, extracted_text, presentation_mode, diagnosis, reasoning,
         system_prompt = "You are VibeLenz, a conversation safety analyst. Give the user a clear, honest read on risk signals. Be direct and specific. Do not catastrophize. Do not minimize. Return ONLY a JSON object with keys: diagnosis, reasoning, practical_next_steps, accountability. No preamble. No markdown. Raw JSON only."
         user_prompt = f"CONVERSATION:\n{extracted_text}\n\nDETECTED SIGNALS:\nRisk signals: {json.dumps(result.get('key_signals', []))}\nConcern signals: {json.dumps(concern_signals)}\nPrimary label: {primary_label}\nLane: {lane}\nRisk score: {risk_score}\n\nDETERMINISTIC DRAFT:\nDiagnosis: {diagnosis}\nReasoning: {reasoning}\nNext steps: {practical_next_steps}\nAccountability: {accountability}\n\nRewrite the draft to be more specific to this actual conversation. Return raw JSON only."
     try:
-        response = httpx.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-            json={"model": "claude-haiku-4-5-20251001", "max_tokens": 1024, "system": system_prompt, "messages": [{"role": "user", "content": user_prompt}]},
-            timeout=15.0,
+        client = _anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
         )
-        response.raise_for_status()
-        data = response.json()
-        raw = data["content"][0]["text"].strip()
+        raw = message.content[0].text.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
@@ -497,7 +496,7 @@ def interpret_analysis(
     other_gender: str = "unknown",
     context_note: str = "",
     requested_mode: str = "risk",
-    use_llm: bool = False,
+    use_llm: bool = True,
 ) -> Dict[str, Any]:
     out = dict(result or {})
     requested_mode = str(requested_mode or "risk").lower().strip()
@@ -516,8 +515,8 @@ def interpret_analysis(
         out = _risk_copy(out)
     out["requested_mode"] = requested_mode
     if use_llm and extracted_text:
-        result["relationship_type"] = relationship_type
-        enriched = _llm_enrich(result=result, extracted_text=extracted_text, presentation_mode=out.get("presentation_mode", requested_mode), diagnosis=out.get("diagnosis", ""), reasoning=out.get("reasoning", ""), practical_next_steps=out.get("practical_next_steps", ""), accountability=out.get("accountability", ""))
+        out["relationship_type"] = relationship_type
+        enriched = _llm_enrich(result=out, extracted_text=extracted_text, presentation_mode=out.get("presentation_mode", requested_mode), diagnosis=out.get("diagnosis", ""), reasoning=out.get("reasoning", ""), practical_next_steps=out.get("practical_next_steps", ""), accountability=out.get("accountability", ""))
         out["diagnosis"] = enriched["diagnosis"]
         out["reasoning"] = enriched["reasoning"]
         out["practical_next_steps"] = enriched["practical_next_steps"]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 """
 connection_lexicon.py — VibeLenz Connection Scoring v1.0
 ---------------------------------------------------------
@@ -110,26 +112,51 @@ _THRESHOLDS: List[Tuple[float, str]] = [
 # INTERNAL HELPERS
 # ---------------------------------------------------------------------------
 
+def _term_matches(text: str, term: str) -> List[int]:
+    """
+    Return start indices of all occurrences of `term` in `text`.
+    Uses word boundaries (\b) for single-word terms to prevent substring false positives
+    (e.g. "like" should not match "likewise" or "unlike").
+    Multi-word terms use plain substring search (word boundaries across spaces are unreliable).
+    """
+    if " " in term:
+        indices = []
+        start = 0
+        while True:
+            idx = text.find(term, start)
+            if idx == -1:
+                break
+            indices.append(idx)
+            start = idx + 1
+        return indices
+    pattern = re.compile(r"\b" + re.escape(term) + r"\b")
+    return [m.start() for m in pattern.finditer(text)]
+
+
+def _occurrence_negated(text: str, idx: int) -> bool:
+    """Return True if the occurrence at `idx` is preceded by a negation within 3 words."""
+    prefix = text[:idx].split()
+    window = prefix[-3:] if len(prefix) >= 3 else prefix
+    return any(neg in window for neg in NEGATIONS)
+
+
 def _is_negated(text: str, term: str) -> bool:
     """
-    Return True if `term` appears in `text` immediately preceded by a negation
-    within a 3-word window. E.g. "I don't like you" → negated.
+    Return True only if EVERY occurrence of `term` in `text` is negated.
+    A term that appears both negated and un-negated should still score.
     """
-    idx = text.find(term)
-    while idx != -1:
-        prefix = text[:idx].split()
-        window = prefix[-3:] if len(prefix) >= 3 else prefix
-        if any(neg in window for neg in NEGATIONS):
-            return True
-        idx = text.find(term, idx + 1)
-    return False
+    indices = _term_matches(text, term)
+    if not indices:
+        return False
+    return all(_occurrence_negated(text, idx) for idx in indices)
 
 
 def _raw_score(text: str, lexicon: Dict[str, Dict[str, Any]]) -> Tuple[float, List[str]]:
     """
     Score a single text against the lexicon.
     Returns (score, list of matched category names).
-    Negation filter applied per term.
+    Word-boundary matching prevents false positives from substrings.
+    Negation filter applied per term — only suppresses if all occurrences are negated.
     """
     score = 0.0
     matched_categories: List[str] = []
@@ -139,7 +166,7 @@ def _raw_score(text: str, lexicon: Dict[str, Dict[str, Any]]) -> Tuple[float, Li
         weight = float(data["weight"])
         hit = False
         for term in data["terms"]:
-            if term in lowered and not _is_negated(lowered, term):
+            if _term_matches(lowered, term) and not _is_negated(lowered, term):
                 score += weight
                 hit = True
         if hit and category not in matched_categories:

@@ -54,7 +54,7 @@ _BUILDING_SIGNALS = re.compile(
 )
 
 _FADING_SIGNALS = re.compile(
-    r"\b(maybe|we'll see|sometime|busy|later|tired|whatever|fine|sure)\b",
+    r"\b(we'll see|sometime|busy|later|tired|whatever)\b",
     re.IGNORECASE,
 )
 
@@ -71,7 +71,7 @@ _FUTURE_TOGETHER_PATTERN = re.compile(
 )
 
 _FUTURE_AVOIDING_PATTERN = re.compile(
-    r"\b(we'll see|maybe|sometime|who knows)\b",
+    r"\b(we'll see|sometime|who knows)\b",
     re.IGNORECASE,
 )
 
@@ -101,7 +101,7 @@ _SHARED_PATTERN = re.compile(
 )
 
 _AVAILABILITY_CONCERN_PATTERN = re.compile(
-    r"\b(busy|maybe|we'll see|sometime|later)\b",
+    r"\b(busy|we'll see|sometime)\b",
     re.IGNORECASE,
 )
 
