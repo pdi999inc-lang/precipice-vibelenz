@@ -1785,12 +1785,17 @@ def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_no
         text=text,
         connection_label=_pre_conn["connection_label"],
     )
+    _pre_concern = _merge_financial_concern_signals(
+        _pre_conn.get("concern_signals", []), _pre_extracted["signals"]
+    )
+    _concern_str = ", ".join(_pre_concern) if _pre_concern else "none"
     _lane_constraint = f"""DETERMINISTIC PRE-CLASSIFICATION:
 lane: {_pre_lane["lane"]}
 primary_label: {_pre_lane["primary_label"]}
+detected_concern_signals: {_concern_str}
 
-You must treat this lane as the controlling interpretation context.
-Do not escalate beyond this lane unless the conversation contains clear extraction, coercion, identity deception, or boundary violation."""
+You must treat this lane as the controlling interpretation context for risk scoring.
+However: if detected_concern_signals includes blame_inversion, plan_collapse_blame_inversion, trust_calibration_small_ask, lure_and_pivot, or vulnerability_narrative_early — name these patterns explicitly in your analysis regardless of lane. A BENIGN lane means no extraction or coercion, not that all dynamics are healthy. Behavioral patterns like blame inversion and performative availability are real and must be surfaced even in low-risk conversations."""
 
     if relationship_type in ("dating", "family", "friend", "business"):
         active_prompt = RELATIONSHIP_PROMPT
