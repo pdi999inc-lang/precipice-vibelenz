@@ -270,6 +270,55 @@ async def analyze_screenshots(
         ocr_char_count = len(extracted_text)
     except HTTPException:
         raise
+    except RuntimeError as e:
+        # OCR quality gate fires as ValueError wrapped in RuntimeError by extract_text_from_images.
+        # Return a clean 422 with actionable guidance — do not call the LLM.
+        cause = e.__cause__
+        if isinstance(cause, ValueError) and "OCR quality too low" in str(cause):
+            logger.warning(f"[{request_id}] OCR quality gate triggered: {cause}")
+            write_audit_record(
+                request_id=request_id,
+                timestamp_start=timestamp_start,
+                image_count=len(files),
+                ocr_char_count=0,
+                result={},
+                degraded=True,
+                error=f"OCR quality gate: {cause}",
+            )
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "request_id": request_id,
+                    "timestamp": ts,
+                    "error": "ocr_quality_too_low",
+                    "message": (
+                        "We had trouble reading this screenshot. "
+                        "Try cropping just the message thread, removing redactions over the text, "
+                        "or increasing screen brightness before uploading."
+                    ),
+                    "degraded": True,
+                    "degradation_state": DegradationState.FAIL_CLOSED.value,
+                },
+            )
+        logger.error(f"[{request_id}] OCR failure: {e}")
+        write_audit_record(
+            request_id=request_id,
+            timestamp_start=timestamp_start,
+            image_count=len(files),
+            ocr_char_count=0,
+            result={},
+            degraded=True,
+            error=f"OCR failure: {e}",
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "fail_closed",
+                "reason": "OCR processing failed. System blocked.",
+                "request_id": request_id,
+                "degradation_state": DegradationState.FAIL_CLOSED.value,
+            },
+        )
     except Exception as e:
         logger.error(f"[{request_id}] OCR failure: {e}")
         write_audit_record(

@@ -10,9 +10,28 @@ Preprocessing pipeline:
 - Upscale small images (Tesseract performs best at 300+ DPI equivalent)
 - Convert to grayscale
 - Auto-detect dark UI and invert
+- Erase solid-color redaction bars (replace with white)
 - Enhance contrast
-- Threshold to clean binary image
-- Run OCR with tuned config
+- Sharpen
+- Run OCR with PSM 11 (sparse text — correct for chat bubble layouts)
+
+FIXES APPLIED
+-------------
+[F1] PSM mode changed from 6 (uniform block) to 11 (sparse text).
+     PSM 6 assumes a single uniform text block, which mis-segments chat layouts.
+     PSM 11 finds text anywhere in the image without layout assumptions — correct
+     for SMS/chat screenshots with scattered bubbles, timestamps, and UI chrome.
+
+[F2] Word-confidence quality gate added to _extract_single().
+     After word collection, mean confidence of retained words is computed.
+     If mean_conf < MEAN_CONF_THRESHOLD and fewer than MIN_QUALITY_WORDS words
+     are retained, a ValueError is raised before text is returned.
+     main.py catches this and returns a clean user-facing error — no LLM call.
+
+[F3] Solid-color band erasure added to _preprocess().
+     Detects horizontal rows with near-zero pixel variance (redaction bars,
+     solid UI bands) and replaces them with white before Tesseract runs.
+     Prevents false column boundaries that PSM 6 used to create from red bars.
 """
 
 import io
@@ -26,6 +45,7 @@ logger = logging.getLogger("vibelenz.ocr")
 try:
     import pytesseract
     from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+    import numpy as np
 
     if os.name == "nt":
         pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -34,6 +54,7 @@ try:
     logger.info("pytesseract loaded successfully")
 except ImportError:
     TESSERACT_AVAILABLE = False
+    np = None  # type: ignore[assignment]
     logger.warning("pytesseract not available — OCR will return empty results")
 
 
@@ -43,6 +64,12 @@ MIN_DIMENSION = 1000
 UPSCALE_FACTOR = 2.0
 # Darkness threshold: if mean pixel value below this, treat as dark UI
 DARK_UI_THRESHOLD = 100
+# [F2] Quality gate: minimum mean word confidence (0–100) across retained words
+MEAN_CONF_THRESHOLD = 40
+# [F2] Minimum number of retained words required before confidence gate applies
+MIN_QUALITY_WORDS = 10
+# [F3] Row variance below this → solid-color band (redaction bar or UI chrome)
+SOLID_BAND_VARIANCE = 5
 
 
 def extract_text_from_images(image_bytes_list: List[bytes]) -> str:
@@ -69,6 +96,32 @@ def extract_text_from_images(image_bytes_list: List[bytes]) -> str:
     return combined
 
 
+def extract_text_from_image(path: str) -> str:
+    """Single-image path-based entry point. Raises FileNotFoundError on bad path."""
+    with open(path, "rb") as f:
+        image_bytes = f.read()
+    return extract_text_from_images([image_bytes])
+
+
+def _erase_solid_bands(gray: "Image.Image") -> "Image.Image":
+    """
+    [F3] Detect horizontal rows with near-zero pixel variance and replace with white.
+    Solid bands are redaction bars, sender name blocks, or UI chrome that create
+    false column boundaries during Tesseract segmentation.
+    Requires numpy — returns image unchanged if numpy is unavailable.
+    """
+    if np is None:
+        return gray
+    arr = np.array(gray, dtype=np.float32)
+    row_variance = arr.var(axis=1)
+    solid_rows = row_variance < SOLID_BAND_VARIANCE
+    if solid_rows.any():
+        arr[solid_rows] = 255.0
+        logger.debug(f"Erased {solid_rows.sum()} solid-color rows")
+        return Image.fromarray(arr.astype(np.uint8))
+    return gray
+
+
 def _preprocess(image: "Image.Image") -> "Image.Image":
     """
     Preprocess image for maximum Tesseract accuracy on chat screenshots.
@@ -92,6 +145,9 @@ def _preprocess(image: "Image.Image") -> "Image.Image":
         gray = ImageOps.invert(gray)
         logger.debug("Dark UI detected — inverted image")
 
+    # [F3] Erase solid-color bands after inversion so red bars become solid white
+    gray = _erase_solid_bands(gray)
+
     enhancer = ImageEnhance.Contrast(gray)
     gray = enhancer.enhance(2.0)
 
@@ -112,6 +168,10 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
     Left-aligned bubbles  (x_center < 48% of image width) = THEM (other person).
     Ambiguous center text (timestamps, app UI) is included unlabeled.
 
+    [F1] PSM 11 (sparse text) replaces PSM 6 (uniform block) — correct for chat layouts.
+    [F2] Mean word confidence gate raises ValueError on low-quality reads so the
+         caller (main.py) can return a clean user-facing error before the LLM is called.
+
     Falls back to flat image_to_string if image_to_data fails.
     """
     if not TESSERACT_AVAILABLE:
@@ -122,7 +182,8 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
     processed = _preprocess(image)
     img_width = processed.width
 
-    config = "--psm 6 --oem 3"
+    # [F1] PSM 11: sparse text — find text anywhere without assuming layout structure.
+    config = "--psm 11 --oem 3"
 
     try:
         data = pytesseract.image_to_data(
@@ -132,6 +193,8 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
         # Group words into line buckets by top-coordinate (15px tolerance)
         line_bucket_px = 15
         lines: dict = {}
+        retained_confs: List[int] = []
+
         for i in range(len(data["text"])):
             word = (data["text"][i] or "").strip()
             if not word:
@@ -144,12 +207,25 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
             width = data["width"][i]
             center_x = left + width / 2
 
+            retained_confs.append(conf)
             bucket = (top // line_bucket_px) * line_bucket_px
             if bucket not in lines:
                 lines[bucket] = {"words": [], "cx_sum": 0.0, "cx_count": 0}
             lines[bucket]["words"].append((left, word))
             lines[bucket]["cx_sum"] += center_x
             lines[bucket]["cx_count"] += 1
+
+        # [F2] Quality gate: reject low-confidence reads before returning text.
+        # Only fires when word count is small — a large word count at moderate
+        # confidence is acceptable (long messages with OCR noise throughout).
+        mean_conf = statistics.mean(retained_confs) if retained_confs else 0
+        word_count = len(retained_confs)
+        logger.info(f"Image {idx}: mean word confidence = {mean_conf:.1f}, word_count = {word_count}")
+        if mean_conf < MEAN_CONF_THRESHOLD and word_count < MIN_QUALITY_WORDS:
+            raise ValueError(
+                f"OCR quality too low: mean_conf={mean_conf:.1f}, word_count={word_count}. "
+                f"Image may be heavily redacted, blurred, or unreadable."
+            )
 
         if not lines:
             raise ValueError("No lines detected by image_to_data")
