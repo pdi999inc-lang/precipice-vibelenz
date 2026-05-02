@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import time
@@ -9,10 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
-import html as _html
-
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
@@ -26,19 +22,6 @@ from app.db import init_db
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
-
-_bearer = HTTPBearer(auto_error=False)
-
-
-def _require_internal_token(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
-) -> None:
-    """Gate internal-only endpoints behind INTERNAL_API_TOKEN env var."""
-    token = os.environ.get("INTERNAL_API_TOKEN", "")
-    if not token:
-        return  # token not configured — allow access (dev/staging without the var set)
-    if not credentials or credentials.credentials != token:
-        raise HTTPException(status_code=403, detail="Forbidden")
 
 
 @app.on_event("startup")
@@ -63,10 +46,8 @@ MIN_OCR_CHARS = 50
 
 
 def _simple_page(title: str, body: str) -> HTMLResponse:
-    t = _html.escape(title)
-    b = _html.escape(body)
     return HTMLResponse(
-        f"<html><head><title>{t}</title></head><body><h1>{t}</h1><p>{b}</p></body></html>"
+        f"<html><head><title>{title}</title></head><body><h1>{title}</h1><p>{body}</p></body></html>"
     )
 
 
@@ -162,12 +143,11 @@ async def health():
 
 
 @app.get("/audit/stats")
-async def audit_stats(_: None = Depends(_require_internal_token)):
+async def audit_stats():
     # H5: Query Postgres directly — get_session_stats() reads /tmp/ which resets on container restart.
     # Fallback to session stats if DB is unavailable.
     db_url = os.environ.get("DATABASE_URL", "")
     if db_url:
-        conn = None
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
@@ -183,6 +163,7 @@ async def audit_stats(_: None = Depends(_require_internal_token)):
             avg_risk = int(row[0] or 0)
             max_risk = int(row[1] or 0)
             cur.close()
+            conn.close()
             return {
                 "status": "ok",
                 "source": "postgres",
@@ -199,9 +180,6 @@ async def audit_stats(_: None = Depends(_require_internal_token)):
             }
         except Exception as _db_err:
             logger.warning(f"DB stats query failed, falling back to session stats: {_db_err}")
-        finally:
-            if conn:
-                conn.close()
     return get_session_stats()
 
 
@@ -210,14 +188,21 @@ async def analyze_screenshots(
     request: Request,
     files: List[UploadFile] = File(...),
     relationship_type: str = Form("stranger"),
-    context_note: str = Form(""),
+    context_note: str = "",
     requested_mode: str = Form("risk"),
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
     timestamp_start = time.time()
 
-    logger.info(f"[{request_id}] Received {len(files)} file(s), mode={requested_mode} at {ts}")
+    # Extract UTM params from query string — passed through to DB log for attribution.
+    # The frontend must preserve these on the form POST (via hidden fields or JS).
+    utm_source   = request.query_params.get("utm_source", "")
+    utm_medium   = request.query_params.get("utm_medium", "")
+    utm_campaign = request.query_params.get("utm_campaign", "")
+
+    logger.info(f"[{request_id}] Received {len(files)} file(s), mode={requested_mode} at {ts} "
+                f"utm_source={utm_source or 'none'}")
 
     if len(files) > MAX_FILES:
         raise HTTPException(
@@ -268,68 +253,38 @@ async def analyze_screenshots(
             text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
         ocr_char_count = len(extracted_text)
-    except HTTPException:
-        raise
-    except RuntimeError as e:
-        # OCR quality gate fires as ValueError wrapped in RuntimeError by extract_text_from_images.
-        # Return a clean 422 with actionable guidance — do not call the LLM.
-        cause = e.__cause__
-        if isinstance(cause, ValueError) and "OCR quality too low" in str(cause):
-            logger.warning(f"[{request_id}] OCR quality gate triggered: {cause}")
-            write_audit_record(
-                request_id=request_id,
-                timestamp_start=timestamp_start,
-                image_count=len(files),
-                ocr_char_count=0,
-                result={},
-                degraded=True,
-                error=f"OCR quality gate: {cause}",
-            )
+    except Exception as e:
+        err_str = str(e)
+        # [OCR-3] Quality gate fires when mean word confidence is too low — this is a
+        # recoverable user-side issue (dark screenshot, heavy redaction, low resolution),
+        # not a system failure. Return 422 with actionable guidance instead of 503.
+        is_quality_gate = "OCR quality too low" in err_str
+        logger.error(f"[{request_id}] OCR {'quality gate' if is_quality_gate else 'failure'}: {err_str}")
+        write_audit_record(
+            request_id=request_id,
+            timestamp_start=timestamp_start,
+            image_count=len(files),
+            ocr_char_count=0,
+            result={},
+            degraded=True,
+            error=f"OCR {'quality_gate' if is_quality_gate else 'failure'}: {err_str}",
+        )
+        if is_quality_gate:
             return JSONResponse(
                 status_code=422,
                 content={
                     "request_id": request_id,
                     "timestamp": ts,
-                    "error": "ocr_quality_too_low",
+                    "error": "low_ocr_quality",
                     "message": (
-                        "We had trouble reading this screenshot. "
-                        "Try cropping just the message thread, removing redactions over the text, "
-                        "or increasing screen brightness before uploading."
+                        "We had trouble reading your screenshot clearly. "
+                        "Try cropping just the message thread, increasing screen brightness, "
+                        "or taking the screenshot in light mode before uploading."
                     ),
                     "degraded": True,
                     "degradation_state": DegradationState.FAIL_CLOSED.value,
                 },
             )
-        logger.error(f"[{request_id}] OCR failure: {e}")
-        write_audit_record(
-            request_id=request_id,
-            timestamp_start=timestamp_start,
-            image_count=len(files),
-            ocr_char_count=0,
-            result={},
-            degraded=True,
-            error=f"OCR failure: {e}",
-        )
-        return JSONResponse(
-            status_code=503,
-            content={
-                "error": "fail_closed",
-                "reason": "OCR processing failed. System blocked.",
-                "request_id": request_id,
-                "degradation_state": DegradationState.FAIL_CLOSED.value,
-            },
-        )
-    except Exception as e:
-        logger.error(f"[{request_id}] OCR failure: {e}")
-        write_audit_record(
-            request_id=request_id,
-            timestamp_start=timestamp_start,
-            image_count=len(files),
-            ocr_char_count=0,
-            result={},
-            degraded=True,
-            error=f"OCR failure: {e}",
-        )
         return JSONResponse(
             status_code=503,
             content={
@@ -379,22 +334,19 @@ async def analyze_screenshots(
     analysis_error: str | None = None
 
     try:
-        analysis = await asyncio.to_thread(
-            analyze_text,
+        analysis = analyze_text(
             extracted_text,
             relationship_type=relationship_type,
             context_note=context_note,
         )
-        narrative = await asyncio.to_thread(
-            interpret_analysis,
+        narrative = interpret_analysis(
             analysis,
             extracted_text=extracted_text,
             requested_mode=requested_mode,
             relationship_type=relationship_type,
             use_llm=True,
         )
-        turn_analysis = await asyncio.to_thread(
-            analyze_turns,
+        turn_analysis = analyze_turns(
             text_chunks=[t for t in text_chunks if t.strip()],
             relationship_type=relationship_type,
         )
@@ -470,7 +422,13 @@ async def analyze_screenshots(
     # --- DB log ---
     try:
         from app.db import log_analysis
-        log_analysis(payload, conversation_text=extracted_text)
+        log_analysis(
+            payload,
+            conversation_text=extracted_text,
+            utm_source=utm_source,
+            utm_medium=utm_medium,
+            utm_campaign=utm_campaign,
+        )
     except Exception as _db_err:
         logger.warning(f"DB log skipped: {_db_err}")
 
@@ -508,17 +466,17 @@ async def analyze_screenshots(
 
 
 @app.get("/diag/llm")
-async def diag_llm(_: None = Depends(_require_internal_token)):
-    import anthropic as _anthropic
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+async def diag_llm():
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
         return {"status": "error", "detail": "ANTHROPIC_API_KEY not set"}
     try:
-        client = _anthropic.Anthropic(api_key=api_key)
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=10,
-            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=32,
+            messages=[{"role": "user", "content": "Reply with the word OK only."}],
         )
         return {"status": "ok", "response": msg.content[0].text}
     except Exception as e:
@@ -528,21 +486,16 @@ async def diag_llm(_: None = Depends(_require_internal_token)):
 @app.post("/feedback")
 async def feedback(request: Request):
     try:
-        body = await request.json()
-        request_id = body.get("request_id", "unknown")
-        rating = body.get("rating", "unknown")
-        note = body.get("note", "")
-        accurate = str(rating).lower() in {"yes", "accurate", "true", "1", "thumbs_up"}
-        try:
-            from app.db import log_feedback
-            log_feedback(request_id=request_id, accurate=accurate, note=note)
-        except Exception as db_err:
-            logger.warning(f"Feedback DB log skipped: {db_err}")
+        await request.json()
         return JSONResponse({"status": "ok"})
-    except Exception as e:
-        logger.error(f"Feedback endpoint error: {e}")
+    except Exception:
         return JSONResponse({"status": "ok"})
 
 
-
-
+@app.post("/log-session")
+async def log_session(request: Request):
+    try:
+        await request.json()
+        return JSONResponse({"status": "ok"})
+    except Exception:
+        return JSONResponse({"status": "ok"})
