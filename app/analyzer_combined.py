@@ -1210,6 +1210,27 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
     ]):
         concern_signals.append("plan_collapse_blame_inversion")
 
+    # Hard rejection + rejection reversal detection
+    # Hard rejection: explicit dismissal language present anywhere in the combined conversation
+    _hard_rejection = _contains_any(_t, [
+        "lose my number", "please lose my number", "delete my number", "block my number",
+        "never contact me", "never message me", "never text me again",
+        "don't ever contact me", "don't contact me again",
+        "it's not gonna work", "it's not going to work", "not gonna work out",
+        "not going to work out", "we're not going to work",
+    ])
+    if _hard_rejection:
+        concern_signals.append("hard_rejection_present")
+    # Rejection reversal: hard rejection + warm or logistical continuation in same analysis
+    # Pattern: they told you to lose their number, then re-contacted and you accepted as normal
+    _warm_continuation = _contains_any(_t, [
+        "pick me up", "pick you up", "on my way", "be ready at",
+        "come on by", "come by", "let me know when you", "when you plan to",
+        "see you soon", "handsome", "heading over", "almost there", "5 minutes",
+    ])
+    if _hard_rejection and _warm_continuation:
+        concern_signals.append("rejection_reversal")
+
     if high_intent_count >= 2 and vision_count >= 1 and not label:
         label = "high_intent_mutual"
     elif fear_urgency_count >= 2 and high_intent_count >= 1 and not label:
@@ -1292,7 +1313,13 @@ def _extract_key_signals(text: str, domain_mode: str) -> Dict[str, Any]:
             signals.append("vulnerability_narrative_early")
     # PATCH-004: Boundary detection tightened. Removed "not comfortable" --
     # fires on "I'm not comfortable with Thai food". Kept unambiguous rejection language only.
-    if _contains_any(t, ["stop contacting me", "leave me alone", "do not contact me", "please stop messaging"]):
+    if _contains_any(t, [
+        "stop contacting me", "leave me alone", "do not contact me", "please stop messaging",
+        "lose my number", "please lose my number", "delete my number", "block my number",
+        "never contact me", "never message me again", "never text me again",
+        "it's not gonna work", "it's not going to work", "not gonna work out",
+        "not going to work out",
+    ]):
         signals.append("boundary_language_present")
 
     # Performative availability + blame inversion:
