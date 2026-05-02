@@ -1210,8 +1210,14 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
     ]):
         concern_signals.append("plan_collapse_blame_inversion")
 
-    # Hard rejection + rejection reversal detection
-    # Hard rejection: explicit dismissal language present anywhere in the combined conversation
+    # Hard rejection detection
+    # Explicit dismissal language — fires regardless of screenshot order.
+    # NOTE: rejection_reversal is intentionally NOT detected deterministically here.
+    # The reversal pattern (rejection + subsequent warm re-contact) requires confirmed
+    # chronological ordering that the deterministic layer cannot verify. False positives
+    # occur when warm pre-date content appears alongside a post-date rejection in a
+    # multi-screenshot submission. The LLM engine handles reversal detection with
+    # full narrative context when the screenshots are submitted oldest-first.
     _hard_rejection = _contains_any(_t, [
         "lose my number", "please lose my number", "delete my number", "block my number",
         "never contact me", "never message me", "never text me again",
@@ -1221,15 +1227,6 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
     ])
     if _hard_rejection:
         concern_signals.append("hard_rejection_present")
-    # Rejection reversal: hard rejection + warm or logistical continuation in same analysis
-    # Pattern: they told you to lose their number, then re-contacted and you accepted as normal
-    _warm_continuation = _contains_any(_t, [
-        "pick me up", "pick you up", "on my way", "be ready at",
-        "come on by", "come by", "let me know when you", "when you plan to",
-        "see you soon", "handsome", "heading over", "almost there", "5 minutes",
-    ])
-    if _hard_rejection and _warm_continuation:
-        concern_signals.append("rejection_reversal")
 
     if high_intent_count >= 2 and vision_count >= 1 and not label:
         label = "high_intent_mutual"

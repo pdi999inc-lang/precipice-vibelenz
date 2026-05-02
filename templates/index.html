@@ -46,10 +46,13 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 .up-ic{font-size:1rem;}.up-lbl{font-size:0.88rem;font-weight:600;}.up-cnt{flex:1;font-size:0.82rem;color:rgba(200,228,255,0.8);}.up-mgr{font-size:0.8rem;color:rgba(120,205,255,0.9);text-decoration:underline;cursor:pointer;}
 #fi{display:none;}
 .thumbs{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;}
-.ti{position:relative;width:72px;height:86px;animation:pop .2s ease both;filter:drop-shadow(2px 4px 10px rgba(0,0,0,0.6));}
+.ti{position:relative;width:72px;height:86px;animation:pop .2s ease both;filter:drop-shadow(2px 4px 10px rgba(0,0,0,0.6));cursor:grab;}
+.ti.drag-over img{outline:2px solid rgba(100,200,255,0.8);border-radius:8px;}
 .ti img{width:72px;height:86px;object-fit:cover;border-radius:8px;border:1.5px solid rgba(255,255,255,0.22);}
 .ti:nth-child(1) img{transform:rotate(-2deg);}.ti:nth-child(2) img{transform:rotate(1.5deg);}.ti:nth-child(3) img{transform:rotate(-1deg);}.ti:nth-child(4) img{transform:rotate(2deg);}
 .ti-rm{position:absolute;top:-6px;right:-5px;width:18px;height:18px;background:rgba(20,30,60,0.9);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:50%;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.ti-num{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:18px;height:18px;background:rgba(0,200,180,0.85);color:#fff;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.drag-hint{font-size:0.72rem;color:rgba(150,200,255,0.5);margin-top:6px;display:none;}
 @keyframes pop{from{opacity:0;transform:scale(0.7);}to{opacity:1;transform:scale(1);}}
 .gl-sel{font-family:'Inter',sans-serif;font-size:0.88rem;color:#fff;background:rgba(255,255,255,0.09);border:1px solid rgba(180,215,255,0.28);border-radius:13px;padding:13px 42px 13px 15px;width:100%;outline:none;-webkit-appearance:none;appearance:none;backdrop-filter:blur(14px);cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(180,215,255,0.7)' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center;}
 .gl-sel option{background:#0a1a40;color:#fff;}
@@ -111,6 +114,7 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 <input type="file" id="fi" accept="image/png,image/jpeg,image/jpg" multiple onchange="addFiles(this.files)"/>
 </div>
 <div class="thumbs" id="thumbs"></div>
+<div class="drag-hint" id="dragHint">drag to reorder — oldest screenshot first</div>
 <div class="sh">2. Who are you talking to?</div>
 <select class="gl-sel" id="relType"><option value="stranger">Stranger / New person</option><option value="match">Dating app match</option><option value="friend">Friend</option><option value="ex">Ex / Past partner</option><option value="partner">Current partner</option></select>
 <div class="sh">3. Which side are you?</div>
@@ -161,10 +165,34 @@ function tDD(){document.getElementById('rdd').classList.toggle('open');}
 function setRole(v,lbl){document.getElementById('selRole').value=v;document.getElementById('rlbl').textContent=lbl;document.getElementById('rdd').classList.remove('open');document.querySelectorAll('.r-opt').forEach(o=>o.classList.remove('act'));document.getElementById('ro-'+v).classList.add('act');}
 document.addEventListener('click',e=>{if(!e.target.closest('.role-wrap'))document.getElementById('rdd').classList.remove('open');});
 let files=[];
+let _dragSrc=-1;
 function addFiles(fl){files=files.concat(Array.from(fl)).slice(0,10);render();}
 function removeFile(i){files.splice(i,1);render();}
 function clearFiles(){files=[];render();}
-function render(){const s=document.getElementById('thumbs'),c=document.getElementById('upCnt'),m=document.getElementById('upMgr');s.innerHTML='';if(!files.length){c.textContent='';m.style.display='none';return;}c.textContent=`${files.length} image${files.length>1?'s':''} selected`;m.style.display='inline';files.forEach((f,i)=>{const u=URL.createObjectURL(f),el=document.createElement('div');el.className='ti';el.innerHTML=`<img src="${u}" alt=""/><button type="button" class="ti-rm" onclick="removeFile(${i})">✕</button>`;s.appendChild(el);});}
+function render(){
+  const s=document.getElementById('thumbs'),c=document.getElementById('upCnt'),m=document.getElementById('upMgr'),h=document.getElementById('dragHint');
+  s.innerHTML='';
+  if(!files.length){c.textContent='';m.style.display='none';h.style.display='none';return;}
+  c.textContent=`${files.length} image${files.length>1?'s':''} selected`;
+  m.style.display='inline';
+  h.style.display=files.length>1?'block':'none';
+  files.forEach((f,i)=>{
+    const u=URL.createObjectURL(f),el=document.createElement('div');
+    el.className='ti';el.draggable=true;
+    el.innerHTML=`<img src="${u}" alt=""/><button type="button" class="ti-rm" onclick="removeFile(${i})">✕</button><div class="ti-num">${i+1}</div>`;
+    el.addEventListener('dragstart',()=>{_dragSrc=i;});
+    el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+    el.addEventListener('dragleave',()=>{el.classList.remove('drag-over');});
+    el.addEventListener('drop',e=>{
+      e.preventDefault();el.classList.remove('drag-over');
+      if(_dragSrc===i||_dragSrc<0)return;
+      const moved=files.splice(_dragSrc,1)[0];
+      files.splice(i,0,moved);
+      _dragSrc=-1;render();
+    });
+    s.appendChild(el);
+  });
+}
 document.getElementById('mf').addEventListener('submit',async e=>{e.preventDefault();if(!files.length){alert('Please upload at least one screenshot.');return;}document.getElementById('ov').classList.add('on');const fd=new FormData();files.forEach(f=>fd.append('files',f));fd.append('relationship_type',document.getElementById('relType').value);fd.append('context_note',document.getElementById('ctx').value);fd.append('requested_mode',document.getElementById('selMode').value);try{const _up=new URLSearchParams();['utm_source','utm_medium','utm_campaign'].forEach(k=>{const v=new URLSearchParams(window.location.search).get(k);if(v)_up.append(k,v);});const _qs=_up.toString();const _url='/analyze-screenshots'+(_qs?'?'+_qs:'');const res=await fetch(_url,{method:'POST',body:fd,headers:{'Accept':'text/html'}});if(res.ok){const h=await res.text();document.open();document.write(h);document.close();}else{document.getElementById('ov').classList.remove('on');alert('Analysis failed.');}}catch{document.getElementById('ov').classList.remove('on');alert('Network error.');}});
 </script>
 </body>
