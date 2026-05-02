@@ -78,10 +78,16 @@ _VISION_SYSTEM_PROMPT = """You are a text extraction assistant for a conversatio
 
 Extract all visible message text from this chat screenshot and return it with speaker attribution.
 
-RULES:
-- Label each message YOU: if the bubble appears on the RIGHT side of the screen (sent messages).
-- Label each message THEM: if the bubble appears on the LEFT side (received messages).
-- Preserve message order top to bottom exactly as shown.
+IMPORTANT — SPEAKER ATTRIBUTION RULE:
+Bubble position is the ONLY authority for determining who said what.
+- Right-aligned bubbles (green on iOS, darker color on Android) are ALWAYS labeled YOU:
+- Left-aligned bubbles (gray or dark on iOS, lighter on Android) are ALWAYS labeled THEM:
+Do NOT infer speaker from conversation content, tone, or who appears to be rejecting or pursuing.
+Do NOT override bubble position based on what the message says.
+If a message is on the right side, it is YOU: — no exceptions.
+
+EXTRACTION RULES:
+- Preserve message order top to bottom exactly as shown in the image.
 - Copy text exactly as written — preserve typos, abbreviations, capitalization.
 - Skip UI chrome: timestamps, "Delivered", "Read", app headers, notification banners.
 - If a region is covered by a solid-color redaction bar, skip it entirely — do not guess.
