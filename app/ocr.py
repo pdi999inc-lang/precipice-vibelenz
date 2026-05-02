@@ -1,51 +1,54 @@
 """
 ocr.py - VibeLenz image text extraction with preprocessing.
 
-Strategy:
-1. Preprocess image for optimal OCR (handles dark UIs, chat bubbles, varied contrast)
-2. Primary: pytesseract with tuned config
-3. Fail-closed: any OCR exception is re-raised to caller (main.py handles with 503)
+Extraction strategy (priority order):
+1. Claude vision API — primary path for screenshot inputs.
+   Handles dark mode, scattered bubble layouts, emoji, mixed fonts,
+   and partial redaction in a single API call. Returns YOU/THEM attributed text.
+2. Tesseract PSM 11 with layout-aware line grouping — fallback when vision unavailable.
+3. Tesseract flat image_to_string — final fallback if layout grouping fails.
 
+Fail-closed: any unrecoverable error re-raises to caller (main.py handles with 503).
+
+VISION PATH (added)
+-------------------
+_extract_with_vision() sends the raw image bytes to Claude Haiku via the vision API.
+The system prompt instructs it to extract text with YOU:/THEM: speaker attribution
+based on bubble position. This replaces Tesseract as the primary path.
+
+TESSERACT PATH (retained as fallback)
+--------------------------------------
 Preprocessing pipeline:
 - Upscale small images (Tesseract performs best at 300+ DPI equivalent)
 - Convert to grayscale
 - Auto-detect dark UI and invert
-- Erase solid-color redaction bars (replace with white)
+- Erase solid-color redaction bars (replace with white) [F3]
 - Enhance contrast
 - Sharpen
-- Run OCR with PSM 11 (sparse text — correct for chat bubble layouts)
-
-FIXES APPLIED
--------------
-[F1] PSM mode changed from 6 (uniform block) to 11 (sparse text).
-     PSM 6 assumes a single uniform text block, which mis-segments chat layouts.
-     PSM 11 finds text anywhere in the image without layout assumptions — correct
-     for SMS/chat screenshots with scattered bubbles, timestamps, and UI chrome.
-
-[F2] Word-confidence quality gate added to _extract_single().
-     After word collection, mean confidence of retained words is computed.
-     If mean_conf < MEAN_CONF_THRESHOLD and fewer than MIN_QUALITY_WORDS words
-     are retained, a ValueError is raised before text is returned.
-     main.py catches this and returns a clean user-facing error — no LLM call.
-
-[F3] Solid-color band erasure added to _preprocess().
-     Detects horizontal rows with near-zero pixel variance (redaction bars,
-     solid UI bands) and replaces them with white before Tesseract runs.
-     Prevents false column boundaries that PSM 6 used to create from red bars.
+- Run OCR with PSM 11 (sparse text) [F1]
+- Word-confidence quality gate [F2]
 """
 
+import base64
 import io
 import logging
 import os
 import statistics
 from typing import List
 
+import anthropic as _anthropic
+
 logger = logging.getLogger("vibelenz.ocr")
 
 try:
     import pytesseract
     from PIL import Image, ImageEnhance, ImageFilter, ImageOps
-    import numpy as np
+    try:
+        import numpy as np
+        _NUMPY_AVAILABLE = True
+    except ImportError:
+        np = None  # type: ignore[assignment]
+        _NUMPY_AVAILABLE = False
 
     if os.name == "nt":
         pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -54,28 +57,53 @@ try:
     logger.info("pytesseract loaded successfully")
 except ImportError:
     TESSERACT_AVAILABLE = False
+    _NUMPY_AVAILABLE = False
     np = None  # type: ignore[assignment]
-    logger.warning("pytesseract not available — OCR will return empty results")
+    logger.warning("pytesseract not available — vision API is primary, Tesseract fallback disabled")
 
 
-# Minimum dimension before upscaling
+# --- Tesseract preprocessing constants ---
 MIN_DIMENSION = 1000
-# Upscale factor applied when image is small
 UPSCALE_FACTOR = 2.0
-# Darkness threshold: if mean pixel value below this, treat as dark UI
 DARK_UI_THRESHOLD = 100
-# [F2] Quality gate: minimum mean word confidence (0–100) across retained words
 MEAN_CONF_THRESHOLD = 40
-# [F2] Minimum number of retained words required before confidence gate applies
 MIN_QUALITY_WORDS = 10
-# [F3] Row variance below this → solid-color band (redaction bar or UI chrome)
 SOLID_BAND_VARIANCE = 5
 
+# --- Vision model ---
+_VISION_MODEL = "claude-haiku-4-5-20251001"
+_VISION_MAX_TOKENS = 1500
+
+_VISION_SYSTEM_PROMPT = """You are a text extraction assistant for a conversation safety analysis tool.
+
+Extract all visible message text from this chat screenshot and return it with speaker attribution.
+
+RULES:
+- Label each message YOU: if the bubble appears on the RIGHT side of the screen (sent messages).
+- Label each message THEM: if the bubble appears on the LEFT side (received messages).
+- Preserve message order top to bottom exactly as shown.
+- Copy text exactly as written — preserve typos, abbreviations, capitalization.
+- Skip UI chrome: timestamps, "Delivered", "Read", app headers, notification banners.
+- If a region is covered by a solid-color redaction bar, skip it entirely — do not guess.
+- If a word is unclear, write [unclear] rather than inventing text.
+- Return only the labeled messages, one message segment per line.
+
+OUTPUT FORMAT (follow exactly):
+THEM: first message text here
+YOU: reply here
+THEM: next message here
+
+Return only the extracted messages. No preamble, no explanation, no markdown."""
+
+
+# ---------------------------------------------------------------------------
+# Public interface
+# ---------------------------------------------------------------------------
 
 def extract_text_from_images(image_bytes_list: List[bytes]) -> str:
     """
     Accept list of raw image bytes. Return combined extracted text string.
-    Raises on unrecoverable error (caller must handle).
+    Raises RuntimeError on unrecoverable error (caller must handle).
     """
     if not image_bytes_list:
         return ""
@@ -103,14 +131,74 @@ def extract_text_from_image(path: str) -> str:
     return extract_text_from_images([image_bytes])
 
 
+# ---------------------------------------------------------------------------
+# Vision extraction (primary)
+# ---------------------------------------------------------------------------
+
+def _media_type(image_bytes: bytes) -> str:
+    if image_bytes[:4] == b"\x89PNG":
+        return "image/png"
+    if image_bytes[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    return "image/png"  # safe default
+
+
+def _extract_with_vision(image_bytes: bytes, idx: int) -> str:
+    """
+    Extract conversation text using Claude's vision API.
+
+    Handles dark mode, scattered bubble layouts, emoji, mixed font weights,
+    and partial redaction in a single call. Returns YOU:/THEM: attributed text.
+    Raises RuntimeError if API key is missing or the API call fails.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set — vision extraction unavailable")
+
+    media_type = _media_type(image_bytes)
+    image_data = base64.standard_b64encode(image_bytes).decode("utf-8")
+
+    client = _anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model=_VISION_MODEL,
+        max_tokens=_VISION_MAX_TOKENS,
+        system=_VISION_SYSTEM_PROMPT,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": image_data,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": "Extract all conversation messages from this screenshot with YOU:/THEM: labels.",
+                    },
+                ],
+            }
+        ],
+    )
+
+    text = message.content[0].text.strip()
+    logger.info(f"Image {idx}: vision extraction returned {len(text)} chars")
+    return text
+
+
+# ---------------------------------------------------------------------------
+# Tesseract extraction (fallback)
+# ---------------------------------------------------------------------------
+
 def _erase_solid_bands(gray: "Image.Image") -> "Image.Image":
     """
-    [F3] Detect horizontal rows with near-zero pixel variance and replace with white.
-    Solid bands are redaction bars, sender name blocks, or UI chrome that create
-    false column boundaries during Tesseract segmentation.
-    Requires numpy — returns image unchanged if numpy is unavailable.
+    Detect horizontal rows with near-zero pixel variance and replace with white.
+    Removes redaction bars and solid UI bands that create false column boundaries.
     """
-    if np is None:
+    if not _NUMPY_AVAILABLE or np is None:
         return gray
     arr = np.array(gray, dtype=np.float32)
     row_variance = arr.var(axis=1)
@@ -123,66 +211,44 @@ def _erase_solid_bands(gray: "Image.Image") -> "Image.Image":
 
 
 def _preprocess(image: "Image.Image") -> "Image.Image":
-    """
-    Preprocess image for maximum Tesseract accuracy on chat screenshots.
-    Handles both light and dark UI themes.
-    """
+    """Preprocess image for Tesseract: upscale, invert dark UI, erase bands, enhance contrast."""
     image = image.convert("RGB")
 
     w, h = image.size
     if min(w, h) < MIN_DIMENSION:
-        scale = UPSCALE_FACTOR
-        image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        image = image.resize((int(w * UPSCALE_FACTOR), int(h * UPSCALE_FACTOR)), Image.LANCZOS)
         logger.debug(f"Upscaled image from {w}x{h} to {image.size}")
 
     gray = image.convert("L")
 
     pixels = list(gray.getdata())
     mean_brightness = statistics.mean(pixels)
-    logger.debug(f"Mean brightness: {mean_brightness:.1f}")
-
     if mean_brightness < DARK_UI_THRESHOLD:
         gray = ImageOps.invert(gray)
         logger.debug("Dark UI detected — inverted image")
 
-    # [F3] Erase solid-color bands after inversion so red bars become solid white
     gray = _erase_solid_bands(gray)
 
     enhancer = ImageEnhance.Contrast(gray)
     gray = enhancer.enhance(2.0)
-
     gray = gray.filter(ImageFilter.SHARPEN)
 
     return gray
 
 
-def _extract_single(image_bytes: bytes, idx: int) -> str:
+def _extract_with_tesseract(image_bytes: bytes, idx: int) -> str:
     """
-    Extract text from a single image with speaker attribution.
-
-    Uses pytesseract image_to_data to get bounding boxes per word, then
-    groups words into lines by y-coordinate and assigns speaker labels
-    (YOU / THEM) based on x-position relative to image center.
-
-    Right-aligned bubbles (x_center > 52% of image width) = YOU (user).
-    Left-aligned bubbles  (x_center < 48% of image width) = THEM (other person).
-    Ambiguous center text (timestamps, app UI) is included unlabeled.
-
-    [F1] PSM 11 (sparse text) replaces PSM 6 (uniform block) — correct for chat layouts.
-    [F2] Mean word confidence gate raises ValueError on low-quality reads so the
-         caller (main.py) can return a clean user-facing error before the LLM is called.
-
-    Falls back to flat image_to_string if image_to_data fails.
+    Tesseract-based extraction with layout-aware speaker attribution.
+    PSM 11 (sparse text) — correct for chat bubble layouts.
+    Falls back to flat image_to_string if layout grouping fails.
+    Raises ValueError if word-confidence quality gate fires.
     """
     if not TESSERACT_AVAILABLE:
-        logger.warning(f"Image {idx}: tesseract unavailable, returning empty")
-        return ""
+        raise RuntimeError(f"Image {idx}: Tesseract unavailable")
 
     image = Image.open(io.BytesIO(image_bytes))
     processed = _preprocess(image)
     img_width = processed.width
-
-    # [F1] PSM 11: sparse text — find text anywhere without assuming layout structure.
     config = "--psm 11 --oem 3"
 
     try:
@@ -190,7 +256,6 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
             processed, config=config, output_type=pytesseract.Output.DICT
         )
 
-        # Group words into line buckets by top-coordinate (15px tolerance)
         line_bucket_px = 15
         lines: dict = {}
         retained_confs: List[int] = []
@@ -200,7 +265,7 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
             if not word:
                 continue
             conf = int(data["conf"][i])
-            if conf < 20:  # discard very-low-confidence noise
+            if conf < 20:
                 continue
             top = data["top"][i]
             left = data["left"][i]
@@ -215,12 +280,10 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
             lines[bucket]["cx_sum"] += center_x
             lines[bucket]["cx_count"] += 1
 
-        # [F2] Quality gate: reject low-confidence reads before returning text.
-        # Only fires when word count is small — a large word count at moderate
-        # confidence is acceptable (long messages with OCR noise throughout).
         mean_conf = statistics.mean(retained_confs) if retained_confs else 0
         word_count = len(retained_confs)
-        logger.info(f"Image {idx}: mean word confidence = {mean_conf:.1f}, word_count = {word_count}")
+        logger.info(f"Image {idx}: Tesseract mean_conf={mean_conf:.1f}, word_count={word_count}")
+
         if mean_conf < MEAN_CONF_THRESHOLD and word_count < MIN_QUALITY_WORDS:
             raise ValueError(
                 f"OCR quality too low: mean_conf={mean_conf:.1f}, word_count={word_count}. "
@@ -236,14 +299,14 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
         for bucket in sorted(lines.keys()):
             line = lines[bucket]
             avg_cx = line["cx_sum"] / line["cx_count"]
-            rel_x = avg_cx / img_width  # 0.0 = far left, 1.0 = far right
+            rel_x = avg_cx / img_width
 
             if rel_x > 0.52:
                 speaker = "YOU"
             elif rel_x < 0.48:
                 speaker = "THEM"
             else:
-                speaker = None  # timestamp / UI chrome — include without label
+                speaker = None
 
             words_sorted = " ".join(w for _, w in sorted(line["words"], key=lambda x: x[0]))
 
@@ -258,11 +321,34 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
                 prev_speaker = speaker
 
         text = " ".join(result_parts).strip()
-        logger.info(f"Image {idx}: layout-aware OCR extracted {len(text)} chars")
+        logger.info(f"Image {idx}: Tesseract layout extraction returned {len(text)} chars")
         return text
 
+    except ValueError:
+        raise  # let quality-gate ValueError propagate — main.py handles it
     except Exception as layout_err:
-        logger.warning(f"Image {idx}: layout OCR failed ({layout_err}), falling back to flat OCR")
+        logger.warning(f"Image {idx}: Tesseract layout failed ({layout_err}), falling back to flat OCR")
         text = pytesseract.image_to_string(processed, config=config)
-        logger.info(f"Image {idx}: flat OCR fallback extracted {len(text)} chars")
+        logger.info(f"Image {idx}: Tesseract flat fallback returned {len(text)} chars")
         return text
+
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+def _extract_single(image_bytes: bytes, idx: int) -> str:
+    """
+    Extract text from a single image.
+
+    Priority:
+    1. Claude vision API (primary) — accurate on dark mode, chat layouts, emoji.
+    2. Tesseract (fallback) — used when API key absent or vision call fails.
+
+    Raises ValueError (quality gate) or RuntimeError (hard failure).
+    """
+    try:
+        return _extract_with_vision(image_bytes, idx)
+    except Exception as vision_err:
+        logger.warning(f"Image {idx}: vision extraction failed ({vision_err}), falling back to Tesseract")
+        return _extract_with_tesseract(image_bytes, idx)
