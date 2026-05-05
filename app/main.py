@@ -17,7 +17,7 @@ from app.interpreter import interpret_analysis
 from app.ocr import extract_text_from_images
 from app.degradation import assess_degradation, apply_degradation, DegradationState
 from app.audit import write_audit_record, get_session_stats
-from app.db import init_db
+from app.db import init_db, log_feedback
 
 logger = logging.getLogger("vibelenz.main")
 
@@ -142,28 +142,39 @@ async def health():
     return {"status": "ok"}
 
 
+STATS_SECRET = os.environ.get("STATS_SECRET", "")
+
+
 @app.get("/audit/stats")
-async def audit_stats():
-    # H5: Query Postgres directly — get_session_stats() reads /tmp/ which resets on container restart.
+async def audit_stats(request: Request):
+    # Require secret header if STATS_SECRET env var is set.
+    if STATS_SECRET:
+        if request.headers.get("x-stats-secret") != STATS_SECRET:
+            raise HTTPException(status_code=403, detail="Forbidden")
+    # Query Postgres directly — consolidate into single round trip.
     # Fallback to session stats if DB is unavailable.
     db_url = os.environ.get("DATABASE_URL", "")
     if db_url:
+        conn = None
         try:
             import psycopg2
             conn = psycopg2.connect(db_url)
             cur = conn.cursor()
-            cur.execute("SELECT COUNT(*) FROM analyses;")
-            total = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM analyses WHERE created_at > NOW() - INTERVAL '24 hours';")
-            last_24h = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM analyses WHERE degraded = FALSE;")
-            clean = cur.fetchone()[0]
-            cur.execute("SELECT AVG(risk_score)::int, MAX(risk_score) FROM analyses;")
+            cur.execute("""
+                SELECT
+                    COUNT(*)                                                      AS total,
+                    COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24h')  AS last_24h,
+                    COUNT(*) FILTER (WHERE degraded = FALSE)                      AS clean,
+                    AVG(risk_score)::int                                           AS avg_risk,
+                    MAX(risk_score)                                                AS max_risk
+                FROM analyses;
+            """)
             row = cur.fetchone()
-            avg_risk = int(row[0] or 0)
-            max_risk = int(row[1] or 0)
+            total, last_24h, clean, avg_risk, max_risk = (
+                int(row[0] or 0), int(row[1] or 0), int(row[2] or 0),
+                int(row[3] or 0), int(row[4] or 0),
+            )
             cur.close()
-            conn.close()
             return {
                 "status": "ok",
                 "source": "postgres",
@@ -180,6 +191,9 @@ async def audit_stats():
             }
         except Exception as _db_err:
             logger.warning(f"DB stats query failed, falling back to session stats: {_db_err}")
+        finally:
+            if conn:
+                conn.close()
     return get_session_stats()
 
 
@@ -188,7 +202,7 @@ async def analyze_screenshots(
     request: Request,
     files: List[UploadFile] = File(...),
     relationship_type: str = Form("stranger"),
-    context_note: str = "",
+    context_note: str = Form(""),
     requested_mode: str = Form("risk"),
 ):
     request_id = str(uuid.uuid4())
@@ -329,6 +343,14 @@ async def analyze_screenshots(
                 "degradation_state": DegradationState.FAIL_CLOSED.value,
             },
         )
+
+    # Safety: cap and injection-check context_note before it touches the LLM prompt.
+    context_note = context_note[:500]
+    from app.analyzer_combined import _check_prompt_injection
+    _cn_injected, _cn_match = _check_prompt_injection(context_note)
+    if _cn_injected:
+        logger.warning(f"[{request_id}] Prompt injection in context_note. Matched: {_cn_match!r}. Clearing.")
+        context_note = ""
 
     # --- Analysis ---
     analysis_error: str | None = None
@@ -486,9 +508,16 @@ async def diag_llm():
 @app.post("/feedback")
 async def feedback(request: Request):
     try:
-        await request.json()
+        body = await request.json()
+        request_id = str(body.get("request_id", ""))
+        accurate = body.get("accurate")
+        note = str(body.get("note", ""))
+        if request_id and accurate is not None:
+            log_feedback(request_id, bool(accurate), note)
+            logger.info(f"[feedback] request_id={request_id} accurate={accurate}")
         return JSONResponse({"status": "ok"})
-    except Exception:
+    except Exception as e:
+        logger.warning(f"[feedback] parse error: {e}")
         return JSONResponse({"status": "ok"})
 
 

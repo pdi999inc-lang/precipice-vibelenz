@@ -1196,15 +1196,15 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
         concern_signals.append("fear_driven_urgency")
 
     # Blame inversion / performative availability — promote directly to concern chips
-    _t = _norm(text)
-    if _contains_any(_t, [
+    # (reuse `t` — already normalized at top of function, no need to call _norm again)
+    if _contains_any(t, [
         "won't force myself", "won't force things", "make myself a priority",
         "should come naturally", "your actions don't match", "words don't match",
         "you would have made it work", "if you truly wanted to", "if you really wanted",
         "would have found a way", "would have made the effort",
     ]):
         concern_signals.append("blame_inversion")
-    if "blame_inversion" in concern_signals and _contains_any(_t, [
+    if "blame_inversion" in concern_signals and _contains_any(t, [
         "fell asleep at the wheel", "couldn't do the drive", "barely made it",
         "something came up", "can't make it anymore", "not going to make it",
     ]):
@@ -1490,7 +1490,10 @@ def _risk_from_lane(
     lane: str, key_signals: List[str], key_dampeners: List[str],
     extraction_present: bool, pressure_present: bool,
 ) -> Dict[str, Any]:
-    base = {"FRAUD": 82, "COERCION_RISK": 72, "DATING_AMBIGUOUS": 30, "RELATIONSHIP_NORMAL": 18, "BENIGN": 8}[lane]
+    _lane_bases = {"FRAUD": 82, "COERCION_RISK": 72, "DATING_AMBIGUOUS": 30, "RELATIONSHIP_NORMAL": 18, "BENIGN": 8}
+    if lane not in _lane_bases:
+        logger.warning("_risk_from_lane: unknown lane %r — defaulting to BENIGN base", lane)
+    base = _lane_bases.get(lane, 8)
     bonuses = {
         "withheld_owner_verification": 8, "property_identity_shift": 8,
         "owner_identity_shift": 10, "verification_path_shift": 8,
@@ -1742,8 +1745,6 @@ def _extract_first_json_object(raw_text: str) -> Dict[str, Any]:
 # Checks OCR-extracted text for instruction-override patterns before LLM send.
 # Fail-closed: matched text is NEVER passed to the LLM or deterministic engine.
 # ---------------------------------------------------------------------------
-import re as _re
-
 _INJECTION_PATTERNS = [
     r"ignore\s+(all\s+)?(previous|prior|above|your)\s+instructions",
     r"disregard\s+(all\s+)?(previous|prior|above|your)\s+instructions",
@@ -1762,9 +1763,9 @@ _INJECTION_PATTERNS = [
     r"\[system\]\s*:",
     r"<system>",
 ]
-_INJECTION_RE = _re.compile(
+_INJECTION_RE = re.compile(
     "|".join(_INJECTION_PATTERNS),
-    _re.IGNORECASE,
+    re.IGNORECASE,
 )
 
 
@@ -2103,7 +2104,9 @@ def analyze_turns(
         result = _run_deterministic(chunk, relationship_type)
         score = result.get("risk_score", 0)
         label = result.get("primary_label", "routine_message")
-        connection_data = _detect_connection_signals(chunk)
+        # _run_deterministic already calls _detect_connection_signals internally.
+        # Re-use its cached concern_signals rather than calling it a second time.
+        connection_data = {"connection_signals": result.get("positive_signals", [])}
 
         scores.append(score)
         labels.append(label)

@@ -479,11 +479,8 @@ def _llm_enrich(result, extracted_text, presentation_mode, diagnosis, reasoning,
             messages=[{"role": "user", "content": user_prompt}],
         )
         raw = message.content[0].text.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        parsed = json.loads(raw.strip())
+        from app.analyzer_combined import _extract_first_json_object
+        parsed = _extract_first_json_object(raw)
         return {"diagnosis": parsed.get("diagnosis", diagnosis), "reasoning": parsed.get("reasoning", reasoning), "practical_next_steps": parsed.get("practical_next_steps", practical_next_steps), "accountability": parsed.get("accountability", accountability), "llm_enriched": True, "llm_error": None}
     except Exception as e:
         return {"diagnosis": diagnosis, "reasoning": reasoning, "practical_next_steps": practical_next_steps, "accountability": accountability, "llm_enriched": False, "llm_error": str(e)}
