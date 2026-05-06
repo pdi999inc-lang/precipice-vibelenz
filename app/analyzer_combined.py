@@ -1218,7 +1218,7 @@ def _detect_connection_signals(text: str) -> Dict[str, Any]:
     # occur when warm pre-date content appears alongside a post-date rejection in a
     # multi-screenshot submission. The LLM engine handles reversal detection with
     # full narrative context when the screenshots are submitted oldest-first.
-    _hard_rejection = _contains_any(_t, [
+    _hard_rejection = _contains_any(t, [
         "lose my number", "please lose my number", "delete my number", "block my number",
         "never contact me", "never message me", "never text me again",
         "don't ever contact me", "don't contact me again",
