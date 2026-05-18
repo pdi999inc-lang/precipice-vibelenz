@@ -31,6 +31,9 @@
     .badge.low { background: rgba(61,220,151,0.16); color: var(--low); }
     .badge.medium { background: rgba(242,178,77,0.16); color: var(--med); }
     .badge.high { background: rgba(255,113,113,0.16); color: var(--high); }
+    .badge.withheld { background: rgba(180,200,230,0.10); color: #b8c4dc; border: 1px solid rgba(180,200,230,0.25); }
+    .degraded-banner { background: rgba(242,178,77,0.10); border: 1px solid rgba(242,178,77,0.30); border-radius: 14px; padding: 14px 18px; margin-bottom: 18px; color: #ffd99e; font-size: 14px; line-height: 1.6; }
+    .degraded-banner strong { color: #f2b24d; }
     .hero { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--border); border-radius: 24px; padding: 24px; box-shadow: var(--shadow); margin-bottom: 20px; }
     .eyebrow { color: var(--blue); font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; }
     .hero h2 { margin: 0 0 10px; font-size: 30px; line-height: 1.2; letter-spacing: -0.4px; }
@@ -63,25 +66,6 @@
     .chip { display: inline-flex; align-items: center; padding: 10px 14px; border-radius: 999px; background: var(--chip); border: 1px solid #375a93; font-size: 14px; font-weight: 700; color: #deebff; }
     .chip.good { background: var(--chip-good); border-color: rgba(61,220,151,0.35); color: #c6f7df; }
     .chip.warn { background: var(--chip-warn); border-color: rgba(255,113,113,0.35); color: #ffd6d6; }
-
-    /* RELATIONSHIP DYNAMICS */
-    .dynamics-section { background: linear-gradient(180deg, rgba(117,168,255,0.04), rgba(117,168,255,0.02)); border: 1px solid rgba(117,168,255,0.2); border-radius: 20px; padding: 22px 24px; margin-bottom: 18px; }
-    .dynamics-eyebrow { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; color: #4a6a96; margin-bottom: 6px; }
-    .dynamics-arc { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 16px; line-height: 1.5; }
-    .dynamics-scores { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-    .dynamics-score-chip { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 14px; min-width: 100px; }
-    .dynamics-score-chip .dsc-label { font-size: 11px; color: #4a6080; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .dynamics-score-chip .dsc-value { font-size: 14px; font-weight: 700; color: #a8c8ff; }
-    .dynamics-bar-row { margin-bottom: 8px; }
-    .dynamics-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: #4a6080; margin-bottom: 4px; }
-    .dynamics-bar-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
-    .dynamics-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4a7fc1, #75a8ff); }
-    .dynamics-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
-    .dynamics-list-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 14px; }
-    .dynamics-list-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #4a6a96; margin-bottom: 10px; }
-    .dynamics-list-item { font-size: 13px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); line-height: 1.4; }
-    .dynamics-list-item:last-child { border-bottom: none; }
-    .dynamics-next-step { margin-top: 14px; padding: 12px 16px; border-radius: 14px; background: rgba(61,220,151,0.05); border: 1px solid rgba(61,220,151,0.15); font-size: 14px; color: #a8e8c8; line-height: 1.6; }
 
     /* EVIDENCE */
     .evidence-section { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: 1px solid var(--border); border-radius: 20px; padding: 22px 24px; margin-bottom: 18px; }
@@ -150,9 +134,17 @@
     .machine-card .v { font-size: 15px; font-weight: 800; word-break: break-word; }
     pre { margin: 12px 0 0; white-space: pre-wrap; word-break: break-word; color: var(--muted); font-size: 14px; line-height: 1.6; }
     .footer-link { color: #a8c8ff; text-decoration: none; font-size: 14px; }
+    .feedback-box { margin: 24px 0; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: 1px solid #243b67; border-radius: 20px; padding: 22px 24px; }
+    .feedback-label { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; color: #4a6a96; margin-bottom: 12px; }
+    .feedback-form { display:flex; flex-direction:column; gap:12px; }
+    .feedback-buttons { display:flex; gap:12px; }
+    .feedback-btn { flex:1; padding:14px; border-radius:14px; font-size:15px; font-weight:800; cursor:pointer; }
+    .feedback-btn.up { border:1px solid rgba(61,220,151,0.35); background:rgba(61,220,151,0.08); color:#3ddc97; }
+    .feedback-btn.down { border:1px solid rgba(255,113,113,0.35); background:rgba(255,113,113,0.08); color:#ff7171; }
+    .feedback-note { width:100%; border:1px solid #243b67; border-radius:12px; padding:12px; background:#0a1530; color:#f5f8ff; font-size:14px; }
 
     @media (max-width: 860px) {
-      .hero-top, .meta-grid, .grid-2, .machine, .dynamics-lists { grid-template-columns: 1fr; }
+      .hero-top, .meta-grid, .grid-2, .machine { grid-template-columns: 1fr; }
       .title { font-size: 26px; }
       .hero h2 { font-size: 24px; }
       .score-num { font-size: 46px; }
@@ -169,7 +161,8 @@
 </head>
 <body>
   <div class="page">
-    {% set badge = (risk_level or risk_label or 'LOW')|lower %}
+    {% set risk_text = (risk_level or risk_label or 'LOW')|string|upper %}
+    {% set is_withheld = risk_text == 'WITHHELD' %}
 
     <div class="topbar">
       <div>
@@ -178,13 +171,28 @@
         <div class="subtle">{{ mode_tagline or "Conversation analysis" }}</div>
       </div>
       <div>
-        <span class="badge {% if badge.startswith('high') %}high{% elif badge.startswith('med') %}medium{% else %}low{% endif %}">
-          {{ risk_level or risk_label or "LOW" }}
+        <span class="badge {% if is_withheld %}withheld{% elif 'HIGH' in risk_text %}high{% elif 'MED' in risk_text %}medium{% else %}low{% endif %}">
+          {{ risk_text }}
         </span>
       </div>
     </div>
 
-    {% if presentation_mode == "connection" %}
+    {% if degraded %}
+    <div class="degraded-banner">
+      <strong>Note:</strong>
+      {% if degradation_reason == "ocr_insufficient_text" %}
+        Not enough readable text was found in your screenshots to run a full analysis.
+      {% elif degradation_reason == "llm_unavailable" %}
+        The full analysis engine was temporarily unavailable. This result used the deterministic engine only — the read may be less specific than usual.
+      {% elif degradation_reason == "analysis_engine_failure" %}
+        The analysis engine couldn't complete this request. This is a temporary issue, not a result.
+      {% else %}
+        This analysis ran in degraded mode. Results may be less specific than usual.
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if presentation_mode == "connection" and not is_withheld %}
     <!-- CONNECTION MODE -->
     <div class="hero">
       <div class="hero-top-connection">
@@ -204,7 +212,7 @@
           </div>
           <div class="conn-score-chip">
             <div class="csc-label">Confidence</div>
-            <div class="csc-value">{{ (confidence * 100)|round|int }}%</div>
+            <div class="csc-value">{{ (confidence * 100)|round|int if confidence is not none else 0 }}%</div>
           </div>
           {% if interest_score is not none %}
           <div class="conn-score-chip">
@@ -244,7 +252,7 @@
     <div class="grid-2">
       <div class="section connection-section next-steps">
         <h3>What to do next</h3>
-        <p>{{ practical_next_steps | join(" ") if practical_next_steps is iterable and practical_next_steps is not string else (practical_next_steps or recommended_action or "No next steps available.") }}</p>
+        <p>{{ practical_next_steps or recommended_action or "No next steps available." }}</p>
       </div>
       <div class="section connection-section honest-check">
         <h3>Honest check</h3>
@@ -252,17 +260,17 @@
       </div>
     </div>
 
+    {# Suppress positive signals when set explicitly empty by analyzer (CRITICAL/HIGH risk fired)
+       OR when accountability copy contradicts positive framing #}
+    {% set score_val = (risk_score if risk_score is not none else 0)|int %}
+    {% set has_positives = positive_signals and positive_signals|length > 0 %}
     <div class="section connection-section">
       <h3>What feels positive here</h3>
       <div class="chips">
-        {% set score_val = (final_risk_score if final_risk_score is not none else risk_score)|int %}
-        {% set suppress_badges = score_val < 35 and presentation_mode == "connection" and (accountability and ("don" in accountability|lower or "not" in accountability|lower or "watch" in accountability|lower or "caution" in accountability|lower)) %}
-        {% if not suppress_badges and positive_signals %}
+        {% if has_positives %}
           {% for item in positive_signals %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
-        {% elif not suppress_badges %}
-          <span class="chip">No strong positive cues surfaced</span>
         {% else %}
-          <span class="chip neutral">Read the analysis above — the full picture matters more than individual signals here</span>
+          <span class="chip">Read the analysis above — the full picture matters more than individual signals here</span>
         {% endif %}
       </div>
     </div>
@@ -270,9 +278,13 @@
     <div class="section connection-section">
       <h3>What raised any concern</h3>
       <div class="chips">
-        {% set concerns = concern_signals or key_signals or [] %}
-        {% if concerns and concerns|length > 0 and concerns[0] != "No signals detected" %}
-          {% for item in concerns %}<span class="chip warn">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
+        {% set concerns = concern_signals or [] %}
+        {% set displayable_concerns = [] %}
+        {% for c in concerns %}
+          {% if c != "No signals detected" %}{% set _ = displayable_concerns.append(c) %}{% endif %}
+        {% endfor %}
+        {% if displayable_concerns and displayable_concerns|length > 0 %}
+          {% for item in displayable_concerns %}<span class="chip warn">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
         {% else %}
           <span class="chip">Nothing here strongly raises concern</span>
         {% endif %}
@@ -282,7 +294,7 @@
     <div class="section connection-section">
       <h3>What kept this from reading worse</h3>
       <div class="chips">
-        {% if key_dampeners %}
+        {% if key_dampeners and key_dampeners|length > 0 %}
           {% for item in key_dampeners %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
         {% else %}
           <span class="chip">No dampeners surfaced</span>
@@ -293,7 +305,7 @@
     <div class="section connection-section">
       <h3>Other plausible reads</h3>
       <div class="chips">
-        {% if alternative_explanations %}
+        {% if alternative_explanations and alternative_explanations|length > 0 %}
           {% for item in alternative_explanations %}<span class="chip">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
         {% else %}
           <span class="chip">None surfaced</span>
@@ -301,66 +313,12 @@
       </div>
     </div>
 
-    <!-- RELATIONSHIP DYNAMICS -->
-    {% set rd = relationship_dynamics %}
-    {% if rd and rd.momentum_direction and rd.momentum_direction != "unclear" %}
-    <div class="dynamics-section">
-      <div class="dynamics-eyebrow">Relationship dynamics</div>
-      {% if rd.story_arc %}<div class="dynamics-arc">{{ rd.story_arc }}</div>{% endif %}
-      <div class="dynamics-scores">
-        <div class="dynamics-score-chip"><div class="dsc-label">Momentum</div><div class="dsc-value">{{ rd.momentum_direction | replace('_', ' ') | title }}</div></div>
-        <div class="dynamics-score-chip"><div class="dsc-label">Energy balance</div><div class="dsc-value">{{ rd.energy_balance | replace('_', ' ') | title }}</div></div>
-        <div class="dynamics-score-chip"><div class="dsc-label">Stage</div><div class="dsc-value">{{ rd.relationship_stage | replace('_', ' ') | title }}</div></div>
-        <div class="dynamics-score-chip"><div class="dsc-label">Intimacy</div><div class="dsc-value">{{ rd.intimacy_progression | replace('_', ' ') | title }}</div></div>
-      </div>
-      <div class="dynamics-bar-row">
-        <div class="dynamics-bar-label"><span>Momentum</span><span>{{ (rd.momentum_score * 100)|round|int }}%</span></div>
-        <div class="dynamics-bar-track"><div class="dynamics-bar-fill" style="width: {{ (rd.momentum_score * 100)|round|int }}%;"></div></div>
-      </div>
-      <div class="dynamics-bar-row">
-        <div class="dynamics-bar-label"><span>Compatibility</span><span>{{ (rd.compatibility_score * 100)|round|int }}%</span></div>
-        <div class="dynamics-bar-track"><div class="dynamics-bar-fill" style="width: {{ (rd.compatibility_score * 100)|round|int }}%;"></div></div>
-      </div>
-      <div class="dynamics-bar-row">
-        <div class="dynamics-bar-label"><span>Sustainability</span><span>{{ (rd.sustainability_score * 100)|round|int }}%</span></div>
-        <div class="dynamics-bar-track"><div class="dynamics-bar-fill" style="width: {{ (rd.sustainability_score * 100)|round|int }}%;"></div></div>
-      </div>
-      {% if rd.next_natural_step %}<div class="dynamics-next-step">{{ rd.next_natural_step }}</div>{% endif %}
-      <div class="dynamics-lists">
-        {% if rd.growth_indicators %}
-        <div class="dynamics-list-card">
-          <div class="dynamics-list-title">Growth indicators</div>
-          {% for item in rd.growth_indicators %}<div class="dynamics-list-item">{{ item }}</div>{% endfor %}
-        </div>
-        {% endif %}
-        {% if rd.connection_highlights %}
-        <div class="dynamics-list-card">
-          <div class="dynamics-list-title">Connection highlights</div>
-          {% for item in rd.connection_highlights %}<div class="dynamics-list-item">{{ item }}</div>{% endfor %}
-        </div>
-        {% endif %}
-        {% if rd.potential_blockers %}
-        <div class="dynamics-list-card">
-          <div class="dynamics-list-title">Potential blockers</div>
-          {% for item in rd.potential_blockers %}<div class="dynamics-list-item">{{ item }}</div>{% endfor %}
-        </div>
-        {% endif %}
-        {% if rd.tension_points %}
-        <div class="dynamics-list-card">
-          <div class="dynamics-list-title">Tension points</div>
-          {% for item in rd.tension_points %}<div class="dynamics-list-item">{{ item }}</div>{% endfor %}
-        </div>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
-
-    {% else %}
+    {% elif not is_withheld %}
     <!-- RISK MODE -->
     <div class="hero">
       <div class="hero-top">
         <div class="score-box">
-          <div class="score-num">{{ final_risk_score if final_risk_score is not none else risk_score }}</div>
+          <div class="score-num">{{ risk_score if risk_score is not none else '—' }}</div>
           <div class="score-label">Risk score</div>
         </div>
         <div>
@@ -372,8 +330,8 @@
       </div>
       <div class="meta-grid">
         <div class="mini-card"><div class="mini-label">Human read</div><div class="mini-value">{{ human_label or primary_label or "risk pattern" }}</div></div>
-        <div class="mini-card"><div class="mini-label">Domain</div><div class="mini-value">{{ "Dating / Social" if domain_mode == "general_unknown" and analysis_mode == "llm_powered" else domain_mode or "Unknown" }}</div></div>
-        <div class="mini-card"><div class="mini-label">Confidence</div><div class="mini-value">{{ confidence }}</div></div>
+        <div class="mini-card"><div class="mini-label">Domain</div><div class="mini-value">{{ (domain_mode or "unknown")|replace('_', ' ')|title }}</div></div>
+        <div class="mini-card"><div class="mini-label">Confidence</div><div class="mini-value">{{ (confidence * 100)|round|int if confidence is not none else 0 }}%</div></div>
         <div class="mini-card"><div class="mini-label">Action bias</div><div class="mini-value">{{ vie_action or "NONE" }}</div></div>
       </div>
     </div>
@@ -409,26 +367,26 @@
     </div>
 
     <div class="grid-2">
-      <div class="section"><h3>Recommended action</h3><p>{{ practical_next_steps | join(" ") if practical_next_steps is iterable and practical_next_steps is not string else (practical_next_steps or recommended_action or "No next steps available.") }}</p></div>
+      <div class="section"><h3>Recommended action</h3><p>{{ practical_next_steps or recommended_action or "No next steps available." }}</p></div>
       <div class="section"><h3>Keep yourself honest</h3><p>{{ accountability or "No accountability guidance available." }}</p></div>
     </div>
 
-    {% if evidence %}
+    {% if evidence_scoring %}
     <div class="evidence-section">
       <div class="evidence-header">
         <div>
           <div class="evidence-eyebrow">Evidence scoring</div>
-          <div class="evidence-summary-text">{{ evidence.evidence_summary }}</div>
+          <div class="evidence-summary-text">{{ evidence_scoring.evidence_summary }}</div>
         </div>
-        <div class="evidence-verdict-pill {{ evidence.evidence_verdict }}">{{ evidence.evidence_verdict }}</div>
+        <div class="evidence-verdict-pill {{ evidence_scoring.evidence_verdict }}">{{ evidence_scoring.evidence_verdict }}</div>
       </div>
-      {% if evidence.enriched_signals and evidence.enriched_signals|length > 0 and evidence.enriched_signals[0].label != "No risk signals detected" %}
+      {% if evidence_scoring.enriched_signals and evidence_scoring.enriched_signals|length > 0 %}
       <div class="evidence-cumulative">
-        <div class="evidence-cumulative-label">Cumulative evidence weight — {{ (evidence.cumulative_evidence_score * 100)|round|int }}%</div>
-        <div class="evidence-bar-track"><div class="evidence-bar-fill {{ evidence.evidence_verdict }}" style="width: {{ (evidence.cumulative_evidence_score * 100)|round|int }}%;"></div></div>
+        <div class="evidence-cumulative-label">Cumulative evidence weight — {{ (evidence_scoring.cumulative_evidence_score * 100)|round|int }}%</div>
+        <div class="evidence-bar-track"><div class="evidence-bar-fill {{ evidence_scoring.evidence_verdict }}" style="width: {{ (evidence_scoring.cumulative_evidence_score * 100)|round|int }}%;"></div></div>
       </div>
       <div class="signal-cards">
-        {% for sig in evidence.enriched_signals %}
+        {% for sig in evidence_scoring.enriched_signals %}
         <div class="signal-card tier-{{ sig.tier }}">
           <div class="signal-tier-badge {{ sig.tier }}">{{ sig.tier }}</div>
           <div><div class="signal-content-label">{{ sig.label }}</div><div class="signal-content-explanation">{{ sig.explanation }}</div></div>
@@ -470,7 +428,7 @@
     <div class="section">
       <h3>What lowers concern</h3>
       <div class="chips">
-        {% if key_dampeners %}{% for item in key_dampeners %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
+        {% if key_dampeners and key_dampeners|length > 0 %}{% for item in key_dampeners %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
         {% else %}<span class="chip">No dampeners surfaced</span>{% endif %}
       </div>
     </div>
@@ -478,18 +436,29 @@
     <div class="section">
       <h3>Other plausible reads</h3>
       <div class="chips">
-        {% if alternative_explanations %}{% for item in alternative_explanations %}<span class="chip">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
+        {% if alternative_explanations and alternative_explanations|length > 0 %}{% for item in alternative_explanations %}<span class="chip">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
         {% else %}<span class="chip">None surfaced</span>{% endif %}
       </div>
     </div>
 
-    {% if contradiction_signals %}
+    {% if contradiction_signals and contradiction_signals|length > 0 %}
     <div class="section">
       <h3>Contradiction signals</h3>
       <div class="chips">{% for item in contradiction_signals %}<span class="chip warn">{{ item.type|replace('_', ' ')|title }}</span>{% endfor %}</div>
     </div>
     {% endif %}
 
+    {% else %}
+    <!-- WITHHELD MODE — degraded, insufficient input, or engine failure -->
+    <div class="hero">
+      <div class="eyebrow">Analysis withheld</div>
+      <h2>{{ diagnosis or "Analysis could not complete." }}</h2>
+      <p>{{ reasoning or "Please review and try again." }}</p>
+    </div>
+    <div class="grid-2">
+      <div class="section"><h3>What to do next</h3><p>{{ practical_next_steps or "Re-upload clearer screenshots." }}</p></div>
+      <div class="section"><h3>Keep yourself honest</h3><p>{{ accountability or "Don't act on a non-result." }}</p></div>
+    </div>
     {% endif %}
 
     <details>
@@ -497,69 +466,58 @@
       <div class="machine">
         <div class="machine-card"><div class="k">Lane</div><div class="v">{{ lane or "Unknown" }}</div></div>
         <div class="machine-card"><div class="k">Primary label</div><div class="v">{{ primary_label or "Unknown" }}</div></div>
-        <div class="machine-card"><div class="k">LLM Enriched</div><div class="v">{{ llm_enriched }}</div></div>
-        <div class="machine-card"><div class="k">LLM Error</div><div class="v">{{ llm_error or "none" }}</div></div>
+        <div class="machine-card"><div class="k">Analysis mode</div><div class="v">{{ analysis_mode or "unknown" }}</div></div>
+        <div class="machine-card"><div class="k">LLM enriched</div><div class="v">{{ llm_enriched }}</div></div>
+        <div class="machine-card"><div class="k">LLM error</div><div class="v">{{ llm_error or "none" }}</div></div>
+        <div class="machine-card"><div class="k">Degraded</div><div class="v">{{ degraded }}{% if degradation_reason %} ({{ degradation_reason }}){% endif %}</div></div>
+        <div class="machine-card"><div class="k">Domain</div><div class="v">{{ domain_mode or "unknown" }}</div></div>
         <div class="machine-card"><div class="k">Intent horizon</div><div class="v">{{ intent_horizon or "Unknown" }}</div></div>
         <div class="machine-card"><div class="k">Pressure present</div><div class="v">{{ pressure_present }}</div></div>
         <div class="machine-card"><div class="k">Extraction present</div><div class="v">{{ extraction_present }}</div></div>
         <div class="machine-card"><div class="k">VIE action</div><div class="v">{{ vie_action or "NONE" }}</div></div>
         <div class="machine-card"><div class="k">Reciprocity level</div><div class="v">{{ reciprocity_level or "Unknown" }}</div></div>
-        <div class="machine-card"><div class="k">Narrative integrity score</div><div class="v">{{ narrative_integrity_score }}</div></div>
+        <div class="machine-card"><div class="k">Narrative integrity</div><div class="v">{{ narrative_integrity_score }}</div></div>
         <div class="machine-card"><div class="k">Requested mode</div><div class="v">{{ requested_mode or "risk" }}</div></div>
-        <div class="machine-card"><div class="k">Dynamics momentum</div><div class="v">{{ relationship_dynamics.momentum_direction if relationship_dynamics else "n/a" }}</div></div>
-        <div class="machine-card"><div class="k">Dynamics energy</div><div class="v">{{ relationship_dynamics.energy_balance if relationship_dynamics else "n/a" }}</div></div>
-        <div class="machine-card"><div class="k">Dynamics insufficient</div><div class="v">{{ relationship_dynamics.insufficient_data if relationship_dynamics else "n/a" }}</div></div>
+        <div class="machine-card"><div class="k">Relationship type</div><div class="v">{{ relationship_type or "stranger" }}</div></div>
+        <div class="machine-card"><div class="k">User side</div><div class="v">{{ user_side or "unknown" }}</div></div>
+        <div class="machine-card"><div class="k">Other gender</div><div class="v">{{ other_gender or "unknown" }}</div></div>
         {% if turn_analysis and turn_analysis.turn_count and turn_analysis.turn_count > 1 %}
         <div class="machine-card"><div class="k">Arc</div><div class="v">{{ turn_analysis.arc }}</div></div>
         <div class="machine-card"><div class="k">Score delta</div><div class="v">{{ turn_analysis.delta }}</div></div>
         <div class="machine-card"><div class="k">Turn count</div><div class="v">{{ turn_analysis.turn_count }}</div></div>
         {% endif %}
-        {% if evidence %}
-        <div class="machine-card"><div class="k">Evidence verdict</div><div class="v">{{ evidence.evidence_verdict }}</div></div>
-        <div class="machine-card"><div class="k">Evidence score</div><div class="v">{{ evidence.cumulative_evidence_score }}</div></div>
+        {% if evidence_scoring %}
+        <div class="machine-card"><div class="k">Evidence verdict</div><div class="v">{{ evidence_scoring.evidence_verdict }}</div></div>
+        <div class="machine-card"><div class="k">Evidence score</div><div class="v">{{ evidence_scoring.cumulative_evidence_score }}</div></div>
         {% endif %}
       </div>
       <pre>{{ extracted_text }}</pre>
     </details>
 
-    <div id="feedback-block" style="margin: 24px 0; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: 1px solid #243b67; border-radius: 20px; padding: 22px 24px;">
-      <div style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; color: #4a6a96; margin-bottom: 12px;">Was this read accurate?</div>
-      <div id="feedback-form" style="display:flex; flex-direction:column; gap:12px;">
-        <div style="display:flex; gap:12px;">
-          <button onclick="submitFeedback('yes')" style="flex:1; padding:14px; border-radius:14px; border:1px solid rgba(61,220,151,0.35); background:rgba(61,220,151,0.08); color:#3ddc97; font-size:15px; font-weight:800; cursor:pointer;">👍 Yes, accurate</button>
-          <button onclick="submitFeedback('no')" style="flex:1; padding:14px; border-radius:14px; border:1px solid rgba(255,113,113,0.35); background:rgba(255,113,113,0.08); color:#ff7171; font-size:15px; font-weight:800; cursor:pointer;">👎 No, off target</button>
+    <div class="feedback-box">
+      <div class="feedback-label">Was this read accurate?</div>
+      <form method="post" action="/feedback" class="feedback-form">
+        <input type="hidden" name="request_id" value="{{ request_id }}">
+        <div class="feedback-buttons">
+          <button type="submit" name="accurate" value="yes" class="feedback-btn up">👍 Yes, accurate</button>
+          <button type="submit" name="accurate" value="no" class="feedback-btn down">👎 No, off target</button>
         </div>
-        <input id="feedback-note" type="text" placeholder="Optional: what did we get wrong?" style="width:100%; border:1px solid #243b67; border-radius:12px; padding:12px; background:#0a1530; color:#f5f8ff; font-size:14px;">
-      </div>
-      <div id="feedback-thanks" style="display:none; font-size:15px; color:#3ddc97; font-weight:700; padding: 8px 0;">Thanks — feedback recorded.</div>
+        <input type="text" name="note" placeholder="Optional: what did we get wrong?" class="feedback-note">
+      </form>
     </div>
-    <script>
-      function submitFeedback(rating) {
-        var note = document.getElementById('feedback-note').value || '';
-        fetch('/feedback', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ request_id: '{{ request_id }}', rating: rating, note: note })
-        }).then(function() {
-          document.getElementById('feedback-form').style.display = 'none';
-          document.getElementById('feedback-thanks').style.display = 'block';
-        }).catch(function() {
-          document.getElementById('feedback-form').style.display = 'none';
-          document.getElementById('feedback-thanks').style.display = 'block';
-        });
-      }
-    </script>
 
     <a class="footer-link" href="/">← Analyze another conversation</a>
   </div>
-<script>gtag("event","analysis_complete",{"event_category":"analysis","event_label":"{{ presentation_mode }}","value":{{ final_risk_score if final_risk_score is not none else risk_score }}});</script></body>
+<script>
+try {
+  var scoreVal = {% if risk_score is not none %}{{ risk_score }}{% else %}0{% endif %};
+  gtag("event","analysis_complete",{
+    "event_category":"analysis",
+    "event_label":"{{ presentation_mode }}",
+    "value":scoreVal,
+    "degraded":{{ 'true' if degraded else 'false' }}
+  });
+} catch(e) { /* ignore */ }
+</script>
+</body>
 </html>
-
-
-
-
-
-
-
-
-
