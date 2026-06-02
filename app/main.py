@@ -204,6 +204,7 @@ async def analyze_screenshots(
     relationship_type: str = Form("stranger"),
     context_note: str = Form(""),
     requested_mode: str = Form("risk"),
+    analysis_mode: str = Form("standard"),
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
@@ -441,6 +442,7 @@ async def analyze_screenshots(
         turn_analysis=turn_analysis,
     )
 
+    payload["analysis_mode"] = analysis_mode
     # --- DB log ---
     try:
         from app.db import log_analysis
@@ -450,6 +452,7 @@ async def analyze_screenshots(
             utm_source=utm_source,
             utm_medium=utm_medium,
             utm_campaign=utm_campaign,
+            analysis_mode=analysis_mode,
         )
     except Exception as _db_err:
         logger.warning(f"DB log skipped: {_db_err}")
@@ -528,4 +531,7 @@ async def log_session(request: Request):
         return JSONResponse({"status": "ok"})
     except Exception:
         return JSONResponse({"status": "ok"})
+
+
+
 
