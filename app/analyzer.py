@@ -427,7 +427,7 @@ def _confidence_score(lane: str, key_signals: List[str], key_dampeners: List[str
     return round(max(0.35, min(0.95, score)), 2)
 
 
-def analyze_text(text: str, relationship_type: str = "stranger", context_note: str = "") -> Dict[str, Any]:
+def analyze_text(text: str, relationship_type: str = "stranger", context_note: str = "", conversation_id: str = None) -> Dict[str, Any]:
     normalized_text = (text or "").strip()
 
     domain = _detect_domain_mode(normalized_text)
@@ -554,3 +554,5 @@ def analyze_text(text: str, relationship_type: str = "stranger", context_note: s
             }
         }
     }
+
+
