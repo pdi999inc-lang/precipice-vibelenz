@@ -1941,6 +1941,7 @@ def analyze_text(
     relationship_type: str = "stranger",
     context_note: str = "",
     use_llm: bool = True,
+    conversation_id: str = None,
 ) -> Dict[str, Any]:
     """
     Analyze conversation text for fraud, coercion, and manipulation signals.
@@ -2164,6 +2165,8 @@ def run_combined(
         text = str(turns or "")
 
     return analyze_text(text, use_llm=use_llm)
+
+
 
 
 
