@@ -71,7 +71,8 @@ def init_db():
 
 
 def log_analysis(payload: dict, conversation_text: str = "",
-                 utm_source: str = "", utm_medium: str = "", utm_campaign: str = ""):
+                 utm_source: str = "", utm_medium: str = "", utm_campaign: str = "",
+                 analysis_mode: str = ""):
     conn = get_conn()
     if not conn:
         return
@@ -139,3 +140,5 @@ def log_feedback(request_id: str, accurate: bool, note: str = ""):
         logger.warning(f"DB feedback failed: {e}")
     finally:
         conn.close()
+
+
