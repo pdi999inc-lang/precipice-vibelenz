@@ -494,17 +494,33 @@
       <pre>{{ extracted_text }}</pre>
     </details>
 
-    <div class="feedback-box">
+    <div class="feedback-box" id="feedback-box">
       <div class="feedback-label">Was this read accurate?</div>
-      <form method="post" action="/feedback" class="feedback-form">
-        <input type="hidden" name="request_id" value="{{ request_id }}">
+      <div class="feedback-form" id="feedback-form">
         <div class="feedback-buttons">
-          <button type="submit" name="accurate" value="yes" class="feedback-btn up">👍 Yes, accurate</button>
-          <button type="submit" name="accurate" value="no" class="feedback-btn down">👎 No, off target</button>
+          <button onclick="submitFeedback(true)" class="feedback-btn up">👍 Yes, accurate</button>
+          <button onclick="submitFeedback(false)" class="feedback-btn down">👎 No, off target</button>
         </div>
-        <input type="text" name="note" placeholder="Optional: what did we get wrong?" class="feedback-note">
-      </form>
+        <input type="text" id="feedback-note" placeholder="Optional: what did we get wrong?" class="feedback-note">
+      </div>
+      <div id="feedback-thanks" style="display:none; color:#3ddc97; font-size:15px; font-weight:700; padding:8px 0;">Thanks — feedback recorded.</div>
     </div>
+    <script>
+    function submitFeedback(accurate) {
+      var note = document.getElementById("feedback-note").value;
+      fetch("/feedback", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({request_id: "{{ request_id }}", accurate: accurate, note: note})
+      }).then(function() {
+        document.getElementById("feedback-form").style.display = "none";
+        document.getElementById("feedback-thanks").style.display = "block";
+      }).catch(function() {
+        document.getElementById("feedback-thanks").innerText = "Feedback could not be saved.";
+        document.getElementById("feedback-thanks").style.display = "block";
+      });
+    }
+    </script>
 
     <a class="footer-link" href="/">← Analyze another conversation</a>
   </div>
@@ -521,3 +537,5 @@ try {
 </script>
 </body>
 </html>
+
+
