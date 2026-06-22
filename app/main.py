@@ -555,6 +555,32 @@ async def diag_llm():
         return {"status": "error", "detail": str(e)}
 
 
+@app.get("/conversation/{conversation_id}/summary")
+async def conversation_summary(conversation_id: str):
+    """
+    Phase 1: return summary of a conversation for the 'Continue last' UI.
+    Returns batch_count and the last frozen batch read. Fails closed: on any
+    error or missing conversation, returns status=not_found with empty data
+    so the frontend can fall back to treating it as a new conversation.
+    """
+    try:
+        from app.db import get_conversation_batches
+        batches = get_conversation_batches(conversation_id)
+        if not batches:
+            return JSONResponse({"status": "not_found", "conversation_id": conversation_id, "batch_count": 0})
+        last = batches[-1]
+        return JSONResponse({
+            "status": "ok",
+            "conversation_id": conversation_id,
+            "batch_count": len(batches),
+            "last_batch": last,
+            "all_batches": batches,
+        })
+    except Exception as e:
+        logger.warning(f"conversation_summary failed: {e}")
+        return JSONResponse({"status": "error", "conversation_id": conversation_id, "batch_count": 0})
+
+
 @app.post("/feedback")
 async def feedback(request: Request):
     try:
@@ -578,6 +604,7 @@ async def log_session(request: Request):
         return JSONResponse({"status": "ok"})
     except Exception:
         return JSONResponse({"status": "ok"})
+
 
 
 
