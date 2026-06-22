@@ -77,6 +77,21 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 .sp{width:52px;height:52px;border:3px solid rgba(100,185,255,0.20);border-top-color:#00ccff;border-radius:50%;animation:rot .8s linear infinite;}
 @keyframes rot{to{transform:rotate(360deg);}}
 .ov-t{font-size:1.05rem;font-weight:700;}.ov-s{font-size:0.78rem;color:rgba(200,228,255,0.75);}
+
+/* Phase 1 continuity: toggle + summary */
+.conv-toggle{display:flex;gap:8px;margin-bottom:10px;padding:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(180,215,255,0.22);border-radius:13px;}
+.conv-tab{flex:1;padding:10px 12px;border-radius:10px;font-size:0.82rem;font-weight:700;cursor:pointer;text-align:center;color:rgba(200,228,255,0.7);transition:all 0.2s;user-select:none;}
+.conv-tab.active{background:linear-gradient(135deg,rgba(100,180,255,0.30),rgba(60,140,240,0.20));color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,0.20);}
+.conv-tab.disabled{opacity:0.35;cursor:not-allowed;}
+.conv-summary{background:rgba(117,168,255,0.06);border:1px solid rgba(117,168,255,0.20);border-radius:11px;padding:10px 13px;margin-bottom:10px;font-size:0.78rem;color:rgba(200,228,255,0.85);line-height:1.5;display:none;}
+.conv-summary.show{display:block;}
+.conv-summary .cs-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:0.7rem;font-weight:700;margin-right:6px;}
+.conv-summary .cs-pill.LOW{background:rgba(61,220,151,0.16);color:#3ddc97;}
+.conv-summary .cs-pill.MEDIUM{background:rgba(242,178,77,0.16);color:#f2b24d;}
+.conv-summary .cs-pill.HIGH{background:rgba(255,113,113,0.16);color:#ff7171;}
+.conv-expiry{background:rgba(242,178,77,0.08);border:1px solid rgba(242,178,77,0.25);border-radius:11px;padding:10px 13px;margin-bottom:10px;font-size:0.76rem;color:#ffd99e;display:none;}
+.conv-expiry.show{display:block;}
+.conv-disabled-note{font-size:0.68rem;color:rgba(180,215,255,0.5);margin-top:3px;text-align:center;font-style:italic;}
 </style>
 </head>
 <body>
@@ -92,6 +107,8 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 <form id="mf">
 <input type="hidden" id="selMode" value="connection"/>
 <input type="hidden" id="selRole" value="left_white"/>
+<input type="hidden" id="convId" name="conversation_id" value=""/>
+<input type="hidden" id="continueLast" name="continue_last" value="false"/>
 <div class="mode-grid">
 <div class="mode-card sel" id="cC" onclick="pickMode('connection')">
 <div class="m-icon"><svg viewBox="0 0 80 80" fill="none"><circle cx="28" cy="46" r="18" stroke="white" stroke-width="3.5"/><circle cx="50" cy="46" r="18" stroke="white" stroke-width="3.5"/><line x1="56" y1="16" x2="56" y2="24" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="52" y1="20" x2="60" y2="20" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="67" y1="23" x2="67" y2="29" stroke="white" stroke-width="1.6" stroke-linecap="round"/><line x1="64" y1="26" x2="70" y2="26" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg></div>
@@ -107,6 +124,16 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 </div>
 </div>
 <div class="sh">1. Upload your screenshots <span style="font-size:0.72rem;font-weight:400;opacity:0.55;letter-spacing:0.01em;">— oldest first</span></div>
+
+<!-- Phase 1 continuity toggle -->
+<div class="conv-toggle" id="convToggle">
+  <div class="conv-tab active" id="tabNew" onclick="setMode('new')">New conversation</div>
+  <div class="conv-tab disabled" id="tabContinue" onclick="setMode('continue')">Continue last</div>
+</div>
+<div class="conv-disabled-note" id="convDisabledNote">No previous conversation on this device yet</div>
+<div class="conv-expiry" id="convExpiry"></div>
+<div class="conv-summary" id="convSummary"></div>
+
 <div class="up-bar" onclick="document.getElementById('fi').click()">
 <span class="up-ic">📷</span><span class="up-lbl">Select file(s)</span>
 <span class="up-cnt" id="upCnt"></span>
@@ -193,8 +220,150 @@ function render(){
     s.appendChild(el);
   });
 }
-document.getElementById('mf').addEventListener('submit',async e=>{e.preventDefault();if(!files.length){alert('Please upload at least one screenshot.');return;}document.getElementById('ov').classList.add('on');const fd=new FormData();files.forEach(f=>fd.append('files',f));fd.append('relationship_type',document.getElementById('relType').value);fd.append('context_note',document.getElementById('ctx').value);fd.append('requested_mode',document.getElementById('selMode').value);try{const _up=new URLSearchParams();['utm_source','utm_medium','utm_campaign'].forEach(k=>{const v=new URLSearchParams(window.location.search).get(k);if(v)_up.append(k,v);});const _qs=_up.toString();const _url='/analyze-screenshots'+(_qs?'?'+_qs:'');const res=await fetch(_url,{method:'POST',body:fd,headers:{'Accept':'text/html'}});if(res.ok){const h=await res.text();document.open();document.write(h);document.close();}else{document.getElementById('ov').classList.remove('on');alert('Analysis failed.');}}catch{document.getElementById('ov').classList.remove('on');alert('Network error.');}});
+
+// ===========================================================================
+// Phase 1 continuity: localStorage-backed conversation persistence
+// 30-day expiry. Fails closed: any error treats the visit as new conversation.
+// ===========================================================================
+const CONV_KEY = 'vibelenz_conv';
+const EXPIRY_DAYS = 30;
+const WARN_DAYS = 3;
+
+function loadConv(){
+  try{
+    const raw = localStorage.getItem(CONV_KEY);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(!obj || !obj.conversation_id || !obj.expires_at) return null;
+    if(new Date(obj.expires_at) < new Date()){
+      localStorage.removeItem(CONV_KEY);
+      return null;
+    }
+    return obj;
+  }catch(e){ return null; }
+}
+
+function saveConv(conversation_id){
+  try{
+    const now = new Date();
+    const exp = new Date(now.getTime() + EXPIRY_DAYS*24*60*60*1000);
+    localStorage.setItem(CONV_KEY, JSON.stringify({
+      conversation_id: conversation_id,
+      last_updated: now.toISOString(),
+      expires_at: exp.toISOString(),
+    }));
+  }catch(e){ /* fail closed: continuity will degrade to new conversation next visit */ }
+}
+
+function setMode(mode){
+  const existing = loadConv();
+  const tabNew = document.getElementById('tabNew');
+  const tabCont = document.getElementById('tabContinue');
+  const summary = document.getElementById('convSummary');
+  if(mode === 'continue'){
+    if(!existing) return; // disabled state — ignore
+    tabNew.classList.remove('active');
+    tabCont.classList.add('active');
+    document.getElementById('continueLast').value = 'true';
+    document.getElementById('convId').value = existing.conversation_id;
+    fetchSummary(existing.conversation_id);
+  } else {
+    tabNew.classList.add('active');
+    tabCont.classList.remove('active');
+    document.getElementById('continueLast').value = 'false';
+    document.getElementById('convId').value = '';
+    summary.classList.remove('show');
+  }
+}
+
+async function fetchSummary(cid){
+  const el = document.getElementById('convSummary');
+  el.innerHTML = 'Loading prior read…';
+  el.classList.add('show');
+  try{
+    const res = await fetch(`/conversation/${cid}/summary`);
+    const data = await res.json();
+    if(data.status === 'ok' && data.last_batch){
+      const lb = data.last_batch;
+      const lvl = (lb.risk_level || 'LOW').toUpperCase();
+      const when = new Date(lb.created_at).toLocaleDateString();
+      el.innerHTML = `<span class="cs-pill ${lvl}">${lvl}</span> Continuing — ${data.batch_count} prior batch${data.batch_count>1?'es':''}, last on ${when}`;
+    } else {
+      // Backend says not found — our localStorage is stale. Clear it and reset.
+      localStorage.removeItem(CONV_KEY);
+      el.classList.remove('show');
+      initConvUI();
+    }
+  } catch(e){
+    el.innerHTML = 'Could not load prior read. Continuing as new conversation.';
+    document.getElementById('continueLast').value = 'false';
+    document.getElementById('convId').value = '';
+  }
+}
+
+function initConvUI(){
+  const existing = loadConv();
+  const tabCont = document.getElementById('tabContinue');
+  const note = document.getElementById('convDisabledNote');
+  const expBox = document.getElementById('convExpiry');
+  if(existing){
+    tabCont.classList.remove('disabled');
+    note.style.display = 'none';
+    // Expiry warning if within WARN_DAYS
+    const daysLeft = Math.ceil((new Date(existing.expires_at) - new Date()) / (1000*60*60*24));
+    if(daysLeft <= WARN_DAYS && daysLeft > 0){
+      expBox.textContent = `Your conversation history expires in ${daysLeft} day${daysLeft>1?'s':''}. Re-open the app within that window to keep it.`;
+      expBox.classList.add('show');
+    }
+  } else {
+    tabCont.classList.add('disabled');
+    note.style.display = 'block';
+    expBox.classList.remove('show');
+  }
+  // Always default to "new" on page load
+  setMode('new');
+}
+initConvUI();
+
+document.getElementById('mf').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!files.length) { alert('Please upload at least one screenshot.'); return; }
+  document.getElementById('ov').classList.add('on');
+
+  const fd = new FormData();
+  files.forEach(f => fd.append('files', f));
+  fd.append('relationship_type', document.getElementById('relType').value);
+  fd.append('context_note', document.getElementById('ctx').value);
+  fd.append('requested_mode', document.getElementById('selMode').value);
+  fd.append('conversation_id', document.getElementById('convId').value || '');
+  fd.append('continue_last', document.getElementById('continueLast').value || 'false');
+
+  // Preserve UTM attribution on the POST
+  const _up = new URLSearchParams();
+  ['utm_source', 'utm_medium', 'utm_campaign'].forEach(k => {
+    const v = new URLSearchParams(window.location.search).get(k);
+    if (v) _up.append(k, v);
+  });
+  const _qs = _up.toString();
+  const _url = '/analyze-screenshots' + (_qs ? '?' + _qs : '');
+
+  try {
+    const res = await fetch(_url, { method: 'POST', body: fd, headers: { 'Accept': 'text/html' } });
+    if (!res.ok) {
+      document.getElementById('ov').classList.remove('on');
+      alert('Analysis failed.');
+      return;
+    }
+    // Read conversation_id from response header (set by backend X-Conversation-Id)
+    const cid = res.headers.get('X-Conversation-Id');
+    if (cid) saveConv(cid);
+    const h = await res.text();
+    document.open(); document.write(h); document.close();
+  } catch (err) {
+    document.getElementById('ov').classList.remove('on');
+    alert('Network error.');
+  }
+});
 </script>
 </body>
 </html>
-
