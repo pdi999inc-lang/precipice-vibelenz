@@ -206,6 +206,7 @@ async def analyze_screenshots(
     requested_mode: str = Form("risk"),
     analysis_mode: str = Form("standard"),
     conversation_id: str = Form(""),
+    continue_last: str = Form("false"),
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
@@ -216,6 +217,27 @@ async def analyze_screenshots(
     utm_source   = request.query_params.get("utm_source", "")
     utm_medium   = request.query_params.get("utm_medium", "")
     utm_campaign = request.query_params.get("utm_campaign", "")
+
+    # --- Phase 1 continuity: resolve conversation + fetch prior context ---
+    # Fails closed: any DB issue leaves prior_context empty and continuity off.
+    _continue = str(continue_last).lower() in ("true", "1", "yes", "on")
+    prior_context = ""
+    continuity_active = False
+    continuity_degraded = False
+    conv_meta = {"conversation_id": conversation_id or "", "batch_count": 0, "is_new": True}
+    try:
+        from app.db import get_or_create_conversation, get_accumulated_context
+        conv_meta = get_or_create_conversation(
+            conversation_id=conversation_id,
+            relationship_type=relationship_type,
+        )
+        if _continue and conversation_id:
+            prior_context = get_accumulated_context(conversation_id, char_cap=6000)
+            continuity_active = bool(prior_context)
+    except Exception as _conv_err:
+        logger.warning(f"[{request_id}] continuity setup failed: {_conv_err}")
+        continuity_degraded = True
+        conv_meta = {"conversation_id": conversation_id or str(uuid.uuid4()), "batch_count": 0, "is_new": True}
 
     logger.info(f"[{request_id}] Received {len(files)} file(s), mode={requested_mode} at {ts} "
                 f"utm_source={utm_source or 'none'}")
@@ -358,11 +380,12 @@ async def analyze_screenshots(
     analysis_error: str | None = None
 
     try:
+        _analysis_input = (prior_context + "\n\n" + extracted_text)[-6000:] if prior_context else extracted_text
         analysis = analyze_text(
-            extracted_text,
+            _analysis_input,
             relationship_type=relationship_type,
             context_note=context_note,
-            conversation_id=conversation_id or None,
+            conversation_id=conv_meta["conversation_id"] or None,
         )
         narrative = interpret_analysis(
             analysis,
@@ -445,6 +468,28 @@ async def analyze_screenshots(
     )
 
     payload["analysis_mode"] = analysis_mode
+
+    # --- Phase 1 continuity: save this batch frozen + attach continuity fields ---
+    # The per-batch score is written once and never updated by future visits.
+    try:
+        from app.db import save_batch, get_conversation_batches
+        _batch_num = save_batch(
+            conversation_id=conv_meta["conversation_id"],
+            request_id=request_id,
+            ocr_text=extracted_text,
+            risk_score=payload.get("risk_score"),
+            risk_level=payload.get("risk_level"),
+            primary_label=payload.get("primary_label"),
+        )
+        payload["conversation_id"] = conv_meta["conversation_id"]
+        payload["batch_number"] = _batch_num
+        payload["prior_batches"] = get_conversation_batches(conv_meta["conversation_id"])
+        payload["continuity_active"] = continuity_active
+        payload["continuity_degraded"] = continuity_degraded
+    except Exception as _save_err:
+        logger.warning(f"[{request_id}] batch save failed: {_save_err}")
+        payload["continuity_degraded"] = True
+
     # --- DB log ---
     try:
         from app.db import log_analysis
@@ -533,6 +578,7 @@ async def log_session(request: Request):
         return JSONResponse({"status": "ok"})
     except Exception:
         return JSONResponse({"status": "ok"})
+
 
 
 
