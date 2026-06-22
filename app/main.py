@@ -524,7 +524,11 @@ async def analyze_screenshots(
 
     accept = request.headers.get("accept", "")
     if "application/json" in accept or "text/html" not in accept:
-        return JSONResponse(content=payload)
+        _json_resp = JSONResponse(content=payload)
+        _cid = payload.get("conversation_id")
+        if _cid:
+            _json_resp.headers["X-Conversation-Id"] = str(_cid)
+        return _json_resp
 
     template_payload = dict(payload)
     template_payload["request"] = request
@@ -532,7 +536,11 @@ async def analyze_screenshots(
 
     result_file = TEMPLATES_DIR / "result.html"
     if result_file.exists():
-        return templates.TemplateResponse("result.html", template_payload)
+        _resp = templates.TemplateResponse("result.html", template_payload)
+        _cid = payload.get("conversation_id")
+        if _cid:
+            _resp.headers["X-Conversation-Id"] = str(_cid)
+        return _resp
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
 
@@ -604,6 +612,7 @@ async def log_session(request: Request):
         return JSONResponse({"status": "ok"})
     except Exception:
         return JSONResponse({"status": "ok"})
+
 
 
 
