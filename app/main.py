@@ -207,6 +207,7 @@ async def analyze_screenshots(
     analysis_mode: str = Form("standard"),
     conversation_id: str = Form(""),
     continue_last: str = Form("false"),
+    other_gender: str = Form("unknown"),
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
@@ -420,6 +421,18 @@ async def analyze_screenshots(
             },
         )
 
+    # --- Reply suggestions ---
+    try:
+        from app.reply_engine import generate_replies
+        _reply_data = generate_replies(
+            payload=dict(analysis, **narrative),
+            extracted_text=extracted_text,
+            other_gender=other_gender,
+        )
+    except Exception as _reply_err:
+        logger.warning(f"[{request_id}] reply generation failed: {_reply_err}")
+        _reply_data = {"suggested_replies": [], "reply_mode": "error", "replies_suppressed": False, "replies_suppressed_reason": "Reply generation unavailable"}
+
     # --- Degradation assessment ---
     processing_time_ms = int((time.time() - timestamp_start) * 1000)
     confidence = float(analysis.get("confidence", 0.5))
@@ -468,6 +481,10 @@ async def analyze_screenshots(
     )
 
     payload["analysis_mode"] = analysis_mode
+    payload["suggested_replies"] = _reply_data.get("suggested_replies", [])
+    payload["reply_mode"] = _reply_data.get("reply_mode", "error")
+    payload["replies_suppressed"] = _reply_data.get("replies_suppressed", False)
+    payload["replies_suppressed_reason"] = _reply_data.get("replies_suppressed_reason")
 
     # --- Phase 1 continuity: save this batch frozen + attach continuity fields ---
     # The per-batch score is written once and never updated by future visits.
@@ -612,6 +629,7 @@ async def log_session(request: Request):
         return JSONResponse({"status": "ok"})
     except Exception:
         return JSONResponse({"status": "ok"})
+
 
 
 
