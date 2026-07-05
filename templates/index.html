@@ -108,6 +108,7 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 <input type="hidden" id="selMode" value="connection"/>
 <input type="hidden" id="selRole" value="left_white"/>
 <input type="hidden" id="convId" name="conversation_id" value=""/>
+<input type="hidden" id="otherGender" name="other_gender" value="unknown"/>
 <input type="hidden" id="continueLast" name="continue_last" value="false"/>
 <div class="mode-grid">
 <div class="mode-card sel" id="cC" onclick="pickMode('connection')">
@@ -144,7 +145,13 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 <div class="drag-hint" id="dragHint">drag to reorder — oldest screenshot first</div>
 <div class="sh">2. Who are you talking to?</div>
 <select class="gl-sel" id="relType"><option value="stranger">Stranger / New person</option><option value="match">Dating app match</option><option value="friend">Friend</option><option value="ex">Ex / Past partner</option><option value="partner">Current partner</option></select>
-<div class="sh">3. Which side are you?</div>
+<div class="sh">3. Who are you texting?</div>
+<select class="gl-sel" id="genderSel" onchange="document.getElementById('otherGender').value=this.value">
+<option value="unknown">Not sure</option>
+<option value="female">A woman</option>
+<option value="male">A man</option>
+</select>
+<div class="sh">4. Which side are you?</div>
 <div class="role-wrap">
 <div class="role-disp" onclick="tDD()"><span id="rlbl">Left / White</span><span class="r-arr">▾</span></div>
 <div class="role-dd" id="rdd">
@@ -153,7 +160,7 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:#fff;overflow-x:
 <div class="r-opt" id="ro-mix" onclick="setRole('mix','Mix of roles')"><div class="rav rav-v">👥</div><span>Mix of roles</span></div>
 </div>
 </div>
-<div class="sh">4. Add an optional note <span style="font-weight:400;color:rgba(180,215,255,0.45);font-size:0.78rem;">(optional)</span></div>
+<div class="sh">5. Add an optional note <span style="font-weight:400;color:rgba(180,215,255,0.45);font-size:0.78rem;">(optional)</span></div>
 <textarea class="gl-ta" id="ctx" placeholder="e.g., I'm getting mixed signals from this match…"></textarea>
 <button type="submit" class="cta">START MY ANALYSIS <span>✦</span></button>
 </form>
@@ -337,6 +344,7 @@ document.getElementById('mf').addEventListener('submit', async e => {
   fd.append('requested_mode', document.getElementById('selMode').value);
   fd.append('conversation_id', document.getElementById('convId').value || '');
   fd.append('continue_last', document.getElementById('continueLast').value || 'false');
+  fd.append('other_gender', document.getElementById('otherGender').value || 'unknown');
 
   // Preserve UTM attribution on the POST
   const _up = new URLSearchParams();
@@ -367,4 +375,5 @@ document.getElementById('mf').addEventListener('submit', async e => {
 </script>
 </body>
 </html>
+
 
