@@ -527,11 +527,15 @@ def interpret_analysis(
     # Sanitize forward-looking contrast language — strip failure framing
     _bad_phrases = ["initial analysis failed", "analysis failed", "the initial read failed", "first pass failed"]
     for _field in ("diagnosis", "reasoning", "practical_next_steps", "accountability"):
-        _val = out.get(_field, "") or ""
+        _raw = out.get(_field, "")
+        # Coerce to string: a stray list here must degrade gracefully, never crash the pipeline.
+        _val = _raw if isinstance(_raw, str) else ("\n".join(str(x) for x in _raw) if isinstance(_raw, list) else str(_raw or ""))
+        out[_field] = _val
         for _phrase in _bad_phrases:
             if _phrase in _val.lower():
                 out[_field] = _val.replace(_phrase, "the first read was limited").replace(_phrase.capitalize(), "The first read was limited")
     return out
+
 
 
 
