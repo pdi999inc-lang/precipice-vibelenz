@@ -11,6 +11,7 @@ from typing import List
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from app.analyzer_combined import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
@@ -26,7 +27,7 @@ app = FastAPI(title="VibeLenz")
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize DB schema on every startup. Idempotent — safe to run repeatedly."""
+    """Initialize DB schema on every startup. Idempotent ΓÇö safe to run repeatedly."""
     init_db()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,7 +39,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 MAX_FILES = 10
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB hard cap per file
 ALLOWED_TYPES = {"image/png", "image/jpeg", "image/jpg"}
-# Magic byte prefixes for PNG and JPEG — validated after read, before OCR.
+# Magic byte prefixes for PNG and JPEG ΓÇö validated after read, before OCR.
 IMAGE_MAGIC = (b"\x89PNG", b"\xff\xd8\xff")
 # PATCH-003: Hard minimum OCR char threshold.
 # Below this = image unreadable. Analysis must not run on noise or placeholder text.
@@ -73,7 +74,7 @@ def _build_response_payload(
     payload["timestamp"] = ts
     payload["extracted_text"] = extracted_text
     # PATCH-003: Use .get() with safe defaults.
-    # KeyError here would break all responses — defensive defaults protect every path.
+    # KeyError here would break all responses ΓÇö defensive defaults protect every path.
     payload["summary"] = narrative.get("diagnosis", "Analysis complete.")
     payload["recommended_action"] = narrative.get("practical_next_steps", "Stay observant.")
     payload["risk_label"] = payload.get("risk_label") or _risk_label_from_score(
@@ -95,7 +96,7 @@ def _build_response_payload(
     payload.setdefault("degraded", False)
     payload.setdefault("degradation_state", "NOMINAL")
     payload.setdefault("degradation_reasons", [])
-    # C5: Non-blocking schema validation — detects field drift without blocking responses.
+    # C5: Non-blocking schema validation ΓÇö detects field drift without blocking responses.
     # Any mismatch is logged as a warning; the payload is still returned to the caller.
     try:
         from app.schemas import AnalysisResponse
@@ -151,7 +152,7 @@ async def audit_stats(request: Request):
     if STATS_SECRET:
         if request.headers.get("x-stats-secret") != STATS_SECRET:
             raise HTTPException(status_code=403, detail="Forbidden")
-    # Query Postgres directly — consolidate into single round trip.
+    # Query Postgres directly ΓÇö consolidate into single round trip.
     # Fallback to session stats if DB is unavailable.
     db_url = os.environ.get("DATABASE_URL", "")
     if db_url:
@@ -209,7 +210,7 @@ async def analyze_screenshots(
     ts = datetime.now(timezone.utc).isoformat()
     timestamp_start = time.time()
 
-    # Extract UTM params from query string — passed through to DB log for attribution.
+    # Extract UTM params from query string ΓÇö passed through to DB log for attribution.
     # The frontend must preserve these on the form POST (via hidden fields or JS).
     utm_source   = request.query_params.get("utm_source", "")
     utm_medium   = request.query_params.get("utm_medium", "")
@@ -249,7 +250,7 @@ async def analyze_screenshots(
         image_bytes_list = [await f.read() for f in files]
 
         # Safety invariant: enforce file size cap and magic byte integrity.
-        # Fail closed — reject before OCR if either check fails.
+        # Fail closed ΓÇö reject before OCR if either check fails.
         for idx, img_bytes in enumerate(image_bytes_list):
             if len(img_bytes) > MAX_FILE_BYTES:
                 raise HTTPException(
@@ -263,13 +264,17 @@ async def analyze_screenshots(
                 )
         text_chunks = []
         for img_bytes in image_bytes_list:
-            chunk = extract_text_from_images([img_bytes])
+            # CONCURRENCY: OCR uses blocking httpx (Claude vision) / Tesseract.
+            # Run in threadpool so one user's OCR does not freeze the event loop
+            # for every other request. Exceptions propagate unchanged — fail-closed
+            # behavior below is identical.
+            chunk = await run_in_threadpool(extract_text_from_images, [img_bytes])
             text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
         ocr_char_count = len(extracted_text)
     except Exception as e:
         err_str = str(e)
-        # [OCR-3] Quality gate fires when mean word confidence is too low — this is a
+        # [OCR-3] Quality gate fires when mean word confidence is too low ΓÇö this is a
         # recoverable user-side issue (dark screenshot, heavy redaction, low resolution),
         # not a system failure. Return 422 with actionable guidance instead of 503.
         is_quality_gate = "OCR quality too low" in err_str
@@ -356,19 +361,27 @@ async def analyze_screenshots(
     analysis_error: str | None = None
 
     try:
-        analysis = analyze_text(
+        # CONCURRENCY: analyze_text / interpret_analysis make blocking httpx calls
+        # to the Anthropic API (15s timeouts). Inside an async endpoint these
+        # blocked the entire event loop — capacity was effectively 1 concurrent
+        # analysis. Threadpool execution restores ~40 concurrent analyses per
+        # worker. Exception behavior is unchanged (fail-closed preserved).
+        analysis = await run_in_threadpool(
+            analyze_text,
             extracted_text,
             relationship_type=relationship_type,
             context_note=context_note,
         )
-        narrative = interpret_analysis(
+        narrative = await run_in_threadpool(
+            interpret_analysis,
             analysis,
             extracted_text=extracted_text,
             requested_mode=requested_mode,
             relationship_type=relationship_type,
             use_llm=True,
         )
-        turn_analysis = analyze_turns(
+        turn_analysis = await run_in_threadpool(
+            analyze_turns,
             text_chunks=[t for t in text_chunks if t.strip()],
             relationship_type=relationship_type,
         )
@@ -407,7 +420,7 @@ async def analyze_screenshots(
     )
 
     if assessment.should_block:
-        logger.error(f"[{request_id}] FAIL_CLOSED triggered — reasons: {assessment.reasons}")
+        logger.error(f"[{request_id}] FAIL_CLOSED triggered ΓÇö reasons: {assessment.reasons}")
         write_audit_record(
             request_id=request_id,
             timestamp_start=timestamp_start,
