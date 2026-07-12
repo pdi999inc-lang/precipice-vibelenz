@@ -571,6 +571,36 @@ async def analyze_screenshots(
         logger.warning(f"[{request_id}] batch save failed: {_save_err}")
         payload["continuity_degraded"] = True
 
+    # --- Outcome Engine Phase 1: emit + store one falsifiable prediction ---
+    # Derived deterministically from existing payload fields — no new engine.
+    # Internal-only: accuracy is never computed or shown at write time.
+    # Fail-closed: any error skips prediction storage and never blocks the read.
+    try:
+        from app.db import save_prediction
+        _lane_p = str(payload.get("lane", "BENIGN"))
+        _iscore = payload.get("interest_score")
+        _direction = str((turn_analysis or {}).get("direction", "neutral"))
+        if _lane_p in ("FRAUD", "COERCION_RISK"):
+            _ptype, _pval, _pwin = "escalation", "pressure_or_ask_continues", 7
+        elif isinstance(_iscore, int) and _iscore >= 60 and _direction not in ("worsening", "concerning"):
+            _ptype, _pval, _pwin = "engagement", "reply_or_warmth_continues", 3
+        elif (isinstance(_iscore, int) and _iscore <= 35) or _direction in ("worsening", "concerning"):
+            _ptype, _pval, _pwin = "fade", "contact_slows_or_stops", 7
+        else:
+            _ptype, _pval, _pwin = "steady", "no_major_shift", 7
+        _cid_p = payload.get("conversation_id") or conv_meta.get("conversation_id") or ""
+        if _cid_p:
+            save_prediction(
+                conversation_id=_cid_p,
+                request_id=request_id,
+                prediction_type=_ptype,
+                predicted_value=_pval,
+                window_days=_pwin,
+            )
+            payload["prediction"] = {"type": _ptype, "value": _pval, "window_days": _pwin}
+    except Exception as _pred_err:
+        logger.warning(f"[{request_id}] prediction store skipped: {_pred_err}")
+
     # --- DB log ---
     try:
         from app.db import log_analysis
@@ -658,16 +688,49 @@ async def conversation_summary(conversation_id: str):
         if not batches:
             return JSONResponse({"status": "not_found", "conversation_id": conversation_id, "batch_count": 0})
         last = batches[-1]
+        # Outcome Engine: surface the open prediction so the frontend can ask
+        # "what happened since?" on continue-last. Fail-closed to None.
+        _open_pred = None
+        try:
+            from app.db import get_open_prediction
+            _open_pred = get_open_prediction(conversation_id)
+        except Exception as _op_err:
+            logger.warning(f"open prediction fetch skipped: {_op_err}")
         return JSONResponse({
             "status": "ok",
             "conversation_id": conversation_id,
             "batch_count": len(batches),
             "last_batch": last,
             "all_batches": batches,
+            "open_prediction": _open_pred,
         })
     except Exception as e:
         logger.warning(f"conversation_summary failed: {e}")
         return JSONResponse({"status": "error", "conversation_id": conversation_id, "batch_count": 0})
+
+
+@app.post("/outcome")
+async def outcome(request: Request):
+    """
+    Outcome Engine Phase 1: record what actually happened, attached to the
+    latest open prediction for the conversation. Raw outcome only — no
+    scoring at write time. Fail-closed: always returns ok so the frontend
+    never breaks on a capture failure.
+    """
+    try:
+        body = await request.json()
+        conversation_id = str(body.get("conversation_id", ""))[:64]
+        outcome_val = str(body.get("outcome", ""))[:40]
+        _allowed = {"warmed_up", "lukewarm", "went_quiet"}
+        if not conversation_id or outcome_val not in _allowed:
+            return JSONResponse(status_code=422, content={"error": "invalid_outcome"})
+        from app.db import record_outcome
+        _recorded = record_outcome(conversation_id, outcome_val, source="continue_last")
+        logger.info(f"[outcome] conv={conversation_id} outcome={outcome_val} recorded={_recorded}")
+        return JSONResponse({"status": "ok", "recorded": _recorded})
+    except Exception as e:
+        logger.warning(f"[outcome] error: {e}")
+        return JSONResponse({"status": "ok", "recorded": False})
 
 
 @app.post("/followup")
