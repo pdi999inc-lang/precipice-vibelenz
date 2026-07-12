@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import json
 import logging
 import os
@@ -62,7 +63,6 @@ def init_db():
                 cur.execute(column_sql)
             except Exception as e:
                 logger.warning(f"Column add skipped ({column_sql}): {e}")
-
         # --- Phase 1: multi-session conversation continuity (anonymous, device-local) ---
         # Additive only. No FK constraints to avoid insert-ordering failures under load.
         cur.execute("""
@@ -93,7 +93,27 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_conv_batches_cid
             ON conversation_batches (conversation_id, batch_number)
         """)
-
+        # --- Outcome Engine Phase 1: falsifiable predictions + outcome capture ---
+        # Additive only. Accuracy metrics are INTERNAL-ONLY until sample size
+        # justifies any user-facing claim. Fail-closed like everything here.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS predictions (
+                id              SERIAL PRIMARY KEY,
+                request_id      TEXT,
+                conversation_id TEXT NOT NULL,
+                prediction_type TEXT NOT NULL,
+                predicted_value TEXT NOT NULL,
+                window_days     INTEGER DEFAULT 7,
+                created_at      TIMESTAMPTZ DEFAULT NOW(),
+                outcome         TEXT DEFAULT NULL,
+                outcome_at      TIMESTAMPTZ DEFAULT NULL,
+                outcome_source  TEXT DEFAULT NULL
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_predictions_conv
+            ON predictions (conversation_id, created_at)
+        """)
         conn.commit()
         cur.close()
         logger.info("DB initialized")
@@ -206,7 +226,6 @@ def get_or_create_conversation(conversation_id: str = "",
                 WHERE conversation_id = %s AND expires_at > NOW()
             """, (conversation_id,))
             row = cur.fetchone()
-
         if row:
             cur.execute("""
                 UPDATE conversations SET last_updated = NOW()
@@ -215,7 +234,6 @@ def get_or_create_conversation(conversation_id: str = "",
             conn.commit()
             cur.close()
             return {"conversation_id": row[0], "batch_count": int(row[1] or 0), "is_new": False}
-
         # Create new (either none provided, or prior expired/not found)
         cur.execute("""
             INSERT INTO conversations (conversation_id, relationship_type, user_email)
@@ -340,5 +358,111 @@ def get_conversation_batches(conversation_id: str) -> list:
     except Exception as e:
         logger.warning(f"get_conversation_batches failed: {e}")
         return []
+    finally:
+        conn.close()
+
+
+# ===========================================================================
+# Outcome Engine Phase 1: predictions + outcome capture
+# The system emits one falsifiable prediction per analysis (derived
+# deterministically from existing payload fields — no new engine) and records
+# what actually happened, captured on the user's next visit via the
+# continue-last flow. All accuracy math stays internal until sample size
+# justifies any user-facing claim. Every function fails closed.
+# ===========================================================================
+
+def save_prediction(conversation_id: str, request_id: str,
+                    prediction_type: str, predicted_value: str,
+                    window_days: int = 7) -> bool:
+    """Store one falsifiable prediction for this analysis. Fail-closed: False on any error."""
+    if not conversation_id or not prediction_type:
+        return False
+    conn = get_conn()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO predictions
+                (conversation_id, request_id, prediction_type, predicted_value, window_days)
+            VALUES (%s,%s,%s,%s,%s)
+        """, (conversation_id, request_id, prediction_type[:40], predicted_value[:80], int(window_days)))
+        conn.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        logger.warning(f"save_prediction failed: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_open_prediction(conversation_id: str) -> dict | None:
+    """
+    Latest prediction for this conversation with no recorded outcome.
+    Returns {prediction_type, predicted_value, window_days, created_at} or None.
+    """
+    if not conversation_id:
+        return None
+    conn = get_conn()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT prediction_type, predicted_value, window_days, created_at
+            FROM predictions
+            WHERE conversation_id = %s AND outcome IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (conversation_id,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return None
+        return {
+            "prediction_type": row[0],
+            "predicted_value": row[1],
+            "window_days": int(row[2] or 7),
+            "created_at": row[3].isoformat() if row[3] else None,
+        }
+    except Exception as e:
+        logger.warning(f"get_open_prediction failed: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def record_outcome(conversation_id: str, outcome: str,
+                   source: str = "continue_last") -> bool:
+    """
+    Attach an observed outcome to the latest open prediction for this
+    conversation. Stores the raw outcome only — hit/miss scoring is computed
+    offline, never at write time. Fail-closed: False on any error.
+    """
+    if not conversation_id or not outcome:
+        return False
+    conn = get_conn()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE predictions
+            SET outcome = %s, outcome_at = NOW(), outcome_source = %s
+            WHERE id = (
+                SELECT id FROM predictions
+                WHERE conversation_id = %s AND outcome IS NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+            )
+        """, (outcome[:40], source[:40], conversation_id))
+        rows = cur.rowcount
+        conn.commit()
+        cur.close()
+        return rows > 0
+    except Exception as e:
+        logger.warning(f"record_outcome failed: {e}")
+        return False
     finally:
         conn.close()
