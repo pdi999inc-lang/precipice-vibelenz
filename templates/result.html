@@ -563,12 +563,14 @@
       var glow = ctx.createRadialGradient(540, 0, 100, 540, 0, 900);
       glow.addColorStop(0, '#FCEFE0'); glow.addColorStop(1, 'rgba(252,239,224,0)');
       ctx.fillStyle = glow; ctx.fillRect(0, 0, 1080, 900);
-      // Brand
+      // Brand — VibeLenz (connection) or PurPort (risk sub-brand)
       var grad = ctx.createLinearGradient(300, 100, 780, 200);
-      grad.addColorStop(0, '#E8785B'); grad.addColorStop(1, '#F2C879');
-      ctx.fillStyle = grad; ctx.font = 'italic 900 110px Inter, Arial, sans-serif';
+      if (isConn) { grad.addColorStop(0, '#E8785B'); grad.addColorStop(1, '#F2C879'); }
+      else { grad.addColorStop(0, '#2F7E77'); grad.addColorStop(1, '#57ada4'); }
+      ctx.fillStyle = grad;
+      ctx.font = (isConn ? 'italic ' : '') + '900 110px Inter, Arial, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText('VibeLenz', 540, 200);
+      ctx.fillText(isConn ? 'VibeLenz' : 'PurPort', 540, 200);
       ctx.fillStyle = '#6B6259'; ctx.font = '700 34px Inter, Arial, sans-serif';
       ctx.fillText(isConn ? 'V I B E   C H E C K' : 'S C A M   C H E C K', 540, 265);
       // Card panel
