@@ -6,7 +6,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -43,6 +43,9 @@ IMAGE_MAGIC = (b"\x89PNG", b"\xff\xd8\xff")
 # PATCH-003: Hard minimum OCR char threshold.
 # Below this = image unreadable. Analysis must not run on noise or placeholder text.
 MIN_OCR_CHARS = 50
+# Paste-text input path: hard cap on pasted conversation length.
+# Mirrors analyzer truncation (8000) with headroom; oversized input fails closed at 422.
+MAX_PASTE_CHARS = 15000
 
 
 def _simple_page(title: str, body: str) -> HTMLResponse:
@@ -200,7 +203,8 @@ async def audit_stats(request: Request):
 @app.post("/analyze-screenshots")
 async def analyze_screenshots(
     request: Request,
-    files: List[UploadFile] = File(...),
+    files: Optional[List[UploadFile]] = File(None),
+    pasted_text: str = Form(""),
     relationship_type: str = Form("stranger"),
     context_note: str = Form(""),
     requested_mode: str = Form("risk"),
@@ -218,6 +222,55 @@ async def analyze_screenshots(
     utm_source   = request.query_params.get("utm_source", "")
     utm_medium   = request.query_params.get("utm_medium", "")
     utm_campaign = request.query_params.get("utm_campaign", "")
+
+    # --- Paste-text input path (alternative to screenshots) ---
+    # Fail-closed rules: exactly one input type; length bounds enforced before
+    # any analysis. Pasted text follows the identical pipeline after this point
+    # (injection guard lives in analyze_text; context_note guard unchanged).
+    files = files or []
+    pasted_text = (pasted_text or "").strip()
+    use_paste = bool(pasted_text)
+    if use_paste and files:
+        raise HTTPException(
+            status_code=422,
+            detail="Provide screenshots or pasted text, not both.",
+        )
+    if not use_paste and not files:
+        raise HTTPException(
+            status_code=422,
+            detail="Provide at least one screenshot or paste the conversation text.",
+        )
+    if use_paste and len(pasted_text) > MAX_PASTE_CHARS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Pasted text exceeds {MAX_PASTE_CHARS} characters. Shorten and retry.",
+        )
+    if use_paste and len(pasted_text) < MIN_OCR_CHARS:
+        # Same honesty rule as the OCR guard: too little text is not a clean read.
+        write_audit_record(
+            request_id=request_id,
+            timestamp_start=timestamp_start,
+            image_count=0,
+            ocr_char_count=len(pasted_text),
+            result={},
+            degraded=True,
+            error=f"Pasted text insufficient: {len(pasted_text)} chars < {MIN_OCR_CHARS} minimum",
+        )
+        return JSONResponse(
+            status_code=422,
+            content={
+                "request_id": request_id,
+                "timestamp": ts,
+                "error": "insufficient_text",
+                "message": (
+                    "That's not enough conversation to analyze. "
+                    "Paste at least a few messages of the exchange."
+                ),
+                "min_required": MIN_OCR_CHARS,
+                "degraded": True,
+                "degradation_state": DegradationState.FAIL_CLOSED.value,
+            },
+        )
 
     # --- Phase 1 continuity: resolve conversation + fetch prior context ---
     # Fails closed: any DB issue leaves prior_context empty and continuity off.
@@ -267,10 +320,16 @@ async def analyze_screenshots(
                 detail=f"Unsupported file type: {content_type}. Allowed: png, jpg, jpeg.",
             )
 
-    # --- OCR ---
+    # --- Input text acquisition: paste path skips OCR entirely ---
     ocr_char_count = 0
 
-    try:
+    if use_paste:
+        text_chunks = [pasted_text]
+        extracted_text = pasted_text
+        ocr_char_count = len(extracted_text)
+
+    if not use_paste:
+      try:
         image_bytes_list = [await f.read() for f in files]
 
         # Safety invariant: enforce file size cap and magic byte integrity.
@@ -292,7 +351,7 @@ async def analyze_screenshots(
             text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
         ocr_char_count = len(extracted_text)
-    except Exception as e:
+      except Exception as e:
         err_str = str(e)
         # [OCR-3] Quality gate fires when mean word confidence is too low — this is a
         # recoverable user-side issue (dark screenshot, heavy redaction, low resolution),
@@ -479,8 +538,8 @@ async def analyze_screenshots(
         narrative=narrative,
         turn_analysis=turn_analysis,
     )
-
     payload["analysis_mode"] = analysis_mode
+    payload["input_source"] = "paste" if use_paste else "screenshots"
     payload["suggested_replies"] = _reply_data.get("suggested_replies", [])
     payload["reply_mode"] = _reply_data.get("reply_mode", "error")
     payload["replies_suppressed"] = _reply_data.get("replies_suppressed", False)
@@ -629,12 +688,3 @@ async def log_session(request: Request):
         return JSONResponse({"status": "ok"})
     except Exception:
         return JSONResponse({"status": "ok"})
-
-
-
-
-
-
-
-
-
