@@ -46,6 +46,11 @@ MIN_OCR_CHARS = 50
 # Paste-text input path: hard cap on pasted conversation length.
 # Mirrors analyzer truncation (8000) with headroom; oversized input fails closed at 422.
 MAX_PASTE_CHARS = 15000
+# Follow-up Q&A: per-analysis question cap and input bound.
+# The cap is enforced server-side from submitted history; it is also the
+# natural premium metering point later.
+MAX_FOLLOWUP_QUESTIONS = 5
+MAX_FOLLOWUP_CHARS = 500
 
 
 def _simple_page(title: str, body: str) -> HTMLResponse:
@@ -663,6 +668,166 @@ async def conversation_summary(conversation_id: str):
     except Exception as e:
         logger.warning(f"conversation_summary failed: {e}")
         return JSONResponse({"status": "error", "conversation_id": conversation_id, "batch_count": 0})
+
+
+@app.post("/followup")
+async def followup(request: Request):
+    """
+    Post-analysis follow-up Q&A ("Ask about this read").
+    Context is loaded server-side by request_id from the analyses table —
+    never trusted from the client. Hard limits: MAX_FOLLOWUP_QUESTIONS per
+    analysis, MAX_FOLLOWUP_CHARS per question. Injection-guarded. Lane-aware:
+    FRAUD/COERCION_RISK analyses get a clinical protective voice; connection
+    reads get the casual voice. Fail-closed: any error returns a safe
+    'unavailable' message — no unfiltered LLM output, no page breakage.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=422, content={"error": "invalid_json"})
+
+    request_id = str(body.get("request_id", ""))[:64]
+    question = str(body.get("question", "")).strip()[:MAX_FOLLOWUP_CHARS]
+    history = body.get("history", [])
+    if not isinstance(history, list):
+        history = []
+    if not request_id or not question:
+        return JSONResponse(status_code=422, content={"error": "missing_fields"})
+
+    # Server-side cap: count prior user turns from submitted history.
+    _prior_user_turns = len([
+        h for h in history
+        if isinstance(h, dict) and h.get("role") == "user" and str(h.get("content", "")).strip()
+    ])
+    if _prior_user_turns >= MAX_FOLLOWUP_QUESTIONS:
+        return JSONResponse(status_code=429, content={
+            "error": "question_limit",
+            "message": "That's the limit for this read. Run a fresh analysis as the conversation develops.",
+        })
+
+    # Injection guard — same guard as every other text input path.
+    from app.analyzer_combined import _check_prompt_injection, _sanitize_prohibited_claims
+    _inj, _match = _check_prompt_injection(question)
+    if _inj:
+        logger.warning(f"[followup:{request_id}] prompt injection blocked: {_match!r}")
+        return JSONResponse(status_code=422, content={
+            "error": "blocked",
+            "message": "That question can't be processed.",
+        })
+
+    # Load analysis context server-side.
+    row = None
+    try:
+        from app.db import get_conn
+        conn = get_conn()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT risk_score, risk_level, lane, primary_label, presentation_mode,
+                           flags, positive_signals, conversation_text, relationship_type
+                    FROM analyses WHERE request_id = %s
+                """, (request_id,))
+                row = cur.fetchone()
+                cur.close()
+            finally:
+                conn.close()
+    except Exception as e:
+        logger.warning(f"[followup:{request_id}] context load failed: {e}")
+
+    if not row:
+        return JSONResponse(status_code=404, content={
+            "error": "not_found",
+            "message": "This analysis is no longer available for follow-up. Run a fresh one.",
+        })
+
+    _risk_score, _risk_level, _lane, _primary_label, _presentation_mode, \
+        _flags, _positive_signals, _conversation_text, _relationship_type = row
+    _lane = str(_lane or "BENIGN")
+    _is_safety = _lane in ("FRAUD", "COERCION_RISK")
+
+    import json as _json
+    _context_block = (
+        f"ANALYSIS CONTEXT (authoritative — do not contradict it):\n"
+        f"Risk score: {_risk_score} ({_risk_level})\n"
+        f"Lane: {_lane}\n"
+        f"Primary read: {_primary_label}\n"
+        f"Mode: {_presentation_mode}\n"
+        f"Relationship type: {_relationship_type}\n"
+        f"Signals: {_json.dumps(_flags if isinstance(_flags, list) else [])}\n"
+        f"Positive signals: {_json.dumps(_positive_signals if isinstance(_positive_signals, list) else [])}\n\n"
+        f"THE CONVERSATION THAT WAS ANALYZED:\n{(_conversation_text or '')[:6000]}"
+    )
+
+    if _is_safety:
+        _fu_system = (
+            "You are VibeLenz's follow-up assistant. A safety analysis flagged this conversation "
+            "as a fraud or coercion risk. Your job is to answer the user's follow-up questions "
+            "clearly and protectively.\n"
+            "RULES:\n"
+            "- Never soften, walk back, or second-guess the risk finding. If asked 'but could it be fine?', "
+            "explain why the flagged pattern matters and what independent verification would look like.\n"
+            "- Be clinical, calm, and specific. No slang, no jokes.\n"
+            "- Practical protective steps only: verify independently, do not send money or personal "
+            "information, involve a trusted person, report to the platform.\n"
+            "- Do not provide advice unrelated to this conversation and its risks. Redirect briefly.\n"
+            "- Never diagnose people. Describe behavior patterns.\n"
+            "- Under 130 words. Plain text only."
+        )
+    else:
+        _fu_system = (
+            "You are VibeLenz's follow-up assistant — the group chat's smartest friend, answering "
+            "questions about a conversation that was just analyzed.\n"
+            "RULES:\n"
+            "- Ground every answer ONLY in the analyzed conversation and the analysis context. "
+            "Quote or reference specific messages when you can.\n"
+            "- Casual, current voice. Contractions. Natural dating vocabulary (vibe, energy, red flag, "
+            "mixed signals) where it fits — never forced.\n"
+            "- Casual voice, surgical read: stay sharp and specific. Make a call; don't hedge.\n"
+            "- If asked something outside this conversation (general life advice, therapy, medical, "
+            "legal, other people), say briefly that you only work with this conversation and steer back.\n"
+            "- Never diagnose people (narcissist, toxic person) — name behaviors in the messages.\n"
+            "- No deception coaching, no manipulation tactics, no messages designed to guilt or coerce.\n"
+            "- Under 130 words. Plain text only."
+        )
+
+    # Build message list: bounded history + current question.
+    _messages = []
+    for h in history[-8:]:
+        if not isinstance(h, dict):
+            continue
+        _role = "user" if h.get("role") == "user" else "assistant"
+        _content = str(h.get("content", ""))[:MAX_FOLLOWUP_CHARS * 2].strip()
+        if _content:
+            _messages.append({"role": _role, "content": _content})
+    _messages.append({"role": "user", "content": question})
+
+    try:
+        import anthropic
+        _api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if not _api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY not set")
+        _client = anthropic.Anthropic(api_key=_api_key)
+        _msg = _client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=400,
+            system=_fu_system + "\n\n" + _context_block,
+            messages=_messages,
+        )
+        _answer = _msg.content[0].text.strip()
+        _answer = _sanitize_prohibited_claims(_answer)
+        logger.info(f"[followup:{request_id}] q#{_prior_user_turns + 1} lane={_lane} answered ({len(_answer)} chars)")
+        return JSONResponse({
+            "answer": _answer,
+            "questions_used": _prior_user_turns + 1,
+            "questions_limit": MAX_FOLLOWUP_QUESTIONS,
+        })
+    except Exception as e:
+        logger.warning(f"[followup:{request_id}] LLM call failed: {e}")
+        return JSONResponse(status_code=503, content={
+            "error": "unavailable",
+            "message": "Follow-up is unavailable right now — the analysis above still stands.",
+        })
 
 
 @app.post("/feedback")
