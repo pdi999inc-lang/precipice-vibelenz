@@ -190,7 +190,7 @@
     <!-- CONNECTION MODE -->
     <div class="hero">
       <div class="hero-top-connection">
-        <div class="eyebrow">What's going on</div>
+        <div class="eyebrow">The vibe</div>
         <div class="connection-headline">{{ diagnosis or "Analysis complete." }}</div>
         <div class="connection-tone-pill">{{ social_tone or "low-stakes interaction" }}</div>
         <p class="connection-read">{{ reasoning or "No additional reasoning available." }}</p>
@@ -210,7 +210,7 @@
           </div>
           {% if interest_score is not none %}
           <div class="conn-score-chip">
-            <div class="csc-label">Connection score</div>
+            <div class="csc-label">Vibe score</div>
             <div class="csc-value">{{ interest_score }}</div>
           </div>
           {% endif %}
@@ -243,11 +243,11 @@
     {% endif %}
     <div class="grid-2">
       <div class="section connection-section next-steps">
-        <h3>What to do next</h3>
+        <h3>Your next move</h3>
         <p>{{ practical_next_steps or recommended_action or "No next steps available." }}</p>
       </div>
       <div class="section connection-section honest-check">
-        <h3>Honest check</h3>
+        <h3>Real talk</h3>
         <p>{{ accountability or "No accountability guidance available." }}</p>
       </div>
     </div>
@@ -256,7 +256,7 @@
     {% set score_val = (risk_score if risk_score is not none else 0)|int %}
     {% set has_positives = positive_signals and positive_signals|length > 0 %}
     <div class="section connection-section">
-      <h3>What feels positive here</h3>
+      <h3>Green flags</h3>
       <div class="chips">
         {% if has_positives %}
           {% for item in positive_signals %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
@@ -266,7 +266,7 @@
       </div>
     </div>
     <div class="section connection-section">
-      <h3>What raised any concern</h3>
+      <h3>Red flags</h3>
       <div class="chips">
         {% set concerns = concern_signals or [] %}
         {% set displayable_concerns = [] %}
@@ -291,7 +291,7 @@
       </div>
     </div>
     <div class="section connection-section">
-      <h3>Other plausible reads</h3>
+      <h3>Other ways to read it</h3>
       <div class="chips">
         {% if alternative_explanations and alternative_explanations|length > 0 %}
           {% for item in alternative_explanations %}<span class="chip">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
@@ -440,7 +440,7 @@
     {% endif %}
     {% if suggested_replies and suggested_replies|length > 0 %}
     <div class="section">
-      <h3>What you could say</h3>
+      <h3>What to say back</h3>
       {% if replies_suppressed %}
       <div class="chips"><span class="chip warn">{{ suggested_replies[0].text }}</span></div>
       {% else %}
