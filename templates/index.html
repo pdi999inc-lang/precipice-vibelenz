@@ -297,6 +297,22 @@ async function fetchSummary(cid){
       const lvl = (lb.risk_level || 'LOW').toUpperCase();
       const when = new Date(lb.created_at).toLocaleDateString();
       el.innerHTML = `<span class="cs-pill ${lvl}">${lvl}</span> Continuing — ${data.batch_count} prior batch${data.batch_count>1?'es':''}, last on ${when}`;
+      // Outcome Engine: if the last read left an open prediction, ask what happened.
+      if(data.open_prediction){
+        const _q = {
+          engagement: 'Last read expected them to keep engaging. What happened?',
+          fade: 'Last read flagged fade risk. What happened?',
+          escalation: 'Last read flagged pressure. What happened since?',
+          steady: 'Since your last read — how did it go?'
+        }[data.open_prediction.prediction_type] || 'Since your last read — how did it go?';
+        el.innerHTML += `<div id="outcomeAsk" style="margin-top:10px;">
+          <div style="font-weight:700;margin-bottom:7px;">${_q}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="cs-pill LOW" style="cursor:pointer;" onclick="recordOutcome('warmed_up')">Replied / warmed up</span>
+            <span class="cs-pill MEDIUM" style="cursor:pointer;" onclick="recordOutcome('lukewarm')">Slow / lukewarm</span>
+            <span class="cs-pill HIGH" style="cursor:pointer;" onclick="recordOutcome('went_quiet')">Went quiet</span>
+          </div></div>`;
+      }
     } else {
       // Backend says not found — our localStorage is stale. Clear it and reset.
       localStorage.removeItem(CONV_KEY);
@@ -308,6 +324,18 @@ async function fetchSummary(cid){
     document.getElementById('continueLast').value = 'false';
     document.getElementById('convId').value = '';
   }
+}
+async function recordOutcome(v){
+  // Fail-open UI: capture failure never blocks the analysis flow.
+  try{
+    gtag('event','outcome_capture',{'event_category':'outcome_engine','event_label':v});
+  }catch(e){}
+  try{
+    await fetch('/outcome',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({conversation_id:document.getElementById('convId').value,outcome:v})});
+  }catch(e){}
+  const box=document.getElementById('outcomeAsk');
+  if(box) box.innerHTML='<span style="font-size:0.75rem;color:#2F7E77;font-weight:700;">Noted — this makes your next read sharper.</span>';
 }
 function initConvUI(){
   const existing = loadConv();
