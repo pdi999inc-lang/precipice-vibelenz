@@ -1,9 +1,10 @@
+{% set is_risk = (page_mode | default('connection')) == 'risk' %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
-<title>VibeLenz</title>
+<title>{{ 'VibeLenz — Scam Check' if is_risk else 'VibeLenz — Vibe Check' }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-E4TDZ5JEQ7"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-E4TDZ5JEQ7');</script>
@@ -107,34 +108,25 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 </style>
 </head>
 <body>
-<div class="ov" id="ov"><div class="sp"></div><div class="ov-t">Reading the vibe…</div><div class="ov-s">Looking over your conversation</div></div>
+<div class="ov" id="ov"><div class="sp"></div><div class="ov-t">{{ 'Running the check…' if is_risk else 'Reading the vibe…' }}</div><div class="ov-s">Looking over your conversation</div></div>
 <div class="page">
 <div class="hd">
 <div class="brand-wrap"><span class="bolt bolt-l">⚡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">⚡</span></div>
-<div class="brand-sub">Dating Intelligence</div>
+<div class="brand-sub">{{ 'Scam &amp; Manipulation Check' if is_risk else 'Dating Intelligence' }}</div>
+{% if is_risk %}
+<h1 class="headline">Is this conversation what it claims to be?</h1>
+<p class="choose-lbl">Check the receipts before you trust them — fraud patterns, pressure tactics, manipulation.</p>
+{% else %}
 <h1 class="headline">What's really going on in this chat?</h1>
-<p class="choose-lbl">Pick your focus:</p>
+<p class="choose-lbl">The read your group chat wishes it could give you.</p>
+{% endif %}
 </div>
 <form id="mf">
-<input type="hidden" id="selMode" value="connection"/>
+<input type="hidden" id="selMode" value="{{ 'risk' if is_risk else 'connection' }}"/>
 <input type="hidden" id="selRole" value="left_white"/>
 <input type="hidden" id="convId" name="conversation_id" value=""/>
 <input type="hidden" id="continueLast" name="continue_last" value="false"/>
 <input type="hidden" id="otherGender" name="other_gender" value="unknown"/>
-<div class="mode-grid">
-<div class="mode-card sel" id="cC" onclick="pickMode('connection')">
-<div class="m-icon"><svg viewBox="0 0 80 80" fill="none"><circle cx="28" cy="46" r="18" stroke="white" stroke-width="3.5"/><circle cx="50" cy="46" r="18" stroke="white" stroke-width="3.5"/><line x1="56" y1="16" x2="56" y2="24" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="52" y1="20" x2="60" y2="20" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="67" y1="23" x2="67" y2="29" stroke="white" stroke-width="1.6" stroke-linecap="round"/><line x1="64" y1="26" x2="70" y2="26" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg></div>
-<h3>Vibe Check</h3>
-<ul><li><span class="li-i">✓</span>Assess chemistry and receptivity</li><li><span class="li-i">✓</span>Detect flirtation and interest</li><li><span class="li-i">✓</span>Determine the best next move</li><li><span class="li-i">✓</span>Repair misunderstandings</li></ul>
-<div class="card-ft" id="ftC">Chosen</div>
-</div>
-<div class="mode-card" id="cR" onclick="pickMode('risk')">
-<div class="m-icon"><svg viewBox="0 0 80 80" fill="none"><path d="M40 8 L66 20 L66 45 C66 60 40 72 40 72 C40 72 14 60 14 45 L14 20 Z" stroke="white" stroke-width="3.2" stroke-linejoin="round"/><line x1="40" y1="30" x2="40" y2="48" stroke="white" stroke-width="4" stroke-linecap="round"/><circle cx="40" cy="57" r="3" fill="white"/><path d="M56 56 L64 70 L48 70 Z" stroke="white" stroke-width="2" stroke-linejoin="round" fill="none"/><line x1="56" y1="61" x2="56" y2="64.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/><circle cx="56" cy="67" r="1.4" fill="white"/></svg></div>
-<h3>Scam Check</h3>
-<ul><li><span class="li-i">⚠</span>Spot scams and fraud</li><li><span class="li-i">⚠</span>Uncover contradictions and pressure</li><li><span class="li-i">⚠</span>Identify manipulative tactics</li><li><span class="li-i">⚠</span>Check for safety concerns</li></ul>
-<div class="card-ft" id="ftR">unselected</div>
-</div>
-</div>
 <div class="sh" id="step1Lbl">1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— screenshots, oldest first</span></div>
 <div class="conv-toggle" id="inputToggle">
   <div class="conv-tab active" id="tabShots" onclick="setInputMode('shots')">📷 Screenshots</div>
@@ -178,17 +170,21 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 </div>
 <div class="sh">5. Add an optional note <span style="font-weight:400;color:var(--ink-soft);font-size:0.78rem;">(optional)</span></div>
 <textarea class="gl-ta" id="ctx" placeholder="e.g., I'm getting mixed signals from this match…"></textarea>
-<button type="submit" class="cta"><span id="ctaTxt">RUN THE VIBE CHECK</span> <span>✦</span></button>
+<button type="submit" class="cta"><span id="ctaTxt">{{ 'RUN THE SCAM CHECK' if is_risk else 'RUN THE VIBE CHECK' }}</span> <span>✦</span></button>
 <p class="reassure">🔒 Your screenshots stay private — analysed, never shared.</p>
 <div class="privacy-block">
   <div class="pb-row"><span class="pb-i">✓</span>Never used to train AI</div>
   <div class="pb-row"><span class="pb-i">✓</span>Never shared or sold</div>
   <div class="pb-row"><span class="pb-i">✓</span>History on this device expires automatically after 30 days</div>
 </div>
+{% if is_risk %}
+<p style="text-align:center;margin-top:18px;font-size:0.86rem;"><a href="/" style="color:var(--coral-deep);font-weight:700;text-decoration:none;">← Back to Vibe Check</a></p>
+{% else %}
+<p style="text-align:center;margin-top:18px;font-size:0.86rem;color:var(--ink-soft);">Worried it's a scam or manipulation? <a href="/scam-check" style="color:var(--teal);font-weight:700;text-decoration:none;">Run a Scam Check →</a></p>
+{% endif %}
 </form>
 </div>
 <script>
-function pickMode(m){document.getElementById('selMode').value=m;document.getElementById('cC').classList.toggle('sel',m==='connection');document.getElementById('cR').classList.toggle('sel',m==='risk');document.getElementById('ftC').textContent=m==='connection'?'Chosen':'unselected';document.getElementById('ftR').textContent=m==='risk'?'Chosen':'unselected';document.getElementById('ctaTxt').textContent=m==='connection'?'RUN THE VIBE CHECK':'RUN THE SCAM CHECK';}
 function tDD(){document.getElementById('rdd').classList.toggle('open');}
 function setRole(v,lbl){document.getElementById('selRole').value=v;document.getElementById('rlbl').textContent=lbl;document.getElementById('rdd').classList.remove('open');document.querySelectorAll('.r-opt').forEach(o=>o.classList.remove('act'));document.getElementById('ro-'+v).classList.add('act');}
 document.addEventListener('click',e=>{if(!e.target.closest('.role-wrap'))document.getElementById('rdd').classList.remove('open');});
