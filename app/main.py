@@ -203,7 +203,7 @@ async def audit_stats(request: Request):
 @app.post("/analyze-screenshots")
 async def analyze_screenshots(
     request: Request,
-    files: Optional[List[UploadFile]] = File(None),
+    files: List[UploadFile] = File(default=[]),
     pasted_text: str = Form(""),
     relationship_type: str = Form("stranger"),
     context_note: str = Form(""),
