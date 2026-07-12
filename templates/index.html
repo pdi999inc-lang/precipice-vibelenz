@@ -149,10 +149,10 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 <div class="conv-expiry" id="convExpiry"></div>
 <div class="conv-summary" id="convSummary"></div>
 <div class="up-bar" id="upBar" onclick="document.getElementById('fi').click()">
-<span class="up-ic">📷</span><span class="up-lbl">Select file(s)</span>
+<span class="up-ic">📷</span><span class="up-lbl">Screenshots or screen recording</span>
 <span class="up-cnt" id="upCnt"></span>
 <span class="up-mgr" id="upMgr" style="display:none" onclick="event.stopPropagation();clearFiles()">Manage</span>
-<input type="file" id="fi" accept="image/png,image/jpeg,image/jpg" multiple onchange="addFiles(this.files)"/>
+<input type="file" id="fi" accept="image/png,image/jpeg,image/jpg,video/mp4,video/quicktime,video/webm" multiple onchange="addFiles(this.files)"/>
 </div>
 <div class="thumbs" id="thumbs"></div>
 <div class="drag-hint" id="dragHint">drag to reorder — oldest screenshot first</div>
@@ -207,7 +207,52 @@ function setInputMode(m){
 }
 let files=[];
 let _dragSrc=-1;
-function addFiles(fl){files=files.concat(Array.from(fl)).slice(0,10);render();}
+async function addFiles(fl){
+  const arr=Array.from(fl);
+  const imgs=arr.filter(f=>!f.type.startsWith('video/'));
+  const vids=arr.filter(f=>f.type.startsWith('video/'));
+  if(imgs.length){files=files.concat(imgs).slice(0,10);render();}
+  for(const v of vids){await extractFrames(v);}
+}
+// Screen recording support: frames are extracted CLIENT-SIDE and enter the
+// normal screenshot pipeline as PNGs. No video ever uploads. Fail-open: any
+// extraction error suggests screenshots/paste instead and never blocks the form.
+async function extractFrames(vf){
+  const slots=10-files.length;
+  if(slots<=0){alert('Image limit reached — remove some before adding a recording.');return;}
+  const ov=document.getElementById('ov');
+  const ovT=ov.querySelector('.ov-t'),ovS=ov.querySelector('.ov-s');
+  ovT.textContent='Pulling frames…';ovS.textContent='Reading your screen recording';
+  ov.classList.add('on');
+  try{
+    const url=URL.createObjectURL(vf);
+    const vid=document.createElement('video');
+    vid.muted=true;vid.playsInline=true;vid.preload='auto';vid.src=url;
+    await new Promise((res,rej)=>{vid.onloadedmetadata=()=>res();vid.onerror=()=>rej(new Error('load'));setTimeout(()=>rej(new Error('timeout')),15000);});
+    const dur=vid.duration;
+    if(!isFinite(dur)||dur<=0)throw new Error('duration');
+    const n=Math.min(slots,Math.max(3,Math.min(8,Math.round(dur/2))));
+    const cv=document.createElement('canvas');
+    cv.width=vid.videoWidth||720;cv.height=vid.videoHeight||1280;
+    const ctx=cv.getContext('2d');
+    for(let i=0;i<n;i++){
+      const t=(dur*(i+0.5))/n;
+      await new Promise(res=>{vid.onseeked=()=>res();vid.currentTime=Math.min(t,dur-0.05);setTimeout(res,4000);});
+      ctx.drawImage(vid,0,0,cv.width,cv.height);
+      const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+      if(blob)files.push(new File([blob],'frame-'+(i+1)+'.png',{type:'image/png'}));
+    }
+    URL.revokeObjectURL(url);
+    render();
+    const h=document.getElementById('dragHint');
+    h.textContent='frames pulled from your recording — remove duplicates, keep oldest first';
+    h.style.display='block';
+  }catch(e){
+    alert("Couldn't read that recording on this device — screenshots or pasting the text works every time.");
+  }
+  ov.classList.remove('on');
+  ovT.textContent='Reading the vibe…';ovS.textContent='Looking over your conversation';
+}
 function removeFile(i){files.splice(i,1);render();}
 function clearFiles(){files=[];render();}
 function render(){
