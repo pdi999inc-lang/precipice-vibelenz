@@ -362,7 +362,13 @@ document.getElementById('mf').addEventListener('submit', async e => {
     const res = await fetch(_url, { method: 'POST', body: fd, headers: { 'Accept': 'text/html' } });
     if (!res.ok) {
       document.getElementById('ov').classList.remove('on');
-      alert('Analysis failed.');
+      let _msg = 'Analysis failed.';
+      try {
+        const _j = await res.json();
+        _msg = _j.message || _j.detail || _j.error || _msg;
+        if (typeof _msg !== 'string') _msg = JSON.stringify(_msg);
+      } catch (_e) { /* non-JSON error body — keep generic message */ }
+      alert(_msg);
       return;
     }
     // Read conversation_id from response header (set by backend X-Conversation-Id)
