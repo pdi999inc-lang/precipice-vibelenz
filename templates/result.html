@@ -481,8 +481,8 @@
       <h3>Check their photos</h3>
       <p style="margin-bottom:12px;">Reverse-search their profile pictures to see if the same photos show up elsewhere under a different name. Save their photo to your device, then run it through either tool:</p>
       <div class="chips">
-        <a class="chip" style="text-decoration:none;cursor:pointer;" href="https://images.google.com" target="_blank" rel="noopener">Google reverse image search ↗</a>
-        <a class="chip" style="text-decoration:none;cursor:pointer;" href="https://tineye.com" target="_blank" rel="noopener">TinEye ↗</a>
+        <a class="chip" style="text-decoration:none;cursor:pointer;" href="https://images.google.com" target="_blank" rel="noopener" onclick="try{gtag('event','catfish_check',{'event_category':'engagement','event_label':'google'});}catch(e){}">Google reverse image search ↗</a>
+        <a class="chip" style="text-decoration:none;cursor:pointer;" href="https://tineye.com" target="_blank" rel="noopener" onclick="try{gtag('event','catfish_check',{'event_category':'engagement','event_label':'tineye'});}catch(e){}">TinEye ↗</a>
       </div>
       <p style="margin-top:12px;font-size:13px;color:var(--muted);">The search runs on your device — the photo never touches VibeLenz servers. The same photo under different names is a strong catfish indicator.</p>
     </div>
@@ -508,6 +508,135 @@
     </div>
     {% endif %}
     {% if not is_withheld %}
+    <div class="section" id="shareSection">
+      <h3>Share this read</h3>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:12px;">Makes a clean card — score and flags only, none of your conversation.</p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button id="shareBtn" onclick="shareRead()" style="border:none;border-radius:12px;padding:12px 20px;background:linear-gradient(100deg,#E8785B,#F2C879);color:#fff;font-size:14px;font-weight:800;cursor:pointer;">Make my share card</button>
+        <a id="shareDl" download="vibelenz-read.png" style="display:none;font-size:14px;color:#D55F42;font-weight:700;">Download card</a>
+      </div>
+    </div>
+    <script>
+    var _share = {
+      mode: {{ (presentation_mode or 'risk')|tojson }},
+      badge: {{ risk_text|tojson }},
+      score: {{ (interest_score if interest_score is not none else (risk_score if risk_score is not none else 0))|tojson }},
+      vibe: {{ ((vibe_map.get(human_label, human_label) if vibe_map is defined else (human_label or '')) or '')|tojson }},
+      greens: {{ ((positive_signals or [])[:3])|tojson }},
+      reds: {{ ((concern_signals or [])[:3])|tojson }},
+      flagsRisk: {{ ((flags or [])[:3])|tojson }},
+      arc: {{ ((turn_analysis.arc_label if turn_analysis and turn_analysis.turn_count and turn_analysis.turn_count > 1 else '') or '')|tojson }}
+    };
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+        this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r);
+        this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath(); return this;
+      };
+    }
+    function _label(s) { return String(s).replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
+    function _pill(ctx, x, y, text, fill, stroke, color) {
+      ctx.font = '600 30px Inter, Arial, sans-serif';
+      var w = ctx.measureText(text).width + 48;
+      ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(x, y, w, 62, 31); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = color; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      ctx.fillText(text, x + 24, y + 33);
+      return w;
+    }
+    function _pillRow(ctx, items, startY, fill, stroke, color) {
+      var x = 90, y = startY;
+      items.forEach(function (item) {
+        var text = _label(item);
+        ctx.font = '600 30px Inter, Arial, sans-serif';
+        var w = ctx.measureText(text).width + 48;
+        if (x + w > 990) { x = 90; y += 78; }
+        _pill(ctx, x, y, text, fill, stroke, color);
+        x += w + 16;
+      });
+      return y + 78;
+    }
+    function _buildCard() {
+      var isConn = _share.mode === 'connection';
+      var c = document.createElement('canvas'); c.width = 1080; c.height = 1920;
+      var ctx = c.getContext('2d');
+      ctx.fillStyle = '#FBF6EF'; ctx.fillRect(0, 0, 1080, 1920);
+      var glow = ctx.createRadialGradient(540, 0, 100, 540, 0, 900);
+      glow.addColorStop(0, '#FCEFE0'); glow.addColorStop(1, 'rgba(252,239,224,0)');
+      ctx.fillStyle = glow; ctx.fillRect(0, 0, 1080, 900);
+      // Brand
+      var grad = ctx.createLinearGradient(300, 100, 780, 200);
+      grad.addColorStop(0, '#E8785B'); grad.addColorStop(1, '#F2C879');
+      ctx.fillStyle = grad; ctx.font = 'italic 900 110px Inter, Arial, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText('VibeLenz', 540, 200);
+      ctx.fillStyle = '#6B6259'; ctx.font = '700 34px Inter, Arial, sans-serif';
+      ctx.fillText(isConn ? 'V I B E   C H E C K' : 'S C A M   C H E C K', 540, 265);
+      // Card panel
+      ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = 'rgba(42,38,34,0.12)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.roundRect(60, 340, 960, 1300, 48); ctx.fill(); ctx.stroke();
+      // Score circle
+      var scoreColor = isConn ? '#2F7E77' : (_share.badge === 'HIGH' ? '#C23B22' : _share.badge.indexOf('MED') >= 0 ? '#B07A16' : '#2E9E6E');
+      ctx.beginPath(); ctx.arc(540, 620, 180, 0, Math.PI * 2);
+      ctx.fillStyle = '#FBF6EF'; ctx.fill();
+      ctx.lineWidth = 14; ctx.strokeStyle = scoreColor; ctx.stroke();
+      ctx.fillStyle = '#2A2622'; ctx.font = '800 150px Inter, Arial, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(_share.score), 540, 605);
+      ctx.fillStyle = '#6B6259'; ctx.font = '600 32px Inter, Arial, sans-serif';
+      ctx.fillText(isConn ? 'VIBE SCORE' : 'RISK SCORE', 540, 720);
+      // Vibe / badge line
+      ctx.fillStyle = '#2A2622'; ctx.font = '800 52px Inter, Arial, sans-serif';
+      var headline = isConn ? (_share.vibe || 'just vibes') : (_share.badge + ' RISK');
+      ctx.fillText(headline.length > 34 ? headline.slice(0, 33) + '…' : headline, 540, 880);
+      if (_share.arc) {
+        ctx.fillStyle = '#6B6259'; ctx.font = '500 32px Inter, Arial, sans-serif';
+        var arcText = _share.arc.length > 52 ? _share.arc.slice(0, 51) + '…' : _share.arc;
+        ctx.fillText(arcText, 540, 940);
+      }
+      // Flags
+      var y = 1030;
+      var greens = (_share.greens || []).filter(function (s) { return s && s !== 'No signals detected'; });
+      var reds = (isConn ? (_share.reds || []) : (_share.flagsRisk || [])).filter(function (s) { return s && s !== 'No signals detected'; });
+      ctx.textAlign = 'left';
+      if (greens.length) {
+        ctx.fillStyle = '#1f7d54'; ctx.font = '800 34px Inter, Arial, sans-serif';
+        ctx.fillText('GREEN FLAGS', 90, y); y += 30;
+        y = _pillRow(ctx, greens, y, 'rgba(47,158,110,0.14)', 'rgba(47,158,110,0.35)', '#1f7d54') + 40;
+      }
+      if (reds.length) {
+        ctx.fillStyle = '#a8351f'; ctx.font = '800 34px Inter, Arial, sans-serif';
+        ctx.fillText('RED FLAGS', 90, y); y += 30;
+        y = _pillRow(ctx, reds, y, 'rgba(213,95,66,0.14)', 'rgba(213,95,66,0.35)', '#a8351f') + 40;
+      }
+      if (!greens.length && !reds.length) {
+        ctx.fillStyle = '#6B6259'; ctx.font = '500 36px Inter, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No strong flags either way — clean read', 540, y + 40);
+      }
+      // Watermark
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#2A2622'; ctx.font = '800 44px Inter, Arial, sans-serif';
+      ctx.fillText('run yours free', 540, 1740);
+      ctx.fillStyle = '#D55F42'; ctx.font = '800 52px Inter, Arial, sans-serif';
+      ctx.fillText('appvibelenz.com', 540, 1810);
+      return c;
+    }
+    function shareRead() {
+      try { gtag('event', 'share_card', { 'event_category': 'growth', 'event_label': _share.mode }); } catch (e) {}
+      var c = _buildCard();
+      c.toBlob(function (blob) {
+        if (!blob) return;
+        var file = new File([blob], 'vibelenz-read.png', { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: 'VibeLenz read' }).catch(function () {});
+        } else {
+          var url = URL.createObjectURL(blob);
+          var dl = document.getElementById('shareDl');
+          dl.href = url; dl.style.display = 'inline'; dl.click();
+        }
+      }, 'image/png');
+    }
+    </script>
     <div class="section" id="askSection">
       <h3>Ask about this read</h3>
       <div id="chatLog" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;"></div>
