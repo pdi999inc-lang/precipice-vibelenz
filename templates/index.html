@@ -101,6 +101,9 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 .conv-expiry{background:rgba(242,178,77,0.14);border:1px solid rgba(242,178,77,0.4);border-radius:11px;padding:10px 13px;margin-bottom:10px;font-size:0.77rem;color:#8a6413;display:none;}
 .conv-expiry.show{display:block;}
 .conv-disabled-note{font-size:0.7rem;color:var(--ink-soft);margin-top:3px;text-align:center;font-style:italic;}
+.privacy-block{margin-top:12px;padding:12px 16px;background:var(--cream-2);border:1px solid var(--line);border-radius:13px;display:flex;flex-direction:column;gap:5px;}
+.pb-row{font-size:0.76rem;color:var(--ink-soft);display:flex;align-items:center;gap:8px;}
+.pb-i{color:var(--teal);font-weight:800;font-size:0.7rem;}
 </style>
 </head>
 <body>
@@ -109,7 +112,7 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 <div class="hd">
 <div class="brand-wrap"><span class="bolt bolt-l">⚡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">⚡</span></div>
 <div class="brand-sub">Dating Intelligence</div>
-<h1 class="headline">What do you want to understand about this chat?</h1>
+<h1 class="headline">What's really going on in this chat?</h1>
 <p class="choose-lbl">Pick your focus:</p>
 </div>
 <form id="mf">
@@ -121,18 +124,18 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 <div class="mode-grid">
 <div class="mode-card sel" id="cC" onclick="pickMode('connection')">
 <div class="m-icon"><svg viewBox="0 0 80 80" fill="none"><circle cx="28" cy="46" r="18" stroke="white" stroke-width="3.5"/><circle cx="50" cy="46" r="18" stroke="white" stroke-width="3.5"/><line x1="56" y1="16" x2="56" y2="24" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="52" y1="20" x2="60" y2="20" stroke="white" stroke-width="2.2" stroke-linecap="round"/><line x1="67" y1="23" x2="67" y2="29" stroke="white" stroke-width="1.6" stroke-linecap="round"/><line x1="64" y1="26" x2="70" y2="26" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg></div>
-<h3>Analyze Connection</h3>
+<h3>Vibe Check</h3>
 <ul><li><span class="li-i">✓</span>Assess chemistry and receptivity</li><li><span class="li-i">✓</span>Detect flirtation and interest</li><li><span class="li-i">✓</span>Determine the best next move</li><li><span class="li-i">✓</span>Repair misunderstandings</li></ul>
 <div class="card-ft" id="ftC">Chosen</div>
 </div>
 <div class="mode-card" id="cR" onclick="pickMode('risk')">
 <div class="m-icon"><svg viewBox="0 0 80 80" fill="none"><path d="M40 8 L66 20 L66 45 C66 60 40 72 40 72 C40 72 14 60 14 45 L14 20 Z" stroke="white" stroke-width="3.2" stroke-linejoin="round"/><line x1="40" y1="30" x2="40" y2="48" stroke="white" stroke-width="4" stroke-linecap="round"/><circle cx="40" cy="57" r="3" fill="white"/><path d="M56 56 L64 70 L48 70 Z" stroke="white" stroke-width="2" stroke-linejoin="round" fill="none"/><line x1="56" y1="61" x2="56" y2="64.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/><circle cx="56" cy="67" r="1.4" fill="white"/></svg></div>
-<h3>Analyze Risk</h3>
+<h3>Scam Check</h3>
 <ul><li><span class="li-i">⚠</span>Spot scams and fraud</li><li><span class="li-i">⚠</span>Uncover contradictions and pressure</li><li><span class="li-i">⚠</span>Identify manipulative tactics</li><li><span class="li-i">⚠</span>Check for safety concerns</li></ul>
 <div class="card-ft" id="ftR">unselected</div>
 </div>
 </div>
-<div class="sh">1. Upload your screenshots <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— oldest first</span></div>
+<div class="sh">1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— screenshots, oldest first</span></div>
 <!-- continuity toggle -->
 <div class="conv-toggle" id="convToggle">
   <div class="conv-tab active" id="tabNew" onclick="setMode('new')">New conversation</div>
@@ -168,12 +171,17 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 </div>
 <div class="sh">5. Add an optional note <span style="font-weight:400;color:var(--ink-soft);font-size:0.78rem;">(optional)</span></div>
 <textarea class="gl-ta" id="ctx" placeholder="e.g., I'm getting mixed signals from this match…"></textarea>
-<button type="submit" class="cta">READ MY CONVERSATION <span>✦</span></button>
+<button type="submit" class="cta"><span id="ctaTxt">RUN THE VIBE CHECK</span> <span>✦</span></button>
 <p class="reassure">🔒 Your screenshots stay private — analysed, never shared.</p>
+<div class="privacy-block">
+  <div class="pb-row"><span class="pb-i">✓</span>Never used to train AI</div>
+  <div class="pb-row"><span class="pb-i">✓</span>Never shared or sold</div>
+  <div class="pb-row"><span class="pb-i">✓</span>History on this device expires automatically after 30 days</div>
+</div>
 </form>
 </div>
 <script>
-function pickMode(m){document.getElementById('selMode').value=m;document.getElementById('cC').classList.toggle('sel',m==='connection');document.getElementById('cR').classList.toggle('sel',m==='risk');document.getElementById('ftC').textContent=m==='connection'?'Chosen':'unselected';document.getElementById('ftR').textContent=m==='risk'?'Chosen':'unselected';}
+function pickMode(m){document.getElementById('selMode').value=m;document.getElementById('cC').classList.toggle('sel',m==='connection');document.getElementById('cR').classList.toggle('sel',m==='risk');document.getElementById('ftC').textContent=m==='connection'?'Chosen':'unselected';document.getElementById('ftR').textContent=m==='risk'?'Chosen':'unselected';document.getElementById('ctaTxt').textContent=m==='connection'?'RUN THE VIBE CHECK':'RUN THE SCAM CHECK';}
 function tDD(){document.getElementById('rdd').classList.toggle('open');}
 function setRole(v,lbl){document.getElementById('selRole').value=v;document.getElementById('rlbl').textContent=lbl;document.getElementById('rdd').classList.remove('open');document.querySelectorAll('.r-opt').forEach(o=>o.classList.remove('act'));document.getElementById('ro-'+v).classList.add('act');}
 document.addEventListener('click',e=>{if(!e.target.closest('.role-wrap'))document.getElementById('rdd').classList.remove('open');});
