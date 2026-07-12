@@ -354,6 +354,15 @@
       <div class="section"><h3>Recommended action</h3><p>{{ practical_next_steps or recommended_action or "No next steps available." }}</p></div>
       <div class="section"><h3>Keep yourself honest</h3><p>{{ accountability or "No accountability guidance available." }}</p></div>
     </div>
+    <div class="section">
+      <h3>Check their photos</h3>
+      <p style="margin-bottom:12px;">Reverse-search their profile pictures to see if the same photos appear elsewhere under a different name. Save their photo to your device, then run it through either tool:</p>
+      <div class="chips">
+        <a class="chip" style="text-decoration:none;cursor:pointer;" href="https://images.google.com" target="_blank" rel="noopener">Google reverse image search ↗</a>
+        <a class="chip" style="text-decoration:none;cursor:pointer;" href="https://tineye.com" target="_blank" rel="noopener">TinEye ↗</a>
+      </div>
+      <p style="margin-top:12px;font-size:13px;color:var(--muted);">The search runs on your device — the photo never touches VibeLenz servers. The same photo appearing under different names is a strong catfish indicator.</p>
+    </div>
     {% if evidence_scoring %}
     <div class="evidence-section">
       <div class="evidence-header">
