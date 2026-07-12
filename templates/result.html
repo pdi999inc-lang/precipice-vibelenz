@@ -188,24 +188,62 @@
     {% endif %}
     {% if presentation_mode == "connection" and not is_withheld %}
     <!-- CONNECTION MODE -->
+    {# Display-layer casual vocabulary. Maps known backend phrases to consumer labels.
+       Unknown values fall through unchanged. Connection mode ONLY — risk mode stays clinical. #}
+    {% set chem_map = {
+      "context dependent": "jury's still out",
+      "good receptivity": "they're feeling it",
+      "some real receptivity": "there's something here",
+      "clear playful interest": "certified flirting",
+      "positive openness": "green light energy",
+      "improving energy": "warming up",
+      "light interest": "mild interest — keep it casual",
+      "strong mutual interest": "it's mutual, for real",
+      "high but pressured": "into you, but rushing it",
+      "moderate, still developing": "still loading…",
+    } %}
+    {% set vibe_map = {
+      "low-stakes interaction": "just vibes",
+      "casual flirtation": "flirty, no pressure",
+      "warm receptivity": "warm energy",
+      "playful reconnection": "the comeback arc",
+      "confusion that clears": "rocky start, smooth landing",
+      "light sexual reciprocity": "spicy and mutual",
+      "mutual high intent": "both locked in",
+      "genuine mixed signals": "mixed signals (real ones)",
+      "fast escalation": "moving fast",
+      "established relationship": "you two have history",
+      "mixed intent": "mixed signals",
+      "not receptive": "not feeling it",
+      "fear-driven urgency": "rushing — and it reads fear-driven",
+    } %}
+    {% set tone_map = {
+      "fairly low-stakes": "casual vibes only",
+      "low-stakes interaction": "casual vibes only",
+      "playful, flirtatious, and reciprocal": "flirty and mutual",
+      "open, warm, and responsive": "warm and responsive",
+      "awkward at first, then repaired": "awkward start, clean recovery",
+      "light and socially positive": "light and easy",
+      "warm after initial confusion": "warmed up after a rocky open",
+    } %}
     <div class="hero">
       <div class="hero-top-connection">
         <div class="eyebrow">The vibe</div>
         <div class="connection-headline">{{ diagnosis or "Analysis complete." }}</div>
-        <div class="connection-tone-pill">{{ social_tone or "low-stakes interaction" }}</div>
+        <div class="connection-tone-pill">{{ tone_map.get(social_tone, social_tone) or "casual vibes only" }}</div>
         <p class="connection-read">{{ reasoning or "No additional reasoning available." }}</p>
         {% if mode_override_note %}<div class="note">{{ mode_override_note }}</div>{% endif %}
         <div class="connection-scores-row">
           <div class="conn-score-chip">
-            <div class="csc-label">Chemistry read</div>
-            <div class="csc-value">{{ interest_summary or "context dependent" }}</div>
+            <div class="csc-label">The chemistry</div>
+            <div class="csc-value">{{ chem_map.get(interest_summary, interest_summary) or "jury's still out" }}</div>
           </div>
           <div class="conn-score-chip">
-            <div class="csc-label">Interaction type</div>
-            <div class="csc-value">{{ human_label or "low-stakes interaction" }}</div>
+            <div class="csc-label">The vibe</div>
+            <div class="csc-value">{{ vibe_map.get(human_label, human_label) or "just vibes" }}</div>
           </div>
           <div class="conn-score-chip">
-            <div class="csc-label">Confidence</div>
+            <div class="csc-label">How sure we are</div>
             <div class="csc-value">{{ (confidence * 100)|round|int if confidence is not none else 0 }}%</div>
           </div>
           {% if interest_score is not none %}
