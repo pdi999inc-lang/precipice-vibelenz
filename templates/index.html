@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
-<title>{{ 'VibeLenz — Scam Check' if is_risk else 'VibeLenz — Vibe Check' }}</title>
+<title>{{ 'PurPort — Scam &amp; Manipulation Check' if is_risk else 'VibeLenz — Vibe Check' }}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-E4TDZ5JEQ7"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-E4TDZ5JEQ7');</script>
@@ -111,8 +111,13 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 <div class="ov" id="ov"><div class="sp"></div><div class="ov-t">{{ 'Running the check…' if is_risk else 'Reading the vibe…' }}</div><div class="ov-s">Looking over your conversation</div></div>
 <div class="page">
 <div class="hd">
+{% if is_risk %}
+<div class="brand-wrap"><div class="brand" style="background:linear-gradient(135deg,#2F7E77,#57ada4);-webkit-background-clip:text;background-clip:text;font-style:normal;letter-spacing:-0.5px;">PurPort</div></div>
+<div class="brand-sub">Scam &amp; Manipulation Check</div>
+{% else %}
 <div class="brand-wrap"><span class="bolt bolt-l">⚡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">⚡</span></div>
-<div class="brand-sub">{{ 'Scam &amp; Manipulation Check' if is_risk else 'Dating Intelligence' }}</div>
+<div class="brand-sub">Dating Intelligence</div>
+{% endif %}
 {% if is_risk %}
 <h1 class="headline">Is this conversation what it claims to be?</h1>
 <p class="choose-lbl">Check the receipts before you trust them — fraud patterns, pressure tactics, manipulation.</p>
@@ -178,9 +183,9 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
   <div class="pb-row"><span class="pb-i">✓</span>History on this device expires automatically after 30 days</div>
 </div>
 {% if is_risk %}
-<p style="text-align:center;margin-top:18px;font-size:0.86rem;"><a href="/" style="color:var(--coral-deep);font-weight:700;text-decoration:none;">← Back to Vibe Check</a></p>
+<p style="text-align:center;margin-top:18px;font-size:0.86rem;color:var(--ink-soft);">Reading chemistry instead? <a href="/" style="color:var(--coral-deep);font-weight:700;text-decoration:none;">VibeLenz Vibe Check →</a></p>
 {% else %}
-<p style="text-align:center;margin-top:18px;font-size:0.86rem;color:var(--ink-soft);">Worried it's a scam or manipulation? <a href="/scam-check" style="color:var(--teal);font-weight:700;text-decoration:none;">Run a Scam Check →</a></p>
+<p style="text-align:center;margin-top:18px;font-size:0.86rem;color:var(--ink-soft);">Worried it's a scam or manipulation? <a href="/scam-check" style="color:var(--teal);font-weight:700;text-decoration:none;">Check them with PurPort →</a></p>
 {% endif %}
 </form>
 </div>
