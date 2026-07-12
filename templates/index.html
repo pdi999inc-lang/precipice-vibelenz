@@ -107,7 +107,7 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 </style>
 </head>
 <body>
-<div class="ov" id="ov"><div class="sp"></div><div class="ov-t">Reading the vibe…</div><div class="ov-s">Looking over your screenshots</div></div>
+<div class="ov" id="ov"><div class="sp"></div><div class="ov-t">Reading the vibe…</div><div class="ov-s">Looking over your conversation</div></div>
 <div class="page">
 <div class="hd">
 <div class="brand-wrap"><span class="bolt bolt-l">⚡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">⚡</span></div>
@@ -135,7 +135,11 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 <div class="card-ft" id="ftR">unselected</div>
 </div>
 </div>
-<div class="sh">1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— screenshots, oldest first</span></div>
+<div class="sh" id="step1Lbl">1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— screenshots, oldest first</span></div>
+<div class="conv-toggle" id="inputToggle">
+  <div class="conv-tab active" id="tabShots" onclick="setInputMode('shots')">📷 Screenshots</div>
+  <div class="conv-tab" id="tabPaste" onclick="setInputMode('paste')">✍️ Paste the convo</div>
+</div>
 <!-- continuity toggle -->
 <div class="conv-toggle" id="convToggle">
   <div class="conv-tab active" id="tabNew" onclick="setMode('new')">New conversation</div>
@@ -144,7 +148,7 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 <div class="conv-disabled-note" id="convDisabledNote">No previous conversation on this device yet</div>
 <div class="conv-expiry" id="convExpiry"></div>
 <div class="conv-summary" id="convSummary"></div>
-<div class="up-bar" onclick="document.getElementById('fi').click()">
+<div class="up-bar" id="upBar" onclick="document.getElementById('fi').click()">
 <span class="up-ic">📷</span><span class="up-lbl">Select file(s)</span>
 <span class="up-cnt" id="upCnt"></span>
 <span class="up-mgr" id="upMgr" style="display:none" onclick="event.stopPropagation();clearFiles()">Manage</span>
@@ -152,6 +156,9 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 </div>
 <div class="thumbs" id="thumbs"></div>
 <div class="drag-hint" id="dragHint">drag to reorder — oldest screenshot first</div>
+<div id="pasteWrap" style="display:none;">
+<textarea class="gl-ta" id="pasteBox" style="height:150px;" placeholder="paste the conversation here — oldest messages first&#10;&#10;tip: start their lines with THEM: and yours with YOU: for the sharpest read"></textarea>
+</div>
 <div class="sh">2. Who are you talking to?</div>
 <select class="gl-sel" id="relType"><option value="stranger">Stranger / New person</option><option value="match">Dating app match</option><option value="friend">Friend</option><option value="ex">Ex / Past partner</option><option value="partner">Current partner</option></select>
 <div class="sh">3. Who are you texting?</div>
@@ -185,6 +192,19 @@ function pickMode(m){document.getElementById('selMode').value=m;document.getElem
 function tDD(){document.getElementById('rdd').classList.toggle('open');}
 function setRole(v,lbl){document.getElementById('selRole').value=v;document.getElementById('rlbl').textContent=lbl;document.getElementById('rdd').classList.remove('open');document.querySelectorAll('.r-opt').forEach(o=>o.classList.remove('act'));document.getElementById('ro-'+v).classList.add('act');}
 document.addEventListener('click',e=>{if(!e.target.closest('.role-wrap'))document.getElementById('rdd').classList.remove('open');});
+let inputMode='shots';
+function setInputMode(m){
+  inputMode=m;
+  document.getElementById('tabShots').classList.toggle('active',m==='shots');
+  document.getElementById('tabPaste').classList.toggle('active',m==='paste');
+  document.getElementById('upBar').style.display=m==='shots'?'flex':'none';
+  document.getElementById('thumbs').style.display=m==='shots'?'flex':'none';
+  document.getElementById('dragHint').style.display=(m==='shots'&&files.length>1)?'block':'none';
+  document.getElementById('pasteWrap').style.display=m==='paste'?'block':'none';
+  document.getElementById('step1Lbl').innerHTML=m==='paste'
+    ?'1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— paste the conversation, oldest first</span>'
+    :'1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— screenshots, oldest first</span>';
+}
 let files=[];
 let _dragSrc=-1;
 function addFiles(fl){files=files.concat(Array.from(fl)).slice(0,10);render();}
@@ -314,10 +334,16 @@ function initConvUI(){
 initConvUI();
 document.getElementById('mf').addEventListener('submit', async e => {
   e.preventDefault();
-  if (!files.length) { alert('Please upload at least one screenshot.'); return; }
-  document.getElementById('ov').classList.add('on');
   const fd = new FormData();
-  files.forEach(f => fd.append('files', f));
+  if (inputMode === 'paste') {
+    const _txt = document.getElementById('pasteBox').value.trim();
+    if (_txt.length < 50) { alert('Paste at least a few messages (50+ characters).'); return; }
+    fd.append('pasted_text', _txt);
+  } else {
+    if (!files.length) { alert('Please upload at least one screenshot.'); return; }
+    files.forEach(f => fd.append('files', f));
+  }
+  document.getElementById('ov').classList.add('on');
   fd.append('relationship_type', document.getElementById('relType').value);
   fd.append('context_note', document.getElementById('ctx').value);
   fd.append('requested_mode', document.getElementById('selMode').value);
