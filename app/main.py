@@ -117,8 +117,17 @@ def _build_response_payload(
 async def home(request: Request):
     index_file = TEMPLATES_DIR / "index.html"
     if index_file.exists():
-        return templates.TemplateResponse("index.html", {"request": request})
+        return templates.TemplateResponse("index.html", {"request": request, "page_mode": "connection"})
     return _simple_page("VibeLenz", "Home page template not found.")
+
+
+@app.get("/scam-check", response_class=HTMLResponse)
+async def scam_check(request: Request):
+    """Dedicated risk-mode page. Same template, same engines — page_mode fixes the mode."""
+    index_file = TEMPLATES_DIR / "index.html"
+    if index_file.exists():
+        return templates.TemplateResponse("index.html", {"request": request, "page_mode": "risk"})
+    return _simple_page("Scam Check", "Template not found.")
 
 
 @app.get("/pitch", response_class=HTMLResponse)
