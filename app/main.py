@@ -117,7 +117,11 @@ def _build_response_payload(
 async def home(request: Request):
     index_file = TEMPLATES_DIR / "index.html"
     if index_file.exists():
-        return templates.TemplateResponse("index.html", {"request": request, "page_mode": "connection"})
+        # Sub-brand host routing: any domain containing "purport" serves the
+        # PurPort (risk) page as its homepage. Same app, same engine, two brands.
+        _host = (request.headers.get("host") or "").lower()
+        _mode = "risk" if "purport" in _host else "connection"
+        return templates.TemplateResponse("index.html", {"request": request, "page_mode": _mode})
     return _simple_page("VibeLenz", "Home page template not found.")
 
 
