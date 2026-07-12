@@ -507,6 +507,68 @@
       {% endif %}
     </div>
     {% endif %}
+    {% if not is_withheld %}
+    <div class="section" id="askSection">
+      <h3>Ask about this read</h3>
+      <div id="chatLog" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;">
+        <input id="chatInput" maxlength="500" placeholder="ask a follow-up — 'what did they mean by that?', 'should i reply tonight?'" style="flex:1;border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:#FBF6EF;color:var(--text);font-size:14px;outline:none;"/>
+        <button id="chatSend" onclick="sendFollowup()" style="border:none;border-radius:12px;padding:12px 18px;background:#D55F42;color:#fff;font-size:14px;font-weight:800;cursor:pointer;flex-shrink:0;">Ask</button>
+      </div>
+      <div id="chatNote" style="font-size:12px;color:var(--muted);margin-top:8px;">5 questions per read — grounded in this conversation only</div>
+    </div>
+    <script>
+    var _chatHistory = [];
+    function _appendMsg(who, text) {
+      var log = document.getElementById('chatLog');
+      var d = document.createElement('div');
+      d.style.cssText = 'padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.55;max-width:85%;white-space:pre-wrap;' +
+        (who === 'you'
+          ? 'align-self:flex-end;background:rgba(47,126,119,0.12);border:1px solid rgba(47,126,119,0.25);'
+          : 'align-self:flex-start;background:#FBF6EF;border:1px solid rgba(42,38,34,0.12);');
+      d.textContent = text;
+      log.appendChild(d);
+      d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    async function sendFollowup() {
+      var inp = document.getElementById('chatInput');
+      var btn = document.getElementById('chatSend');
+      var q = inp.value.trim();
+      if (!q || btn.disabled) return;
+      _appendMsg('you', q);
+      inp.value = '';
+      btn.disabled = true;
+      btn.textContent = '…';
+      try {
+        var res = await fetch('/followup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request_id: '{{ request_id }}', question: q, history: _chatHistory })
+        });
+        var data = await res.json();
+        if (res.ok && data.answer) {
+          _chatHistory.push({ role: 'user', content: q }, { role: 'assistant', content: data.answer });
+          _appendMsg('vibelenz', data.answer);
+          var left = (data.questions_limit || 5) - (data.questions_used || 0);
+          document.getElementById('chatNote').textContent = left > 0
+            ? left + ' question' + (left === 1 ? '' : 's') + ' left for this read'
+            : 'Limit reached — run a fresh analysis as things develop';
+          if (left <= 0) { inp.disabled = true; btn.textContent = 'Done'; return; }
+        } else {
+          _appendMsg('vibelenz', (data && (data.message || data.detail)) || 'Follow-up unavailable right now.');
+          if (res.status === 429) { inp.disabled = true; btn.textContent = 'Done'; return; }
+        }
+      } catch (e) {
+        _appendMsg('vibelenz', 'Network hiccup — try that again.');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Ask';
+    }
+    document.getElementById('chatInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); sendFollowup(); }
+    });
+    </script>
+    {% endif %}
     <details>
       <summary>Show machine detail</summary>
       <div class="machine">
