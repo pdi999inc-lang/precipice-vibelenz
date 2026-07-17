@@ -1,23 +1,23 @@
-{% set is_risk = (page_mode | default('connection')) == 'risk' %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
-<title>{{ 'PurPort — Scam &amp; Manipulation Check' if is_risk else 'VibeLenz — Vibe Check' }}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<title>VibeLenz — Vibe Check</title>
+<meta name="description" content="VibeLenz reads your dating conversations like your most honest friend — chemistry, green flags, red flags, and what to say back. Free, private, no account needed."/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Poppins:wght@300;400&display=swap" rel="stylesheet"/>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-E4TDZ5JEQ7"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-E4TDZ5JEQ7');</script>
 <style>
-:root{--cream:#FBF6EF;--cream-2:#F4EADD;--ink:#2A2622;--ink-soft:#6B6259;--coral:#E8785B;--coral-deep:#D55F42;--teal:#2F7E77;--amber:#F2C879;--card:#FFFFFF;--line:rgba(42,38,34,.12);}
+:root{--cream:#0A0E14;--cream-2:#111826;--ink:#EAFBFD;--ink-soft:#7FA8B0;--coral:#5FDCE8;--coral-deep:#2FB8C4;--teal:#4FB8AC;--amber:#E8A23B;--card:#0F1720;--line:rgba(95,220,232,0.16);--hud-glow:rgba(95,220,232,0.35);--hud-line:rgba(95,220,232,0.22);}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overflow-x:hidden;
-  background:radial-gradient(90% 55% at 50% -8%,#FCEFE0 0%,rgba(252,239,224,0) 60%),var(--cream);}
+  background:radial-gradient(90% 55% at 50% -8%,#2A1A16 0%,rgba(252,239,224,0) 60%),var(--cream);}
 .page{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 18px 70px;}
 .hd{text-align:center;padding:34px 0 14px;}
 .brand-wrap{position:relative;display:inline-block;}
 .brand{font-size:2.9rem;font-weight:900;font-style:italic;letter-spacing:-1px;line-height:1;
-  background:linear-gradient(135deg,var(--coral),var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  background:linear-gradient(135deg,var(--coral),#B8F5FA);-webkit-background-clip:text;background-clip:text;color:transparent;}
 .bolt{position:absolute;top:4px;font-size:1rem;filter:none;animation:blink 2.4s ease-in-out infinite;opacity:.85;}
 .bolt-l{left:-24px;}.bolt-r{right:-24px;}
 @keyframes blink{0%,100%{opacity:.5;}50%{opacity:.95;}}
@@ -26,14 +26,14 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 .choose-lbl{font-size:0.94rem;color:var(--ink-soft);margin-top:9px;}
 .mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:18px;}
 .mode-card{border-radius:20px;padding:18px 14px 32px;cursor:pointer;transition:all 0.22s ease;position:relative;
-  background:var(--card);border:2px solid var(--line);box-shadow:0 8px 24px -16px rgba(60,40,28,.35);}
-.mode-card.sel{border-color:var(--coral);box-shadow:0 16px 34px -18px rgba(213,95,66,.5);}
+  background:var(--card);border:2px solid var(--line);box-shadow:0 8px 24px -16px rgba(0,0,0,.35);}
+.mode-card.sel{border-color:var(--coral);box-shadow:0 16px 34px -18px rgba(255,59,59,.5);}
 #cR.sel{border-color:var(--teal);box-shadow:0 16px 34px -18px rgba(47,126,119,.45);}
 .m-icon{width:58px;height:58px;margin:0 auto 13px;display:flex;align-items:center;justify-content:center;border-radius:17px;
-  background:linear-gradient(135deg,#F4C9BC,#F7DCA9);transition:.22s;}
-#cR .m-icon{background:linear-gradient(135deg,#BFE0DB,#D8ECE8);}
+  background:linear-gradient(135deg,#3A2420,#3A3020);transition:.22s;}
+#cR .m-icon{background:linear-gradient(135deg,#1E3A36,#16302C);}
 .mode-card.sel .m-icon{background:linear-gradient(135deg,var(--coral),var(--amber));}
-#cR.sel .m-icon{background:linear-gradient(135deg,var(--teal),#57ada4);}
+#cR.sel .m-icon{background:linear-gradient(135deg,var(--teal),#6FC9BD);}
 .m-icon svg{width:52px;height:52px;}
 .mode-card:not(.sel) .m-icon{opacity:.55;}
 .mode-card h3{font-size:1rem;font-weight:800;text-align:center;margin-bottom:13px;}
@@ -46,35 +46,35 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 .card-ft{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);font-size:0.68rem;white-space:nowrap;font-weight:600;}
 .mode-card.sel .card-ft{color:var(--coral-deep);}
 #cR.sel .card-ft{color:var(--teal);}
-.mode-card:not(.sel) .card-ft{color:rgba(107,98,89,.55);}
+.mode-card:not(.sel) .card-ft{color:rgba(183,145,132,.55);}
 .sh{font-size:0.98rem;font-weight:700;color:var(--ink);margin:24px 0 10px;}
 .up-bar{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px 15px;display:flex;align-items:center;gap:9px;cursor:pointer;transition:border-color 0.2s,background .2s;}
-.up-bar:hover{border-color:var(--coral);background:#fff;}
+.up-bar:hover{border-color:var(--coral);background:#2B1C21;}
 .up-ic{font-size:1rem;}.up-lbl{font-size:0.9rem;font-weight:700;}.up-cnt{flex:1;font-size:0.82rem;color:var(--ink-soft);}.up-mgr{font-size:0.8rem;color:var(--coral-deep);text-decoration:underline;cursor:pointer;}
 #fi{display:none;}
 .thumbs{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;}
-.ti{position:relative;width:72px;height:86px;animation:pop .2s ease both;filter:drop-shadow(2px 5px 12px rgba(60,40,28,.28));cursor:grab;}
+.ti{position:relative;width:72px;height:86px;animation:pop .2s ease both;filter:drop-shadow(2px 5px 12px rgba(0,0,0,.28));cursor:grab;}
 .ti.drag-over img{outline:2px solid var(--coral);border-radius:8px;}
-.ti img{width:72px;height:86px;object-fit:cover;border-radius:8px;border:1.5px solid rgba(42,38,34,.14);}
+.ti img{width:72px;height:86px;object-fit:cover;border-radius:8px;border:1.5px solid rgba(255,255,255,.14);}
 .ti:nth-child(1) img{transform:rotate(-2deg);}.ti:nth-child(2) img{transform:rotate(1.5deg);}.ti:nth-child(3) img{transform:rotate(-1deg);}.ti:nth-child(4) img{transform:rotate(2deg);}
 .ti-rm{position:absolute;top:-6px;right:-5px;width:18px;height:18px;background:var(--ink);border:1px solid #fff;color:#fff;border-radius:50%;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .ti-num{position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:18px;height:18px;background:var(--teal);color:#fff;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;pointer-events:none;}
 .drag-hint{font-size:0.72rem;color:var(--ink-soft);margin-top:6px;display:none;}
 @keyframes pop{from{opacity:0;transform:scale(0.7);}to{opacity:1;transform:scale(1);}}
 @keyframes shine{0%,100%{left:-75%;}60%{left:130%;}}
-.gl-sel{font-family:'Inter',sans-serif;font-size:0.9rem;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:14px 42px 14px 15px;width:100%;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer;transition:border-color .15s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B6259' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center;}
+.gl-sel{font-family:'Inter',sans-serif;font-size:0.9rem;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:14px 42px 14px 15px;width:100%;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer;transition:border-color .15s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23B79184' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center;}
 .gl-sel:focus{border-color:var(--coral);}
-.gl-sel option{background:#fff;color:var(--ink);}
+.gl-sel option{background:#2B1C21;color:var(--ink);}
 .role-wrap{position:relative;}
 .role-disp{background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:14px 15px;font-size:0.9rem;color:var(--ink);cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;transition:border-color .15s;}
 .role-disp:hover{border-color:var(--coral);}
-.role-dd{display:none;position:absolute;right:0;top:0;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;z-index:20;box-shadow:0 18px 44px -18px rgba(60,40,28,.45);}
+.role-dd{display:none;position:absolute;right:0;top:0;min-width:210px;background:#2B1C21;border:1px solid var(--line);border-radius:16px;overflow:hidden;z-index:20;box-shadow:0 18px 44px -18px rgba(0,0,0,.45);}
 .role-dd.open{display:block;}
 .r-opt{padding:12px 15px;font-size:0.88rem;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;}
-.r-opt:hover{background:#FCE6E0;}
-.r-opt.act{background:#FBEFE9;}
+.r-opt:hover{background:#2B1C21;}
+.r-opt.act{background:#2B1C21;}
 .rav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;}
-.rav-b{background:linear-gradient(135deg,var(--coral),var(--coral-deep));}.rav-p{background:linear-gradient(135deg,var(--teal),#57ada4);}.rav-v{background:linear-gradient(135deg,var(--amber),#e0a94a);}
+.rav-b{background:linear-gradient(135deg,var(--coral),var(--coral-deep));}.rav-p{background:linear-gradient(135deg,var(--teal),#6FC9BD);}.rav-v{background:linear-gradient(135deg,var(--amber),#E8A23B);}
 .r-arr{color:var(--ink-soft);font-size:0.7rem;}
 .gl-ta{font-family:'Inter',sans-serif;font-size:0.88rem;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:14px 15px;width:100%;resize:none;height:70px;outline:none;transition:border-color .15s;}
 .gl-ta:focus{border-color:var(--coral);}
@@ -83,51 +83,134 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 .cta::before{content:'';position:absolute;top:-50%;left:-75%;width:50%;height:200%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);transform:skewX(-20deg);animation:shine 2.6s ease-in-out infinite;}
 .cta:hover{transform:translateY(-2px);box-shadow:0 22px 40px -14px var(--coral-deep);}
 .reassure{text-align:center;font-size:0.8rem;color:var(--ink-soft);margin-top:14px;}
-.ov{display:none;position:fixed;inset:0;background:rgba(251,246,239,0.94);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(6px);}
+.ov{display:none;position:fixed;inset:0;background:rgba(26,16,19,0.94);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(6px);}
 .ov.on{display:flex;}
-.sp{width:52px;height:52px;border:3px solid rgba(232,120,91,0.22);border-top-color:var(--coral);border-radius:50%;animation:rot .8s linear infinite;}
+.sp{width:52px;height:52px;border:3px solid rgba(95,220,232,0.22);border-top-color:var(--coral);border-radius:50%;animation:rot .8s linear infinite;}
 @keyframes rot{to{transform:rotate(360deg);}}
 .ov-t{font-size:1.05rem;font-weight:700;color:var(--ink);}.ov-s{font-size:0.8rem;color:var(--ink-soft);}
-/* continuity: toggle + summary */
 .conv-toggle{display:flex;gap:8px;margin-bottom:10px;padding:4px;background:var(--cream-2);border:1px solid var(--line);border-radius:13px;}
 .conv-tab{flex:1;padding:11px 12px;border-radius:10px;font-size:0.83rem;font-weight:700;cursor:pointer;text-align:center;color:var(--ink-soft);transition:all 0.2s;user-select:none;}
-.conv-tab.active{background:#fff;color:var(--ink);box-shadow:0 8px 22px -14px rgba(60,40,28,.4);}
+.conv-tab.active{background:#2B1C21;color:var(--ink);box-shadow:0 8px 22px -14px rgba(0,0,0,.4);}
 .conv-tab.disabled{opacity:0.4;cursor:not-allowed;}
-.conv-summary{background:#FBEFE9;border:1px solid rgba(232,120,91,0.22);border-radius:11px;padding:11px 13px;margin-bottom:10px;font-size:0.79rem;color:var(--ink-soft);line-height:1.5;display:none;}
+.conv-summary{background:#2B1C21;border:1px solid rgba(95,220,232,0.22);border-radius:11px;padding:11px 13px;margin-bottom:10px;font-size:0.79rem;color:var(--ink-soft);line-height:1.5;display:none;}
 .conv-summary.show{display:block;}
 .conv-summary .cs-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:0.7rem;font-weight:700;margin-right:6px;}
 .conv-summary .cs-pill.LOW{background:rgba(47,126,119,0.15);color:var(--teal);}
-.conv-summary .cs-pill.MEDIUM{background:rgba(242,178,77,0.22);color:#b5811f;}
-.conv-summary .cs-pill.HIGH{background:rgba(213,95,66,0.16);color:var(--coral-deep);}
-.conv-expiry{background:rgba(242,178,77,0.14);border:1px solid rgba(242,178,77,0.4);border-radius:11px;padding:10px 13px;margin-bottom:10px;font-size:0.77rem;color:#8a6413;display:none;}
+.conv-summary .cs-pill.MEDIUM{background:rgba(232,162,59,0.22);color:#E8A23B;}
+.conv-summary .cs-pill.HIGH{background:rgba(255,59,59,0.16);color:var(--coral-deep);}
+.conv-expiry{background:rgba(232,162,59,0.14);border:1px solid rgba(232,162,59,0.4);border-radius:11px;padding:10px 13px;margin-bottom:10px;font-size:0.77rem;color:#E8A23B;display:none;}
 .conv-expiry.show{display:block;}
 .conv-disabled-note{font-size:0.7rem;color:var(--ink-soft);margin-top:3px;text-align:center;font-style:italic;}
 .privacy-block{margin-top:12px;padding:12px 16px;background:var(--cream-2);border:1px solid var(--line);border-radius:13px;display:flex;flex-direction:column;gap:5px;}
 .pb-row{font-size:0.76rem;color:var(--ink-soft);display:flex;align-items:center;gap:8px;}
 .pb-i{color:var(--teal);font-weight:800;font-size:0.7rem;}
+
+/* ===== HUD CHROME (cyan sci-fi pass) ===== */
+.mode-card, .up-bar, .role-disp, .gl-sel, .gl-ta { position: relative; border-radius: 10px !important; }
+.mode-card::before, .mode-card::after,
+.up-bar::before, .up-bar::after {
+  content: ""; position: absolute; width: 12px; height: 12px;
+  border: 2px solid var(--coral); opacity: 0.5; pointer-events: none;
+}
+.mode-card::before, .up-bar::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.mode-card::after,  .up-bar::after  { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+.choose-lbl, .role-disp, .conv-summary { letter-spacing: 0.06em; }
+body {
+  background-image:
+    radial-gradient(60% 40% at 50% -8%, rgba(95,220,232,0.10) 0%, rgba(95,220,232,0) 70%),
+    repeating-linear-gradient(0deg, rgba(95,220,232,0.035) 0px, rgba(95,220,232,0.035) 1px, transparent 1px, transparent 42px),
+    repeating-linear-gradient(90deg, rgba(95,220,232,0.035) 0px, rgba(95,220,232,0.035) 1px, transparent 1px, transparent 42px);
+  background-attachment: fixed;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .brand-wrap { position: relative; overflow: hidden; }
+  .brand-wrap::after {
+    content: ""; position: absolute; left: 0; right: 0; top: -20%; height: 40%;
+    background: linear-gradient(180deg, transparent, var(--hud-glow), transparent);
+    animation: hud-scan-index 5s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes hud-scan-index {
+    0%   { transform: translateY(-40px); opacity: 0; }
+    15%  { opacity: 0.8; }
+    85%  { opacity: 0.8; }
+    100% { transform: translateY(180px); opacity: 0; }
+  }
+}
+
+
+/* ===== SPLASH + SWIPE (VibeLenz path only) ===== */
+.swipe-container{display:flex;width:100%;height:100dvh;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;-ms-overflow-style:none;scrollbar-width:none;}
+.swipe-container::-webkit-scrollbar{display:none;}
+.swipe-page{flex:0 0 100%;width:100%;height:100dvh;scroll-snap-align:start;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.splash-page{background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+.splash-inner{display:flex;flex-direction:column;align-items:center;text-align:center;}
+.splash-aperture{width:200px;height:200px;margin-bottom:8px;}
+.splash-word{font-family:'Poppins',sans-serif;font-size:2.9rem;font-weight:300;letter-spacing:-0.5px;background:linear-gradient(135deg,#EAFBFD,var(--coral));-webkit-background-clip:text;background-clip:text;color:transparent;margin-top:4px;}
+.splash-tagline{font-family:'Poppins',sans-serif;font-weight:300;font-size:1rem;color:var(--ink-soft);letter-spacing:0.04em;margin-top:12px;}
+.swipe-hint{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);background:none;border:none;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;font-family:inherit;padding:10px;}
+.swipe-chevron{font-size:1.6rem;line-height:1;color:var(--coral);transform:rotate(90deg);display:inline-block;}
+.swipe-hint-text{font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;}
+@media (prefers-reduced-motion: no-preference){
+  .swipe-hint{animation:swipe-pulse 2.2s ease-in-out infinite;}
+  @keyframes swipe-pulse{0%,100%{opacity:0.55;transform:translateX(-50%) translateY(0);}50%{opacity:1;transform:translateX(-50%) translateY(6px);}}
+  .splash-aperture{animation:aperture-breathe 4s ease-in-out infinite;transform-origin:center;}
+  @keyframes aperture-breathe{0%,100%{opacity:0.88;transform:scale(1);}50%{opacity:1;transform:scale(1.035);}}
+}
+
 </style>
 </head>
 <body>
-<div class="ov" id="ov"><div class="sp"></div><div class="ov-t">{{ 'Running the check…' if is_risk else 'Reading the vibe…' }}</div><div class="ov-s">Looking over your conversation</div></div>
+<div class="ov" id="ov"><div class="sp"></div><div class="ov-t">Reading the vibe…</div><div class="ov-s">Looking over your conversation</div></div>
+<div class="swipe-container" id="swipeContainer">
+<section class="swipe-page splash-page" id="splashPage">
+  <div class="splash-inner">
+    <svg class="splash-aperture" viewBox="0 0 300 300" aria-hidden="true">
+      <defs>
+        <filter id="apGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="6" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <circle cx="150" cy="150" r="108" fill="none" stroke="var(--coral)" stroke-width="2.5" opacity="0.9" filter="url(#apGlow)"/>
+      <circle cx="150" cy="150" r="108" fill="none" stroke="var(--coral)" stroke-width="1" opacity="0.4"/>
+      <g stroke="var(--coral)" stroke-width="1.4" fill="none" opacity="0.85" filter="url(#apGlow)">
+        <path d="M206 263 L257 210"/>
+        <path d="M179 271 L242 235"/>
+        <path d="M99 266 L150 232"/>
+        <path d="M151 90 L196 60"/>
+        <path d="M69 242 L116 268"/>
+        <path d="M110 126 L145 95"/>
+        <path d="M59 130 L84 166"/>
+        <path d="M89 211 L128 215"/>
+      </g>
+      <g stroke="var(--coral)" stroke-width="0.6" fill="none" opacity="0.4" filter="url(#apGlow)">
+        <path d="M175 107 L190 125"/>
+        <path d="M203 158 L203 145"/>
+        <path d="M199 135 L212 150"/>
+        <path d="M94 177 L96 162"/>
+        <path d="M153 104 L172 114"/>
+        <path d="M187 123 L203 139"/>
+      </g>
+    </svg>
+    <div class="splash-word">VibeLenz</div>
+    <div class="splash-tagline">Analyze the Vibe.</div>
+  </div>
+  <button type="button" class="swipe-hint" id="swipeHint" onclick="document.getElementById('formPage').scrollIntoView({behavior:'smooth'})" aria-label="Continue to start your check">
+    <span class="swipe-chevron">&rsaquo;</span>
+    <span class="swipe-hint-text">Swipe to begin</span>
+  </button>
+</section>
+<section class="swipe-page" id="formPage">
 <div class="page">
 <div class="hd">
-{% if is_risk %}
-<div class="brand-wrap"><div class="brand" style="background:linear-gradient(135deg,#2F7E77,#57ada4);-webkit-background-clip:text;background-clip:text;font-style:normal;letter-spacing:-0.5px;">PurPort</div></div>
-<div class="brand-sub">Scam &amp; Manipulation Check</div>
-{% else %}
 <div class="brand-wrap"><span class="bolt bolt-l">⚡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">⚡</span></div>
 <div class="brand-sub">Dating Intelligence</div>
-{% endif %}
-{% if is_risk %}
-<h1 class="headline">Is this conversation what it claims to be?</h1>
-<p class="choose-lbl">Check the receipts before you trust them — fraud patterns, pressure tactics, manipulation.</p>
-{% else %}
 <h1 class="headline">What's really going on in this chat?</h1>
 <p class="choose-lbl">The read your group chat wishes it could give you.</p>
-{% endif %}
 </div>
 <form id="mf">
-<input type="hidden" id="selMode" value="{{ 'risk' if is_risk else 'connection' }}"/>
+<input type="hidden" id="selMode" value="connection"/>
 <input type="hidden" id="selRole" value="left_white"/>
 <input type="hidden" id="convId" name="conversation_id" value=""/>
 <input type="hidden" id="continueLast" name="continue_last" value="false"/>
@@ -137,7 +220,6 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
   <div class="conv-tab active" id="tabShots" onclick="setInputMode('shots')">📷 Screenshots</div>
   <div class="conv-tab" id="tabPaste" onclick="setInputMode('paste')">✍️ Paste the convo</div>
 </div>
-<!-- continuity toggle -->
 <div class="conv-toggle" id="convToggle">
   <div class="conv-tab active" id="tabNew" onclick="setMode('new')">New conversation</div>
   <div class="conv-tab disabled" id="tabContinue" onclick="setMode('continue')">Continue last</div>
@@ -175,19 +257,17 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 </div>
 <div class="sh">5. Add an optional note <span style="font-weight:400;color:var(--ink-soft);font-size:0.78rem;">(optional)</span></div>
 <textarea class="gl-ta" id="ctx" placeholder="e.g., I'm getting mixed signals from this match…"></textarea>
-<button type="submit" class="cta"><span id="ctaTxt">{{ 'RUN THE SCAM CHECK' if is_risk else 'RUN THE VIBE CHECK' }}</span> <span>✦</span></button>
+<button type="submit" class="cta"><span id="ctaTxt">RUN THE VIBE CHECK</span> <span>✦</span></button>
 <p class="reassure">🔒 Your screenshots stay private — analysed, never shared.</p>
 <div class="privacy-block">
   <div class="pb-row"><span class="pb-i">✓</span>Never used to train AI</div>
   <div class="pb-row"><span class="pb-i">✓</span>Never shared or sold</div>
   <div class="pb-row"><span class="pb-i">✓</span>History on this device expires automatically after 30 days</div>
 </div>
-{% if is_risk %}
-<p style="text-align:center;margin-top:18px;font-size:0.86rem;color:var(--ink-soft);">Reading chemistry instead? <a href="/" style="color:var(--coral-deep);font-weight:700;text-decoration:none;">VibeLenz Vibe Check →</a></p>
-{% else %}
 <p style="text-align:center;margin-top:18px;font-size:0.86rem;color:var(--ink-soft);">Worried it's a scam or manipulation? <a href="/scam-check" style="color:var(--teal);font-weight:700;text-decoration:none;">Check them with PurPort →</a></p>
-{% endif %}
 </form>
+</div>
+</section>
 </div>
 <script>
 function tDD(){document.getElementById('rdd').classList.toggle('open');}
@@ -215,9 +295,6 @@ async function addFiles(fl){
   if(imgs.length){files=files.concat(imgs).slice(0,10);render();}
   for(const v of vids){await extractFrames(v);}
 }
-// Screen recording support: frames are extracted CLIENT-SIDE and enter the
-// normal screenshot pipeline as PNGs. No video ever uploads. Fail-open: any
-// extraction error suggests screenshots/paste instead and never blocks the form.
 async function extractFrames(vf){
   const slots=10-files.length;
   if(slots<=0){alert('Image limit reached — remove some before adding a recording.');return;}
@@ -280,10 +357,6 @@ function render(){
     s.appendChild(el);
   });
 }
-// ===========================================================================
-// Phase 1 continuity: localStorage-backed conversation persistence
-// 30-day expiry. Fails closed: any error treats the visit as new conversation.
-// ===========================================================================
 const CONV_KEY = 'vibelenz_conv';
 const EXPIRY_DAYS = 30;
 const WARN_DAYS = 3;
@@ -309,7 +382,7 @@ function saveConv(conversation_id){
       last_updated: now.toISOString(),
       expires_at: exp.toISOString(),
     }));
-  }catch(e){ /* fail closed: continuity will degrade to new conversation next visit */ }
+  }catch(e){ }
 }
 function setMode(mode){
   const existing = loadConv();
@@ -317,7 +390,7 @@ function setMode(mode){
   const tabCont = document.getElementById('tabContinue');
   const summary = document.getElementById('convSummary');
   if(mode === 'continue'){
-    if(!existing) return; // disabled state — ignore
+    if(!existing) return;
     tabNew.classList.remove('active');
     tabCont.classList.add('active');
     document.getElementById('continueLast').value = 'true';
@@ -343,7 +416,6 @@ async function fetchSummary(cid){
       const lvl = (lb.risk_level || 'LOW').toUpperCase();
       const when = new Date(lb.created_at).toLocaleDateString();
       el.innerHTML = `<span class="cs-pill ${lvl}">${lvl}</span> Continuing — ${data.batch_count} prior batch${data.batch_count>1?'es':''}, last on ${when}`;
-      // Outcome Engine: if the last read left an open prediction, ask what happened.
       if(data.open_prediction){
         const _q = {
           engagement: 'Last read expected them to keep engaging. What happened?',
@@ -360,7 +432,6 @@ async function fetchSummary(cid){
           </div></div>`;
       }
     } else {
-      // Backend says not found — our localStorage is stale. Clear it and reset.
       localStorage.removeItem(CONV_KEY);
       el.classList.remove('show');
       initConvUI();
@@ -372,7 +443,6 @@ async function fetchSummary(cid){
   }
 }
 async function recordOutcome(v){
-  // Fail-open UI: capture failure never blocks the analysis flow.
   try{
     gtag('event','outcome_capture',{'event_category':'outcome_engine','event_label':v});
   }catch(e){}
@@ -381,7 +451,7 @@ async function recordOutcome(v){
       body:JSON.stringify({conversation_id:document.getElementById('convId').value,outcome:v})});
   }catch(e){}
   const box=document.getElementById('outcomeAsk');
-  if(box) box.innerHTML='<span style="font-size:0.75rem;color:#2F7E77;font-weight:700;">Noted — this makes your next read sharper.</span>';
+  if(box) box.innerHTML='<span style="font-size:0.75rem;color:#4FB8AC;font-weight:700;">Noted — this makes your next read sharper.</span>';
 }
 function initConvUI(){
   const existing = loadConv();
@@ -391,7 +461,6 @@ function initConvUI(){
   if(existing){
     tabCont.classList.remove('disabled');
     note.style.display = 'none';
-    // Expiry warning if within WARN_DAYS
     const daysLeft = Math.ceil((new Date(existing.expires_at) - new Date()) / (1000*60*60*24));
     if(daysLeft <= WARN_DAYS && daysLeft > 0){
       expBox.textContent = `Your conversation history expires in ${daysLeft} day${daysLeft>1?'s':''}. Re-open the app within that window to keep it.`;
@@ -402,7 +471,6 @@ function initConvUI(){
     note.style.display = 'block';
     expBox.classList.remove('show');
   }
-  // Always default to "new" on page load
   setMode('new');
 }
 initConvUI();
@@ -424,7 +492,6 @@ document.getElementById('mf').addEventListener('submit', async e => {
   fd.append('conversation_id', document.getElementById('convId').value || '');
   fd.append('continue_last', document.getElementById('continueLast').value || 'false');
   fd.append('other_gender', document.getElementById('otherGender').value || 'unknown');
-  // Preserve UTM attribution on the POST
   const _up = new URLSearchParams();
   ['utm_source', 'utm_medium', 'utm_campaign'].forEach(k => {
     const v = new URLSearchParams(window.location.search).get(k);
@@ -441,11 +508,10 @@ document.getElementById('mf').addEventListener('submit', async e => {
         const _j = await res.json();
         _msg = _j.message || _j.detail || _j.error || _msg;
         if (typeof _msg !== 'string') _msg = JSON.stringify(_msg);
-      } catch (_e) { /* non-JSON error body — keep generic message */ }
+      } catch (_e) { }
       alert(_msg);
       return;
     }
-    // Read conversation_id from response header (set by backend X-Conversation-Id)
     const cid = res.headers.get('X-Conversation-Id');
     if (cid) saveConv(cid);
     const h = await res.text();
