@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>VibeLenz — Vibe Check</title>
 <meta name="description" content="VibeLenz reads your dating conversations like your most honest friend — chemistry, green flags, red flags, and what to say back. Free, private, no account needed."/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Poppins:wght@300;400&display=swap" rel="stylesheet"/>
@@ -11,7 +11,7 @@
 <style>
 :root{--cream:#0A0E14;--cream-2:#111826;--ink:#EAFBFD;--ink-soft:#7FA8B0;--coral:#5FDCE8;--coral-deep:#2FB8C4;--teal:#4FB8AC;--amber:#E8A23B;--card:#0F1720;--line:rgba(95,220,232,0.16);--hud-glow:rgba(95,220,232,0.35);--hud-line:rgba(95,220,232,0.22);}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overflow-x:hidden;
+html,body{min-height:100vh;width:100%;max-width:100%;-webkit-text-size-adjust:100%;font-family:'Inter',sans-serif;color:var(--ink);overflow-x:hidden;
   background:radial-gradient(90% 55% at 50% -8%,#0E2A33 0%,rgba(14,42,51,0) 60%),var(--cream);}
 .page{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 18px 70px;}
 .hd{text-align:center;padding:34px 0 14px;}
@@ -141,9 +141,9 @@ body {
 
 
 /* ===== SPLASH + SWIPE (VibeLenz path only) ===== */
-.swipe-container{display:flex;width:100%;height:100dvh;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-behavior:smooth;-ms-overflow-style:none;scrollbar-width:none;}
+.swipe-container{display:flex;width:100%;max-width:100vw;height:100dvh;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-behavior:smooth;-ms-overflow-style:none;scrollbar-width:none;}
 .swipe-container::-webkit-scrollbar{display:none;}
-.swipe-page{flex:0 0 100%;width:100%;height:100dvh;scroll-snap-align:start;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.swipe-page{flex:0 0 100%;width:100%;min-width:0;height:100dvh;scroll-snap-align:start;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .splash-page{background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
 .splash-inner{display:flex;flex-direction:column;align-items:center;text-align:center;}
 .splash-aperture{width:200px;height:200px;margin-bottom:8px;object-fit:contain;}
