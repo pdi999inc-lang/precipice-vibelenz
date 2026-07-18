@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>VibeLenz â€” Vibe Check</title>
-<meta name="description" content="VibeLenz reads your dating conversations like your most honest friend â€” chemistry, green flags, red flags, and what to say back. Free, private, no account needed."/>
+<title>VibeLenz — Vibe Check</title>
+<meta name="description" content="VibeLenz reads your dating conversations like your most honest friend — chemistry, green flags, red flags, and what to say back. Free, private, no account needed."/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Poppins:wght@300;400&display=swap" rel="stylesheet"/>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-E4TDZ5JEQ7"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-E4TDZ5JEQ7');</script>
@@ -12,7 +12,7 @@
 :root{--cream:#0A0E14;--cream-2:#111826;--ink:#EAFBFD;--ink-soft:#7FA8B0;--coral:#5FDCE8;--coral-deep:#2FB8C4;--teal:#4FB8AC;--amber:#E8A23B;--card:#0F1720;--line:rgba(95,220,232,0.16);--hud-glow:rgba(95,220,232,0.35);--hud-line:rgba(95,220,232,0.22);}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overflow-x:hidden;
-  background:radial-gradient(90% 55% at 50% -8%,#2A1A16 0%,rgba(252,239,224,0) 60%),var(--cream);}
+  background:radial-gradient(90% 55% at 50% -8%,#0E2A33 0%,rgba(14,42,51,0) 60%),var(--cream);}
 .page{position:relative;z-index:1;max-width:480px;margin:0 auto;padding:0 18px 70px;}
 .hd{text-align:center;padding:34px 0 14px;}
 .brand-wrap{position:relative;display:inline-block;}
@@ -27,10 +27,10 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 .mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:18px;}
 .mode-card{border-radius:20px;padding:18px 14px 32px;cursor:pointer;transition:all 0.22s ease;position:relative;
   background:var(--card);border:2px solid var(--line);box-shadow:0 8px 24px -16px rgba(0,0,0,.35);}
-.mode-card.sel{border-color:var(--coral);box-shadow:0 16px 34px -18px rgba(255,59,59,.5);}
+.mode-card.sel{border-color:var(--coral);box-shadow:0 16px 34px -18px rgba(95,220,232,.5);}
 #cR.sel{border-color:var(--teal);box-shadow:0 16px 34px -18px rgba(47,126,119,.45);}
 .m-icon{width:58px;height:58px;margin:0 auto 13px;display:flex;align-items:center;justify-content:center;border-radius:17px;
-  background:linear-gradient(135deg,#3A2420,#3A3020);transition:.22s;}
+  background:linear-gradient(135deg,#16303A,#1A3A42);transition:.22s;}
 #cR .m-icon{background:linear-gradient(135deg,#1E3A36,#16302C);}
 .mode-card.sel .m-icon{background:linear-gradient(135deg,var(--coral),var(--amber));}
 #cR.sel .m-icon{background:linear-gradient(135deg,var(--teal),#6FC9BD);}
@@ -46,10 +46,10 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 .card-ft{position:absolute;bottom:9px;left:50%;transform:translateX(-50%);font-size:0.68rem;white-space:nowrap;font-weight:600;}
 .mode-card.sel .card-ft{color:var(--coral-deep);}
 #cR.sel .card-ft{color:var(--teal);}
-.mode-card:not(.sel) .card-ft{color:rgba(183,145,132,.55);}
+.mode-card:not(.sel) .card-ft{color:rgba(127,168,176,.55);}
 .sh{font-size:0.98rem;font-weight:700;color:var(--ink);margin:24px 0 10px;}
 .up-bar{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px 15px;display:flex;align-items:center;gap:9px;cursor:pointer;transition:border-color 0.2s,background .2s;}
-.up-bar:hover{border-color:var(--coral);background:#2B1C21;}
+.up-bar:hover{border-color:var(--coral);background:#16202C;}
 .up-ic{font-size:1rem;}.up-lbl{font-size:0.9rem;font-weight:700;}.up-cnt{flex:1;font-size:0.82rem;color:var(--ink-soft);}.up-mgr{font-size:0.8rem;color:var(--coral-deep);text-decoration:underline;cursor:pointer;}
 #fi{display:none;}
 .thumbs{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;}
@@ -62,19 +62,19 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 .drag-hint{font-size:0.72rem;color:var(--ink-soft);margin-top:6px;display:none;}
 @keyframes pop{from{opacity:0;transform:scale(0.7);}to{opacity:1;transform:scale(1);}}
 @keyframes shine{0%,100%{left:-75%;}60%{left:130%;}}
-.gl-sel{font-family:'Inter',sans-serif;font-size:0.9rem;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:14px 42px 14px 15px;width:100%;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer;transition:border-color .15s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23B79184' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center;}
+.gl-sel{font-family:'Inter',sans-serif;font-size:0.9rem;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:14px 42px 14px 15px;width:100%;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer;transition:border-color .15s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237FA8B0' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center;}
 .gl-sel:focus{border-color:var(--coral);}
-.gl-sel option{background:#2B1C21;color:var(--ink);}
+.gl-sel option{background:#16202C;color:var(--ink);}
 .role-wrap{position:relative;}
 .role-disp{background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:14px 15px;font-size:0.9rem;color:var(--ink);cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;transition:border-color .15s;}
 .role-disp:hover{border-color:var(--coral);}
-.role-dd{display:none;position:absolute;right:0;top:0;min-width:210px;background:#2B1C21;border:1px solid var(--line);border-radius:16px;overflow:hidden;z-index:20;box-shadow:0 18px 44px -18px rgba(0,0,0,.45);}
+.role-dd{display:none;position:absolute;right:0;top:0;min-width:210px;background:#16202C;border:1px solid var(--line);border-radius:16px;overflow:hidden;z-index:20;box-shadow:0 18px 44px -18px rgba(0,0,0,.45);}
 .role-dd.open{display:block;}
 .r-opt{padding:12px 15px;font-size:0.88rem;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;}
-.r-opt:hover{background:#2B1C21;}
-.r-opt.act{background:#2B1C21;}
+.r-opt:hover{background:#16202C;}
+.r-opt.act{background:#16202C;}
 .rav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;}
-.rav-b{background:linear-gradient(135deg,var(--coral),var(--coral-deep));}.rav-p{background:linear-gradient(135deg,var(--teal),#6FC9BD);}.rav-v{background:linear-gradient(135deg,var(--amber),#E8A23B);}
+.rav-b{background:linear-gradient(135deg,var(--coral),var(--coral-deep));}.rav-p{background:linear-gradient(135deg,var(--teal),#6FC9BD);}.rav-v{background:linear-gradient(135deg,var(--amber),#C4821F);}
 .r-arr{color:var(--ink-soft);font-size:0.7rem;}
 .gl-ta{font-family:'Inter',sans-serif;font-size:0.88rem;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:14px 15px;width:100%;resize:none;height:70px;outline:none;transition:border-color .15s;}
 .gl-ta:focus{border-color:var(--coral);}
@@ -83,7 +83,7 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 .cta::before{content:'';position:absolute;top:-50%;left:-75%;width:50%;height:200%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);transform:skewX(-20deg);animation:shine 2.6s ease-in-out infinite;}
 .cta:hover{transform:translateY(-2px);box-shadow:0 22px 40px -14px var(--coral-deep);}
 .reassure{text-align:center;font-size:0.8rem;color:var(--ink-soft);margin-top:14px;}
-.ov{display:none;position:fixed;inset:0;background:rgba(26,16,19,0.94);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(6px);}
+.ov{display:none;position:fixed;inset:0;background:rgba(10,14,20,0.94);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:14px;backdrop-filter:blur(6px);}
 .ov.on{display:flex;}
 .sp{width:52px;height:52px;border:3px solid rgba(95,220,232,0.22);border-top-color:var(--coral);border-radius:50%;animation:rot .8s linear infinite;}
 @keyframes rot{to{transform:rotate(360deg);}}
@@ -91,14 +91,14 @@ html,body{min-height:100vh;font-family:'Inter',sans-serif;color:var(--ink);overf
 /* continuity: toggle + summary */
 .conv-toggle{display:flex;gap:8px;margin-bottom:10px;padding:4px;background:var(--cream-2);border:1px solid var(--line);border-radius:13px;}
 .conv-tab{flex:1;padding:11px 12px;border-radius:10px;font-size:0.83rem;font-weight:700;cursor:pointer;text-align:center;color:var(--ink-soft);transition:all 0.2s;user-select:none;}
-.conv-tab.active{background:#2B1C21;color:var(--ink);box-shadow:0 8px 22px -14px rgba(0,0,0,.4);}
+.conv-tab.active{background:#16202C;color:var(--ink);box-shadow:0 8px 22px -14px rgba(0,0,0,.4);}
 .conv-tab.disabled{opacity:0.4;cursor:not-allowed;}
-.conv-summary{background:#2B1C21;border:1px solid rgba(95,220,232,0.22);border-radius:11px;padding:11px 13px;margin-bottom:10px;font-size:0.79rem;color:var(--ink-soft);line-height:1.5;display:none;}
+.conv-summary{background:#16202C;border:1px solid rgba(95,220,232,0.22);border-radius:11px;padding:11px 13px;margin-bottom:10px;font-size:0.79rem;color:var(--ink-soft);line-height:1.5;display:none;}
 .conv-summary.show{display:block;}
 .conv-summary .cs-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:0.7rem;font-weight:700;margin-right:6px;}
 .conv-summary .cs-pill.LOW{background:rgba(47,126,119,0.15);color:var(--teal);}
 .conv-summary .cs-pill.MEDIUM{background:rgba(232,162,59,0.22);color:#E8A23B;}
-.conv-summary .cs-pill.HIGH{background:rgba(255,59,59,0.16);color:var(--coral-deep);}
+.conv-summary .cs-pill.HIGH{background:rgba(232,90,90,0.18);color:#F08A8A;}
 .conv-expiry{background:rgba(232,162,59,0.14);border:1px solid rgba(232,162,59,0.4);border-radius:11px;padding:10px 13px;margin-bottom:10px;font-size:0.77rem;color:#E8A23B;display:none;}
 .conv-expiry.show{display:block;}
 .conv-disabled-note{font-size:0.7rem;color:var(--ink-soft);margin-top:3px;text-align:center;font-style:italic;}
@@ -162,7 +162,7 @@ body {
 </style>
 </head>
 <body>
-<div class="ov" id="ov"><div class="sp"></div><div class="ov-t">Reading the vibeâ€¦</div><div class="ov-s">Looking over your conversation</div></div>
+<div class="ov" id="ov"><div class="sp"></div><div class="ov-t">Reading the vibe…</div><div class="ov-s">Looking over your conversation</div></div>
 <div class="swipe-container" id="swipeContainer">
 <section class="swipe-page splash-page" id="splashPage">
   <div class="splash-inner">
@@ -178,7 +178,7 @@ body {
 <section class="swipe-page" id="formPage">
 <div class="page">
 <div class="hd">
-<div class="brand-wrap"><span class="bolt bolt-l">âš¡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">âš¡</span></div>
+<div class="brand-wrap"><span class="bolt bolt-l">⚡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">⚡</span></div>
 <div class="brand-sub">Dating Intelligence</div>
 <h1 class="headline">What's really going on in this chat?</h1>
 <p class="choose-lbl">The read your group chat wishes it could give you.</p>
@@ -189,10 +189,10 @@ body {
 <input type="hidden" id="convId" name="conversation_id" value=""/>
 <input type="hidden" id="continueLast" name="continue_last" value="false"/>
 <input type="hidden" id="otherGender" name="other_gender" value="unknown"/>
-<div class="sh" id="step1Lbl">1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">â€” screenshots, oldest first</span></div>
+<div class="sh" id="step1Lbl">1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— screenshots, oldest first</span></div>
 <div class="conv-toggle" id="inputToggle">
-  <div class="conv-tab active" id="tabShots" onclick="setInputMode('shots')">ðŸ“· Screenshots</div>
-  <div class="conv-tab" id="tabPaste" onclick="setInputMode('paste')">âœï¸ Paste the convo</div>
+  <div class="conv-tab active" id="tabShots" onclick="setInputMode('shots')">📷 Screenshots</div>
+  <div class="conv-tab" id="tabPaste" onclick="setInputMode('paste')">✍️ Paste the convo</div>
 </div>
 <!-- continuity toggle -->
 <div class="conv-toggle" id="convToggle">
@@ -203,15 +203,15 @@ body {
 <div class="conv-expiry" id="convExpiry"></div>
 <div class="conv-summary" id="convSummary"></div>
 <div class="up-bar" id="upBar" onclick="document.getElementById('fi').click()">
-<span class="up-ic">ðŸ“·</span><span class="up-lbl">Screenshots or screen recording</span>
+<span class="up-ic">📷</span><span class="up-lbl">Screenshots or screen recording</span>
 <span class="up-cnt" id="upCnt"></span>
 <span class="up-mgr" id="upMgr" style="display:none" onclick="event.stopPropagation();clearFiles()">Manage</span>
 <input type="file" id="fi" accept="image/png,image/jpeg,image/jpg,video/mp4,video/quicktime,video/webm" multiple onchange="addFiles(this.files)"/>
 </div>
 <div class="thumbs" id="thumbs"></div>
-<div class="drag-hint" id="dragHint">drag to reorder â€” oldest screenshot first</div>
+<div class="drag-hint" id="dragHint">drag to reorder — oldest screenshot first</div>
 <div id="pasteWrap" style="display:none;">
-<textarea class="gl-ta" id="pasteBox" style="height:150px;" placeholder="paste the conversation here â€” oldest messages first&#10;&#10;tip: start their lines with THEM: and yours with YOU: for the sharpest read"></textarea>
+<textarea class="gl-ta" id="pasteBox" style="height:150px;" placeholder="paste the conversation here — oldest messages first&#10;&#10;tip: start their lines with THEM: and yours with YOU: for the sharpest read"></textarea>
 </div>
 <div class="sh">2. Who are you talking to?</div>
 <select class="gl-sel" id="relType"><option value="stranger">Stranger / New person</option><option value="match">Dating app match</option><option value="friend">Friend</option><option value="ex">Ex / Past partner</option><option value="partner">Current partner</option></select>
@@ -223,23 +223,23 @@ body {
 </select>
 <div class="sh">4. Which side are you?</div>
 <div class="role-wrap">
-<div class="role-disp" onclick="tDD()"><span id="rlbl">Left / White</span><span class="r-arr">â–¾</span></div>
+<div class="role-disp" onclick="tDD()"><span id="rlbl">Left / White</span><span class="r-arr">▾</span></div>
 <div class="role-dd" id="rdd">
-<div class="r-opt" id="ro-left_white" class="r-opt act" onclick="setRole('left_white','Left / White')"><div class="rav rav-b">ðŸ‘¤</div><span>Left / White</span></div>
-<div class="r-opt" id="ro-right_blue" onclick="setRole('right_blue','Right / Blue or Green')"><div class="rav rav-p">ðŸ‘¤</div><span>Right / Blue or Green</span></div>
-<div class="r-opt" id="ro-mix" onclick="setRole('mix','Mix of roles')"><div class="rav rav-v">ðŸ‘¥</div><span>Mix of roles</span></div>
+<div class="r-opt act" id="ro-left_white" onclick="setRole('left_white','Left / White')"><div class="rav rav-b">👤</div><span>Left / White</span></div>
+<div class="r-opt" id="ro-right_blue" onclick="setRole('right_blue','Right / Blue or Green')"><div class="rav rav-p">👤</div><span>Right / Blue or Green</span></div>
+<div class="r-opt" id="ro-mix" onclick="setRole('mix','Mix of roles')"><div class="rav rav-v">👥</div><span>Mix of roles</span></div>
 </div>
 </div>
 <div class="sh">5. Add an optional note <span style="font-weight:400;color:var(--ink-soft);font-size:0.78rem;">(optional)</span></div>
-<textarea class="gl-ta" id="ctx" placeholder="e.g., I'm getting mixed signals from this matchâ€¦"></textarea>
-<button type="submit" class="cta"><span id="ctaTxt">RUN THE VIBE CHECK</span> <span>âœ¦</span></button>
-<p class="reassure">ðŸ”’ Your screenshots stay private â€” analysed, never shared.</p>
+<textarea class="gl-ta" id="ctx" placeholder="e.g., I'm getting mixed signals from this match…"></textarea>
+<button type="submit" class="cta"><span id="ctaTxt">RUN THE VIBE CHECK</span> <span>✦</span></button>
+<p class="reassure">🔒 Your screenshots stay private — analysed, never shared.</p>
 <div class="privacy-block">
-  <div class="pb-row"><span class="pb-i">âœ“</span>Never used to train AI</div>
-  <div class="pb-row"><span class="pb-i">âœ“</span>Never shared or sold</div>
-  <div class="pb-row"><span class="pb-i">âœ“</span>History on this device expires automatically after 30 days</div>
+  <div class="pb-row"><span class="pb-i">✓</span>Never used to train AI</div>
+  <div class="pb-row"><span class="pb-i">✓</span>Never shared or sold</div>
+  <div class="pb-row"><span class="pb-i">✓</span>History on this device expires automatically after 30 days</div>
 </div>
-<p style="text-align:center;margin-top:18px;font-size:0.86rem;color:var(--ink-soft);">Worried it's a scam or manipulation? <a href="/scam-check" style="color:var(--teal);font-weight:700;text-decoration:none;">Check them with PurPort â†’</a></p>
+<p style="text-align:center;margin-top:18px;font-size:0.86rem;color:var(--ink-soft);">Worried it's a scam or manipulation? <a href="/scam-check" style="color:var(--teal);font-weight:700;text-decoration:none;">Check them with PurPort →</a></p>
 </form>
 </div>
 </section>
@@ -258,8 +258,8 @@ function setInputMode(m){
   document.getElementById('dragHint').style.display=(m==='shots'&&files.length>1)?'block':'none';
   document.getElementById('pasteWrap').style.display=m==='paste'?'block':'none';
   document.getElementById('step1Lbl').innerHTML=m==='paste'
-    ?'1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">â€” paste the conversation, oldest first</span>'
-    :'1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">â€” screenshots, oldest first</span>';
+    ?'1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— paste the conversation, oldest first</span>'
+    :'1. Drop the receipts <span style="font-size:0.72rem;font-weight:400;opacity:0.6;letter-spacing:0.01em;">— screenshots, oldest first</span>';
 }
 let files=[];
 let _dragSrc=-1;
@@ -275,10 +275,10 @@ async function addFiles(fl){
 // extraction error suggests screenshots/paste instead and never blocks the form.
 async function extractFrames(vf){
   const slots=10-files.length;
-  if(slots<=0){alert('Image limit reached â€” remove some before adding a recording.');return;}
+  if(slots<=0){alert('Image limit reached — remove some before adding a recording.');return;}
   const ov=document.getElementById('ov');
   const ovT=ov.querySelector('.ov-t'),ovS=ov.querySelector('.ov-s');
-  ovT.textContent='Pulling framesâ€¦';ovS.textContent='Reading your screen recording';
+  ovT.textContent='Pulling frames…';ovS.textContent='Reading your screen recording';
   ov.classList.add('on');
   try{
     const url=URL.createObjectURL(vf);
@@ -301,13 +301,13 @@ async function extractFrames(vf){
     URL.revokeObjectURL(url);
     render();
     const h=document.getElementById('dragHint');
-    h.textContent='frames pulled from your recording â€” remove duplicates, keep oldest first';
+    h.textContent='frames pulled from your recording — remove duplicates, keep oldest first';
     h.style.display='block';
   }catch(e){
-    alert("Couldn't read that recording on this device â€” screenshots or pasting the text works every time.");
+    alert("Couldn't read that recording on this device — screenshots or pasting the text works every time.");
   }
   ov.classList.remove('on');
-  ovT.textContent='Reading the vibeâ€¦';ovS.textContent='Looking over your conversation';
+  ovT.textContent='Reading the vibe…';ovS.textContent='Looking over your conversation';
 }
 function removeFile(i){files.splice(i,1);render();}
 function clearFiles(){files=[];render();}
@@ -321,7 +321,7 @@ function render(){
   files.forEach((f,i)=>{
     const u=URL.createObjectURL(f),el=document.createElement('div');
     el.className='ti';el.draggable=true;
-    el.innerHTML=`<img src="${u}" alt=""/><button type="button" class="ti-rm" onclick="removeFile(${i})">âœ•</button><div class="ti-num">${i+1}</div>`;
+    el.innerHTML=`<img src="${u}" alt=""/><button type="button" class="ti-rm" onclick="removeFile(${i})">✕</button><div class="ti-num">${i+1}</div>`;
     el.addEventListener('dragstart',()=>{_dragSrc=i;});
     el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
     el.addEventListener('dragleave',()=>{el.classList.remove('drag-over');});
@@ -372,7 +372,7 @@ function setMode(mode){
   const tabCont = document.getElementById('tabContinue');
   const summary = document.getElementById('convSummary');
   if(mode === 'continue'){
-    if(!existing) return; // disabled state â€” ignore
+    if(!existing) return; // disabled state — ignore
     tabNew.classList.remove('active');
     tabCont.classList.add('active');
     document.getElementById('continueLast').value = 'true';
@@ -388,7 +388,7 @@ function setMode(mode){
 }
 async function fetchSummary(cid){
   const el = document.getElementById('convSummary');
-  el.innerHTML = 'Loading prior readâ€¦';
+  el.innerHTML = 'Loading prior read…';
   el.classList.add('show');
   try{
     const res = await fetch(`/conversation/${cid}/summary`);
@@ -397,15 +397,15 @@ async function fetchSummary(cid){
       const lb = data.last_batch;
       const lvl = (lb.risk_level || 'LOW').toUpperCase();
       const when = new Date(lb.created_at).toLocaleDateString();
-      el.innerHTML = `<span class="cs-pill ${lvl}">${lvl}</span> Continuing â€” ${data.batch_count} prior batch${data.batch_count>1?'es':''}, last on ${when}`;
+      el.innerHTML = `<span class="cs-pill ${lvl}">${lvl}</span> Continuing — ${data.batch_count} prior batch${data.batch_count>1?'es':''}, last on ${when}`;
       // Outcome Engine: if the last read left an open prediction, ask what happened.
       if(data.open_prediction){
         const _q = {
           engagement: 'Last read expected them to keep engaging. What happened?',
           fade: 'Last read flagged fade risk. What happened?',
           escalation: 'Last read flagged pressure. What happened since?',
-          steady: 'Since your last read â€” how did it go?'
-        }[data.open_prediction.prediction_type] || 'Since your last read â€” how did it go?';
+          steady: 'Since your last read — how did it go?'
+        }[data.open_prediction.prediction_type] || 'Since your last read — how did it go?';
         el.innerHTML += `<div id="outcomeAsk" style="margin-top:10px;">
           <div style="font-weight:700;margin-bottom:7px;">${_q}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -415,7 +415,7 @@ async function fetchSummary(cid){
           </div></div>`;
       }
     } else {
-      // Backend says not found â€” our localStorage is stale. Clear it and reset.
+      // Backend says not found — our localStorage is stale. Clear it and reset.
       localStorage.removeItem(CONV_KEY);
       el.classList.remove('show');
       initConvUI();
@@ -436,7 +436,7 @@ async function recordOutcome(v){
       body:JSON.stringify({conversation_id:document.getElementById('convId').value,outcome:v})});
   }catch(e){}
   const box=document.getElementById('outcomeAsk');
-  if(box) box.innerHTML='<span style="font-size:0.75rem;color:#4FB8AC;font-weight:700;">Noted â€” this makes your next read sharper.</span>';
+  if(box) box.innerHTML='<span style="font-size:0.75rem;color:#4FB8AC;font-weight:700;">Noted — this makes your next read sharper.</span>';
 }
 function initConvUI(){
   const existing = loadConv();
@@ -496,7 +496,7 @@ document.getElementById('mf').addEventListener('submit', async e => {
         const _j = await res.json();
         _msg = _j.message || _j.detail || _j.error || _msg;
         if (typeof _msg !== 'string') _msg = JSON.stringify(_msg);
-      } catch (_e) { /* non-JSON error body â€” keep generic message */ }
+      } catch (_e) { /* non-JSON error body — keep generic message */ }
       alert(_msg);
       return;
     }
