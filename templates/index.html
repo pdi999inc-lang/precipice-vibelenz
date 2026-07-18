@@ -141,9 +141,9 @@ body {
 
 
 /* ===== SPLASH + SWIPE (VibeLenz path only) ===== */
-.swipe-container{display:flex;width:100%;max-width:100vw;height:100dvh;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-behavior:smooth;-ms-overflow-style:none;scrollbar-width:none;}
+.swipe-container{display:flex;flex-direction:column;width:100%;max-width:100%;overflow-x:hidden;scroll-behavior:smooth;-ms-overflow-style:none;scrollbar-width:none;}
 .swipe-container::-webkit-scrollbar{display:none;}
-.swipe-page{flex:0 0 100%;width:100%;min-width:0;height:100dvh;scroll-snap-align:start;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.swipe-page{width:100%;min-width:0;min-height:100dvh;}
 .splash-page{background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
 .splash-inner{display:flex;flex-direction:column;align-items:center;text-align:center;}
 .splash-aperture{width:200px;height:200px;margin-bottom:8px;object-fit:contain;}
@@ -172,7 +172,7 @@ body {
   </div>
   <button type="button" class="swipe-hint" id="swipeHint" onclick="document.getElementById('formPage').scrollIntoView({behavior:'smooth'})" aria-label="Continue to start your check">
     <span class="swipe-chevron">&rsaquo;</span>
-    <span class="swipe-hint-text">Swipe to begin</span>
+    <span class="swipe-hint-text">Scroll to begin</span>
   </button>
 </section>
 <section class="swipe-page" id="formPage">
