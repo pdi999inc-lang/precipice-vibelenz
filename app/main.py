@@ -454,6 +454,14 @@ async def analyze_screenshots(
         logger.warning(f"[{request_id}] Prompt injection in context_note. Matched: {_cn_match!r}. Clearing.")
         context_note = ""
 
+    # Load-test latency simulation. No-op unless VIBELENZ_LOADTEST=1 (staging only).
+    # Mimics the Anthropic vision+analysis round-trip so concurrency/memory behave
+    # like production without making real API calls. Never enabled in production.
+    from app import loadtest_mode as _loadtest
+    if _loadtest.ENABLED:
+        import asyncio as _asyncio
+        await _asyncio.sleep(_loadtest.simulated_latency_seconds(len(files)))
+
     # --- Analysis ---
     analysis_error: str | None = None
 
