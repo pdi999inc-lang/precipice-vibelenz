@@ -25,7 +25,7 @@
       --hud-line: rgba(95,220,232,0.22);
     }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: 'Inter', Arial, Helvetica, sans-serif; background: radial-gradient(90% 45% at 50% -6%, #0E1F26 0%, rgba(10,14,20,0) 60%), #0A0E14; color: var(--text); }
+    body { margin: 0; font-family: 'Inter', Arial, Helvetica, sans-serif; background: radial-gradient(90% 45% at 50% -6%, #0E1F26 0%, rgba(10,14,20,0) 60%), #0A0E14; color: var(--text); overflow-x: hidden; }
     .page { max-width: 1120px; margin: 0 auto; padding: 28px 18px 50px; }
     .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
     .title { margin: 0 0 8px; font-size: 32px; font-weight: 800; letter-spacing: -0.4px; }
@@ -232,6 +232,9 @@
     .tab-item.active { color: var(--coral); }
     .tab-item-icon { font-size: 17px; }
     .tab-item.disabled { opacity: 0.4; }
+    .rl-swipe { display: flex; flex-direction: row; align-items: flex-start; transition: transform .35s cubic-bezier(.22,.61,.36,1); touch-action: pan-y; }
+    .rl-swipe.dragging { transition: none; }
+    .rl-panel { width: 100vw; min-width: 100vw; flex-shrink: 0; min-height: 100dvh; }
     @media (max-width: 860px) {
       .stat-tiles { grid-template-columns: repeat(3, 1fr); gap: 8px; }
       .gauge-wrap { width: 160px; height: 160px; }
@@ -240,6 +243,8 @@
 </style>
 </head>
 <body>
+  <div class="rl-swipe" id="rlSwipe">
+  <section class="rl-panel" data-tab="overview">
   <div class="page">
     {% set risk_text = (risk_level or risk_label or 'LOW')|string|upper %}
     {% set is_withheld = risk_text == 'WITHHELD' %}
@@ -897,11 +902,40 @@
     </script>
     <a class="footer-link" href="/">← Analyze another conversation</a>
   </div>
-  <div class="bottom-tabs">
-    <div class="tab-item active"><span class="tab-item-icon">&#8962;</span>Overview</div>
-    <div class="tab-item disabled"><span class="tab-item-icon">&#128202;</span>Analytics</div>
-    <div class="tab-item disabled"><span class="tab-item-icon">&#128196;</span>Reports</div>
-    <div class="tab-item disabled"><span class="tab-item-icon">&#9881;</span>Settings</div>
+  </section>
+  <section class="rl-panel" data-tab="analytics">
+    <div class="page">
+      <div class="hero">
+        <div class="dash-eyebrow">Analytics</div>
+        <div class="dash-title">Coming soon</div>
+        <p class="connection-read">Trend tracking across your reads will live here.</p>
+      </div>
+    </div>
+  </section>
+  <section class="rl-panel" data-tab="reports">
+    <div class="page">
+      <div class="hero">
+        <div class="dash-eyebrow">Reports</div>
+        <div class="dash-title">Coming soon</div>
+        <p class="connection-read">Exportable summaries of your reads will live here.</p>
+      </div>
+    </div>
+  </section>
+  <section class="rl-panel" data-tab="settings">
+    <div class="page">
+      <div class="hero">
+        <div class="dash-eyebrow">Settings</div>
+        <div class="dash-title">Coming soon</div>
+        <p class="connection-read">Account and privacy controls will live here.</p>
+      </div>
+    </div>
+  </section>
+  </div>
+  <div class="bottom-tabs" id="rlTabs">
+    <div class="tab-item active" onclick="window.rlGoTo&&window.rlGoTo(0)"><span class="tab-item-icon">&#8962;</span>Overview</div>
+    <div class="tab-item" onclick="window.rlGoTo&&window.rlGoTo(1)"><span class="tab-item-icon">&#128202;</span>Analytics</div>
+    <div class="tab-item" onclick="window.rlGoTo&&window.rlGoTo(2)"><span class="tab-item-icon">&#128196;</span>Reports</div>
+    <div class="tab-item" onclick="window.rlGoTo&&window.rlGoTo(3)"><span class="tab-item-icon">&#9881;</span>Settings</div>
   </div>
 <script>
 try {
@@ -913,6 +947,53 @@ try {
     "degraded":{{ 'true' if degraded else 'false' }}
   });
 } catch(e) { /* ignore */ }
+</script>
+<script>
+(function(){
+  var container=document.getElementById('rlSwipe');
+  if(!container) return;
+  var panels=container.querySelectorAll('.rl-panel');
+  var tabs=document.querySelectorAll('#rlTabs .tab-item');
+  var n=panels.length,idx=0,vw=window.innerWidth;
+  var startX=0,startY=0,deltaX=0,dragging=false,axisLocked=null;
+  window.addEventListener('resize',function(){vw=window.innerWidth;goTo(idx,false);});
+  function setActiveTab(i){tabs.forEach(function(t,ti){t.classList.toggle('active',ti===i);});}
+  function goTo(i,animate){
+    idx=Math.max(0,Math.min(n-1,i));
+    container.style.transition=animate===false?'none':'';
+    container.style.transform='translateX('+(-idx*100)+'vw)';
+    setActiveTab(idx);
+  }
+  window.rlGoTo=goTo;
+  function onStart(x,y){dragging=true;axisLocked=null;startX=x;startY=y;deltaX=0;container.classList.add('dragging');}
+  function onMove(x,y){
+    if(!dragging)return;
+    var dx=x-startX,dy=y-startY;
+    if(axisLocked===null){if(Math.abs(dx)>8||Math.abs(dy)>8)axisLocked=Math.abs(dx)>Math.abs(dy)?'x':'y';}
+    if(axisLocked==='y')return;
+    deltaX=dx;
+    if((idx===0&&deltaX>0)||(idx===n-1&&deltaX<0))deltaX*=0.35;
+    container.style.transform='translateX('+((-idx*100)+(deltaX/vw*100))+'vw)';
+  }
+  function onEnd(){
+    if(!dragging)return;
+    dragging=false;container.classList.remove('dragging');
+    if(axisLocked==='x'){
+      var th=vw*0.18;
+      if(deltaX<-th&&idx<n-1)idx++;
+      else if(deltaX>th&&idx>0)idx--;
+    }
+    goTo(idx);
+  }
+  container.addEventListener('touchstart',function(e){var t=e.touches[0];onStart(t.clientX,t.clientY);},{passive:true});
+  container.addEventListener('touchmove',function(e){var t=e.touches[0];onMove(t.clientX,t.clientY);},{passive:true});
+  container.addEventListener('touchend',onEnd);
+  container.addEventListener('touchcancel',onEnd);
+  var mouseDown=false;
+  container.addEventListener('mousedown',function(e){mouseDown=true;onStart(e.clientX,e.clientY);});
+  window.addEventListener('mousemove',function(e){if(mouseDown)onMove(e.clientX,e.clientY);});
+  window.addEventListener('mouseup',function(){if(mouseDown){mouseDown=false;onEnd();}});
+})();
 </script>
 </body>
 </html>
