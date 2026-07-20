@@ -141,9 +141,10 @@ body {
 
 
 /* ===== SPLASH + SWIPE (VibeLenz path only) ===== */
-.swipe-container{display:flex;flex-direction:column;width:100%;max-width:100%;overflow-x:hidden;scroll-behavior:smooth;-ms-overflow-style:none;scrollbar-width:none;}
+.swipe-container{display:flex;flex-direction:row;transition:transform .35s cubic-bezier(.22,.61,.36,1);touch-action:pan-y;}
+.swipe-container.dragging{transition:none;}
 .swipe-container::-webkit-scrollbar{display:none;}
-.swipe-page{width:100%;min-width:0;min-height:100dvh;}
+.swipe-page{width:100vw;min-width:100vw;min-height:100dvh;flex-shrink:0;}
 .splash-page{background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
 .splash-inner{display:flex;flex-direction:column;align-items:center;text-align:center;}
 .splash-aperture{width:200px;height:200px;margin-bottom:8px;object-fit:contain;}
@@ -170,9 +171,9 @@ body {
     <div class="splash-word">VibeLenz</div>
     <div class="splash-tagline">Analyze the Vibe.</div>
   </div>
-  <button type="button" class="swipe-hint" id="swipeHint" onclick="document.getElementById('formPage').scrollIntoView({behavior:'smooth'})" aria-label="Continue to start your check">
+  <button type="button" class="swipe-hint" id="swipeHint" onclick="window.goToSwipe && window.goToSwipe(1)" aria-label="Continue to start your check">
     <span class="swipe-chevron">&rsaquo;</span>
-    <span class="swipe-hint-text">Scroll to begin</span>
+    <span class="swipe-hint-text">Swipe or tap to begin</span>
   </button>
 </section>
 <section class="swipe-page" id="formPage">
@@ -510,6 +511,50 @@ document.getElementById('mf').addEventListener('submit', async e => {
     alert('Network error.');
   }
 });
+</script>
+<script>
+(function(){
+  var container=document.getElementById('swipeContainer');
+  if(!container) return;
+  var pages=container.querySelectorAll('.swipe-page');
+  var n=pages.length,idx=0,vw=window.innerWidth;
+  var startX=0,startY=0,deltaX=0,dragging=false,axisLocked=null;
+  window.addEventListener('resize',function(){vw=window.innerWidth;goTo(idx,false);});
+  function goTo(i,animate){
+    idx=Math.max(0,Math.min(n-1,i));
+    container.style.transition=animate===false?'none':'';
+    container.style.transform='translateX('+(-idx*100)+'vw)';
+  }
+  window.goToSwipe=goTo;
+  function onStart(x,y){dragging=true;axisLocked=null;startX=x;startY=y;deltaX=0;container.classList.add('dragging');}
+  function onMove(x,y){
+    if(!dragging)return;
+    var dx=x-startX,dy=y-startY;
+    if(axisLocked===null){if(Math.abs(dx)>8||Math.abs(dy)>8)axisLocked=Math.abs(dx)>Math.abs(dy)?'x':'y';}
+    if(axisLocked==='y')return;
+    deltaX=dx;
+    if((idx===0&&deltaX>0)||(idx===n-1&&deltaX<0))deltaX*=0.35;
+    container.style.transform='translateX('+((-idx*100)+(deltaX/vw*100))+'vw)';
+  }
+  function onEnd(){
+    if(!dragging)return;
+    dragging=false;container.classList.remove('dragging');
+    if(axisLocked==='x'){
+      var th=vw*0.18;
+      if(deltaX<-th&&idx<n-1)idx++;
+      else if(deltaX>th&&idx>0)idx--;
+    }
+    goTo(idx);
+  }
+  container.addEventListener('touchstart',function(e){var t=e.touches[0];onStart(t.clientX,t.clientY);},{passive:true});
+  container.addEventListener('touchmove',function(e){var t=e.touches[0];onMove(t.clientX,t.clientY);},{passive:true});
+  container.addEventListener('touchend',onEnd);
+  container.addEventListener('touchcancel',onEnd);
+  var mouseDown=false;
+  container.addEventListener('mousedown',function(e){mouseDown=true;onStart(e.clientX,e.clientY);});
+  window.addEventListener('mousemove',function(e){if(mouseDown)onMove(e.clientX,e.clientY);});
+  window.addEventListener('mouseup',function(){if(mouseDown){mouseDown=false;onEnd();}});
+})();
 </script>
 </body>
 </html>
