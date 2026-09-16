@@ -836,7 +836,7 @@ def _build_research_patch(text: Any, relationship_type: str) -> Dict[str, Any]:
     coaching = {
         "relationship_rubric": (
             _build_relationship_rubric(text, data_sufficiency)
-            if relationship_type in {"dating", "family", "friend", "business"}
+            if relationship_type in {"dating", "family", "friend", "business", "match", "partner", "ex"}
             else {
                 "status": "not_applicable",
                 "confidence": "low",
@@ -1455,7 +1455,7 @@ def _assign_lane(
         if connection_label and connection_label in connection_labels and not extraction_present and not pressure_present:
             return {"lane": "BENIGN", "primary_label": connection_label}
         return {"lane": "DATING_AMBIGUOUS", "primary_label": "mixed_intent"}
-    if relationship_type in {"dating", "family", "friend"} and not extraction_present and not pressure_present:
+    if relationship_type in {"dating", "family", "friend", "match", "partner", "ex"} and not extraction_present and not pressure_present:
         return {"lane": "RELATIONSHIP_NORMAL", "primary_label": "relationship_context"}
     if connection_label and connection_label in connection_labels and not extraction_present and not pressure_present:
         return {"lane": "BENIGN", "primary_label": connection_label}
@@ -1779,8 +1779,116 @@ def _check_prompt_injection(text: str):
         return True, m.group(0)[:80]
     return False, ""
 
+_DUAL_PROMPT_RELATIONSHIP_TYPES = {"match", "ex"}
+_RELATIONSHIP_ONLY_TYPES = {"dating", "family", "friend", "business", "partner"}
+_DUAL_PROMPT_LANE_THRESHOLD = 60  # matches the COERCION_RISK cutoff used elsewhere
+
+
+def _call_claude_prompt(client, active_prompt: str, user_content: str) -> Dict[str, Any]:
+    """Single Claude API call + JSON parse. Raises on any failure — caller decides fallback."""
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=2400,
+        system=active_prompt,
+        messages=[{"role": "user", "content": user_content}],
+    )
+    raw = message.content[0].text.strip()
+    logger.info("Claude response: %s", raw[:300])
+    return _extract_first_json_object(raw)
+
+
+def _merge_dual_prompt_results(fraud_result: Dict[str, Any], relationship_result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Merge SYSTEM_PROMPT (fraud/scam) and RELATIONSHIP_PROMPT (dynamics) raw results
+    for relationship types where both frameworks plausibly apply (match, ex).
+
+    Safety-conservative merge rules:
+      - risk_score: max of both — a risk signal from either framework controls.
+      - flags / active_combos / positive_signals: unioned, deduped.
+      - evidence: unioned; fraud result wins on key collisions (safety-critical signal).
+      - vie_action: the more severe (protective) of the two.
+      - confidence: min of both — disagreement between frameworks lowers stated confidence.
+      - summary / recommended_action / phase / primary_label: fraud framework wins if the
+        fraud call's own risk_score crosses the risk-lane threshold, otherwise the higher-
+        scoring framework wins (fraud wins ties).
+      - signal_breakdown: fraud-only (relationship prompt schema does not emit this field).
+    """
+    def _as_list(value):
+        return value if isinstance(value, list) else []
+
+    fraud_score = max(0, min(100, int(fraud_result.get("risk_score", 0) or 0)))
+    relationship_score = max(0, min(100, int(relationship_result.get("risk_score", 0) or 0)))
+    merged_score = max(fraud_score, relationship_score)
+
+    fraud_lane_fired = fraud_score >= _DUAL_PROMPT_LANE_THRESHOLD
+    fraud_leads = fraud_lane_fired or fraud_score >= relationship_score
+    leading_result = fraud_result if fraud_leads else relationship_result
+
+    merged_flags = list(dict.fromkeys(
+        _as_list(fraud_result.get("flags")) + _as_list(relationship_result.get("flags"))
+    ))
+    if not merged_flags:
+        merged_flags = ["No signals detected"]
+
+    merged_active_combos = list(dict.fromkeys(
+        _as_list(fraud_result.get("active_combos")) + _as_list(relationship_result.get("active_combos"))
+    ))
+
+    merged_positive_signals = list(dict.fromkeys(
+        _as_list(fraud_result.get("positive_signals")) + _as_list(relationship_result.get("positive_signals"))
+    ))
+
+    merged_evidence: Dict[str, Any] = {}
+    rel_evidence = relationship_result.get("evidence")
+    if isinstance(rel_evidence, dict):
+        merged_evidence.update(rel_evidence)
+    fraud_evidence = fraud_result.get("evidence")
+    if isinstance(fraud_evidence, dict):
+        merged_evidence.update(fraud_evidence)  # fraud wins on key collision
+
+    _order = {"NONE": 0, "SOFT_FLAG": 1, "MONITOR": 2, "WARN": 3, "BLOCK": 4, "LAW_ENFORCEMENT_REFERRAL": 5}
+    fraud_action = str(fraud_result.get("vie_action", "NONE")).upper()
+    relationship_action = str(relationship_result.get("vie_action", "NONE")).upper()
+    merged_action = fraud_action if _order.get(fraud_action, 0) >= _order.get(relationship_action, 0) else relationship_action
+
+    try:
+        fraud_confidence = max(0.0, min(1.0, float(fraud_result.get("confidence", 0.5))))
+    except Exception:
+        fraud_confidence = 0.5
+    try:
+        relationship_confidence = max(0.0, min(1.0, float(relationship_result.get("confidence", 0.5))))
+    except Exception:
+        relationship_confidence = 0.5
+    merged_confidence = min(fraud_confidence, relationship_confidence)
+
+    return {
+        "risk_score": merged_score,
+        "flags": merged_flags,
+        "active_combos": merged_active_combos,
+        "positive_signals": merged_positive_signals,
+        "evidence": merged_evidence,
+        "vie_action": merged_action,
+        "confidence": merged_confidence,
+        "phase": leading_result.get("phase", "NONE"),
+        "summary": leading_result.get("summary", "Analysis complete."),
+        "recommended_action": leading_result.get("recommended_action", "No action required."),
+        "primary_label": leading_result.get("primary_label", "routine_message"),
+        "labels": _as_list(fraud_result.get("labels")) + _as_list(relationship_result.get("labels")),
+        "signal_breakdown": _as_list(fraud_result.get("signal_breakdown")),
+        "degraded": False,
+    }
+
+
 def _run_llm_analysis(text: str, relationship_type: str = "stranger", context_note: str = "") -> Dict[str, Any]:
-    """Call Claude API with full 30-signal VIE library. Fail-closed on any error."""
+    """
+    Call Claude API with full 30-signal VIE library. Fail-closed on any error.
+
+    Relationship-type routing:
+      - stranger                                -> SYSTEM_PROMPT only (fraud/scam detection)
+      - match, ex                               -> BOTH prompts, merged (scam-entry-relevant
+                                                    ambiguity between fraud and relationship framing)
+      - dating, family, friend, business, partner -> RELATIONSHIP_PROMPT only (behavioral dynamics)
+    """
     import anthropic as _anthropic
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -1822,23 +1930,63 @@ detected_concern_signals: {_concern_str}
 You must treat this lane as the controlling interpretation context for risk scoring.
 However: if detected_concern_signals includes blame_inversion, plan_collapse_blame_inversion, trust_calibration_small_ask, lure_and_pivot, or vulnerability_narrative_early — name these patterns explicitly in your analysis regardless of lane. A BENIGN lane means no extraction or coercion, not that all dynamics are healthy. Behavioral patterns like blame inversion and performative availability are real and must be surfaced even in low-risk conversations."""
 
-    if relationship_type in ("dating", "family", "friend", "business"):
-        active_prompt = RELATIONSHIP_PROMPT
-        user_content = f"{_lane_constraint}\n\nRelationship type: {relationship_type}\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+    dual_prompt_engine = "single"
+    dual_prompt_sources: List[str] = []
+    dual_prompt_partial_failure = False
+
+    if relationship_type in _DUAL_PROMPT_RELATIONSHIP_TYPES:
+        fraud_content = f"{_lane_constraint}\n\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+        relationship_content = f"{_lane_constraint}\n\nRelationship type: {relationship_type}\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+
+        fraud_result = None
+        fraud_error = None
+        relationship_result = None
+        relationship_error = None
+
+        try:
+            fraud_result = _call_claude_prompt(client, SYSTEM_PROMPT, fraud_content)
+        except Exception as e:
+            fraud_error = e
+            logger.warning("Dual-prompt fraud call failed for relationship_type=%s: %s", relationship_type, e)
+
+        try:
+            relationship_result = _call_claude_prompt(client, RELATIONSHIP_PROMPT, relationship_content)
+        except Exception as e:
+            relationship_error = e
+            logger.warning("Dual-prompt relationship call failed for relationship_type=%s: %s", relationship_type, e)
+
+        if fraud_result is None and relationship_result is None:
+            # Both calls failed — propagate so analyze_text()'s outer fail-closed handler
+            # (deterministic fallback, then hard fail-closed) takes over, unchanged.
+            raise RuntimeError(
+                f"Both dual-prompt calls failed. fraud_error={fraud_error!r} relationship_error={relationship_error!r}"
+            )
+
+        if fraud_result is not None and relationship_result is not None:
+            result = _merge_dual_prompt_results(fraud_result, relationship_result)
+            dual_prompt_engine = "dual"
+            dual_prompt_sources = ["fraud", "relationship"]
+            dual_prompt_partial_failure = False
+        elif fraud_result is not None:
+            # Relationship call failed — fall back to the succeeding fraud result.
+            result = fraud_result
+            dual_prompt_engine = "fraud_only_fallback"
+            dual_prompt_sources = ["fraud"]
+            dual_prompt_partial_failure = True
+        else:
+            # Fraud call failed — fall back to the succeeding relationship result.
+            result = relationship_result
+            dual_prompt_engine = "relationship_only_fallback"
+            dual_prompt_sources = ["relationship"]
+            dual_prompt_partial_failure = True
     else:
-        active_prompt = SYSTEM_PROMPT
-        user_content = f"{_lane_constraint}\n\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
-
-    message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=2400,
-        system=active_prompt,
-        messages=[{"role": "user", "content": user_content}],
-    )
-
-    raw = message.content[0].text.strip()
-    logger.info("Claude response: %s", raw[:300])
-    result = _extract_first_json_object(raw)
+        active_prompt = RELATIONSHIP_PROMPT if relationship_type in _RELATIONSHIP_ONLY_TYPES else SYSTEM_PROMPT
+        if active_prompt is RELATIONSHIP_PROMPT:
+            user_content = f"{_lane_constraint}\n\nRelationship type: {relationship_type}\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+        else:
+            user_content = f"{_lane_constraint}\n\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+        result = _call_claude_prompt(client, active_prompt, user_content)
+        dual_prompt_sources = ["relationship"] if active_prompt is RELATIONSHIP_PROMPT else ["fraud"]
 
     risk_score = max(0, min(100, int(result.get("risk_score", 0))))
     flags = result.get("flags", ["No signals detected"])
@@ -1893,6 +2041,9 @@ However: if detected_concern_signals includes blame_inversion, plan_collapse_bla
         "interest_score": None,
         "interest_label": "Not Applicable",
         "evidence_scoring": _score_evidence([]),
+        "dual_prompt_engine": dual_prompt_engine,
+        "dual_prompt_sources": dual_prompt_sources,
+        "dual_prompt_partial_failure": dual_prompt_partial_failure,
     }
 
     # Wire signal_breakdown from LLM result
