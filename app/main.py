@@ -168,10 +168,9 @@ STATS_SECRET = os.environ.get("STATS_SECRET", "")
 
 @app.get("/audit/stats")
 async def audit_stats(request: Request):
-    # Require secret header if STATS_SECRET env var is set.
-    if STATS_SECRET:
-        if request.headers.get("x-stats-secret") != STATS_SECRET:
-            raise HTTPException(status_code=403, detail="Forbidden")
+    # Default-deny: requires STATS_SECRET env var AND matching x-stats-secret header.
+    if not STATS_SECRET or request.headers.get("x-stats-secret") != STATS_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
     # Query Postgres directly — consolidate into single round trip.
     # Fallback to session stats if DB is unavailable.
     db_url = os.environ.get("DATABASE_URL", "")
@@ -199,12 +198,7 @@ async def audit_stats(request: Request):
             return {
                 "status": "ok",
                 "source": "postgres",
-                "governance_gate": {
-                    "current": total,
-                    "target": 200,
-                    "clean_reads": clean,
-                    "remaining": max(0, 200 - total),
-                },
+                "clean_reads": clean,
                 "total_analyses": total,
                 "last_24h": last_24h,
                 "avg_risk_score": avg_risk,
@@ -675,24 +669,6 @@ async def analyze_screenshots(
         return _resp
 
     return _simple_page("VibeLenz Result", payload.get("diagnosis", "Analysis complete."))
-
-
-@app.get("/diag/llm")
-async def diag_llm():
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return {"status": "error", "detail": "ANTHROPIC_API_KEY not set"}
-    try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=32,
-            messages=[{"role": "user", "content": "Reply with the word OK only."}],
-        )
-        return {"status": "ok", "response": msg.content[0].text}
-    except Exception as e:
-        return {"status": "error", "detail": str(e)}
 
 
 @app.get("/conversation/{conversation_id}/summary")
