@@ -462,7 +462,61 @@ function initConvUI(){
   setMode('new');
 }
 initConvUI();
-document.getElementById('mf').addEventListener('submit', async e => {
+// --- Email gate (required from the second analysis on) ---
+function showEmailGate(){
+  let w = document.getElementById('emailGate');
+  if (w) { w.style.display = 'flex'; document.getElementById('emailGateGo').disabled = false; document.getElementById('emailGateInput').focus(); return; }
+  w = document.createElement('div');
+  w.id = 'emailGate';
+  w.setAttribute('role', 'dialog');
+  w.setAttribute('aria-modal', 'true');
+  w.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(10,14,20,0.94);';
+  w.innerHTML = `
+    <div style="max-width:380px;width:100%;background:#0F1620;border:1px solid #5FDCE8;border-radius:14px;padding:24px;color:#E6EDF3;">
+      <div style="font-size:1.15rem;font-weight:700;color:#5FDCE8;margin-bottom:10px;">Want to keep going?</div>
+      <p style="font-size:0.92rem;line-height:1.5;margin:0 0 14px;">Add your email to keep using VibeLenz. We'll send a short reminder now and then. Nothing about what you checked ever goes in it, and you can stop it any time.</p>
+      <input id="emailGateInput" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" style="width:100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #2A3646;background:#0A0E14;color:#E6EDF3;font-size:1rem;">
+      <div id="emailGateErr" style="min-height:18px;font-size:0.8rem;color:#FF8A80;margin:6px 0 10px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button id="emailGateGo" type="button" style="flex:1;padding:12px;border:0;border-radius:8px;background:#5FDCE8;color:#0A0E14;font-weight:700;font-size:1rem;cursor:pointer;">Continue</button>
+        <button id="emailGateNo" type="button" style="padding:12px 16px;border:1px solid #2A3646;border-radius:8px;background:transparent;color:#9FB0C3;font-size:1rem;cursor:pointer;">Not now</button>
+      </div>
+    </div>`;
+  document.body.appendChild(w);
+  const inp = document.getElementById('emailGateInput');
+  const err = document.getElementById('emailGateErr');
+  const go = document.getElementById('emailGateGo');
+  document.getElementById('emailGateNo').addEventListener('click', () => { w.style.display = 'none'; });
+  const submit = async () => {
+    const email = inp.value.trim();
+    err.textContent = '';
+    if (!email) { err.textContent = 'Add your email to continue.'; return; }
+    go.disabled = true;
+    try {
+      const r = await fetch('/email/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      });
+      if (r.ok) {
+        go.disabled = false;
+        w.style.display = 'none';
+        const f = document.getElementById('mf');
+        if (f.requestSubmit) f.requestSubmit(); else f.dispatchEvent(new Event('submit', { cancelable: true }));
+        return;
+      }
+      let code = '';
+      try { code = (await r.json()).error || ''; } catch (_e) {}
+      err.textContent = code === 'invalid_email' ? "That email doesn't look right." : "Couldn't save that. Try again in a moment.";
+    } catch (_e) {
+      err.textContent = 'Network error. Try again.';
+    }
+    go.disabled = false;
+  };
+  go.addEventListener('click', submit);
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+  inp.focus();
+}document.getElementById('mf').addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData();
   if (inputMode === 'paste') {
@@ -495,6 +549,7 @@ document.getElementById('mf').addEventListener('submit', async e => {
       let _msg = 'Analysis failed.';
       try {
         const _j = await res.json();
+        if (res.status === 403 && _j && _j.error === 'email_required') { showEmailGate(); return; }
         _msg = _j.message || _j.detail || _j.error || _msg;
         if (typeof _msg !== 'string') _msg = JSON.stringify(_msg);
       } catch (_e) { /* non-JSON error body — keep generic message */ }
