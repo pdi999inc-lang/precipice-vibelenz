@@ -18,10 +18,13 @@ from app.ocr import extract_text_from_images
 from app.degradation import assess_degradation, apply_degradation, DegradationState
 from app.audit import write_audit_record, get_session_stats
 from app.db import init_db, log_feedback
+from app.email_reminders import email_gate_middleware, router as email_router
 
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
+app.middleware("http")(email_gate_middleware)
+app.include_router(email_router)
 
 
 @app.on_event("startup")
