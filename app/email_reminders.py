@@ -346,6 +346,15 @@ def _reminder_message(unsub_url: str) -> Tuple[str, str, str]:
 # --------------------------------------------------------------------------
 # HTTP endpoints
 # --------------------------------------------------------------------------
+_TOKEN_CHARS = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+
+
+def _valid_token(t) -> bool:
+    # Tokens come from secrets.token_urlsafe(24): 32 URL-safe chars.
+    # Whitelist before any use; the unsubscribe page reflects t into HTML.
+    return isinstance(t, str) and 16 <= len(t) <= 64 and all(c in _TOKEN_CHARS for c in t)
+
+
 router = APIRouter()
 
 _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -436,7 +445,7 @@ def _capture(vid: str, email: str) -> Optional[bool]:
 
 @router.get("/email/confirm")
 async def confirm_email(t: str = ""):
-    if not t or len(t) > 100:
+    if not _valid_token(t):
         return _page("Link not valid", "<p>This link isn't valid anymore.</p>", 400)
     try:
         row = await run_in_threadpool(
@@ -458,7 +467,7 @@ async def confirm_email(t: str = ""):
 async def unsubscribe_page(t: str = ""):
     # GET only shows a button. Mail scanners prefetch links; a GET that
     # unsubscribes would silently cancel people who never clicked.
-    if not t or len(t) > 100:
+    if not _valid_token(t):
         return _page("Link not valid", "<p>This link isn't valid anymore.</p>", 400)
     return _page(
         "Stop reminders?",
@@ -472,7 +481,7 @@ async def unsubscribe_page(t: str = ""):
 async def unsubscribe_do(request: Request):
     # Serves both the button above and RFC 8058 one-click (token in query string).
     t = request.query_params.get("t", "")
-    if not t or len(t) > 100:
+    if not _valid_token(t):
         return _page("Link not valid", "<p>This link isn't valid anymore.</p>", 400)
     try:
         row = await run_in_threadpool(
