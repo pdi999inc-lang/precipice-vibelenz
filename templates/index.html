@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="{{ 'vl-dark' if page_mode == 'risk' else 'vl-paper' }} vl-front">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
@@ -161,6 +161,9 @@ body {
 }
 
 </style>
+<style>
+{% include "_vl_render_v2.css" %}
+</style>
 </head>
 <body>
 <div class="ov" id="ov"><div class="sp"></div><div class="ov-t">Reading the vibe…</div><div class="ov-s">Looking over your conversation</div></div>
@@ -184,6 +187,52 @@ body {
 <h1 class="headline">What's really going on in this chat?</h1>
 <p class="choose-lbl">The read your group chat wishes it could give you.</p>
 </div>
+<div class="vl-samples">
+  No screenshots handy? See how a read looks:
+  <div class="vl-samples-row">
+    <button type="button" class="vl-sample-btn" data-vl-sample="rental">Sample: rental ask</button>
+    <button type="button" class="vl-sample-btn" data-vl-sample="warm">Sample: warm match</button>
+  </div>
+</div>
+<dialog class="vl-sample" id="vlSample" aria-label="Sample read">
+  <section class="vl-s vl-s-dark" data-vl-panel="rental" hidden>
+    <p class="vl-s-banner">Sample — not your conversation</p>
+    <div class="vl-s-chat">
+      <p class="vl-s-them">Hi, I'm the property manager. The unit is still available.</p>
+      <p class="vl-s-you">Great, can I see it this weekend?</p>
+      <p class="vl-s-them">The owner is out of town. Send the $500 deposit first and we'll mail you the keys.</p>
+      <p class="vl-s-you">Can I meet someone at the property?</p>
+      <p class="vl-s-them">Other applicants are ready today. The deposit is what holds it.</p>
+    </div>
+    <span class="vl-s-band vl-s-band-high">High concern</span>
+    <h3>This reads like a setup, not a rental.</h3>
+    <ul class="vl-s-points">
+      <li>Money is requested before any viewing</li>
+      <li>There's no way to meet anyone in person</li>
+      <li>A deadline appears the moment you ask to verify</li>
+    </ul>
+    <p class="vl-s-next"><strong>Next step:</strong> Don't send anything. Ask for a live showing, and check who owns the property through the county's public records.</p>
+    <button type="button" class="vl-s-close" data-vl-close>Close sample</button>
+  </section>
+  <section class="vl-s vl-s-paper" data-vl-panel="warm" hidden>
+    <p class="vl-s-banner">Sample — not your conversation</p>
+    <div class="vl-s-chat">
+      <p class="vl-s-them">okay that taco place was elite, you were right</p>
+      <p class="vl-s-you">told you. same time next week?</p>
+      <p class="vl-s-them">only if you let me pick the spot this time 😏</p>
+      <p class="vl-s-you">deal</p>
+    </div>
+    <span class="vl-s-band vl-s-band-warm">Flirty and mutual</span>
+    <h3>This one reads warm.</h3>
+    <ul class="vl-s-chips">
+      <li>They match your energy</li>
+      <li>They're making plans too</li>
+      <li>Easy, playful back-and-forth</li>
+    </ul>
+    <p class="vl-s-next"><strong>Your next move:</strong> Let them pick the spot — then ask what made them choose it.</p>
+    <button type="button" class="vl-s-close" data-vl-close>Close sample</button>
+  </section>
+</dialog>
 <form id="mf">
 <input type="hidden" id="selMode" value="connection"/>
 <input type="hidden" id="selRole" value="left_white"/>
@@ -609,6 +658,33 @@ function showEmailGate(){
   container.addEventListener('mousedown',function(e){mouseDown=true;onStart(e.clientX,e.clientY);});
   window.addEventListener('mousemove',function(e){if(mouseDown)onMove(e.clientX,e.clientY);});
   window.addEventListener('mouseup',function(){if(mouseDown){mouseDown=false;onEnd();}});
+})();
+</script>
+<script id="vl-sample-js">
+/* Sample reads are static. This script makes no network requests by design. */
+(function(){
+  var dlg = document.getElementById('vlSample');
+  if (!dlg) return;
+  var ov = document.getElementById('ov');
+  function show(key) {
+    var panels = dlg.querySelectorAll('[data-vl-panel]');
+    for (var i = 0; i < panels.length; i++) { panels[i].hidden = panels[i].getAttribute('data-vl-panel') !== key; }
+    if (typeof dlg.showModal === 'function') { dlg.showModal(); } else { dlg.setAttribute('open', ''); }
+  }
+  var btns = document.querySelectorAll('[data-vl-sample]');
+  for (var b = 0; b < btns.length; b++) {
+    btns[b].addEventListener('click', function (e) {
+      var key = e.currentTarget.getAttribute('data-vl-sample');
+      if (ov) ov.classList.add('on');
+      setTimeout(function () { if (ov) ov.classList.remove('on'); show(key); }, 1500);
+    });
+  }
+  var closers = dlg.querySelectorAll('[data-vl-close]');
+  for (var c = 0; c < closers.length; c++) {
+    closers[c].addEventListener('click', function () {
+      if (typeof dlg.close === 'function') { dlg.close(); } else { dlg.removeAttribute('open'); }
+    });
+  }
 })();
 </script>
 </body>

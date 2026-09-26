@@ -1,0 +1,287 @@
+/* Copyright © 2026 Ricky Sessums. All rights reserved.
+   VibeLenz Render v2 (Part A). Included inline by index.html and result.html.
+   Surface is chosen server-side via a class on <html>:
+     vl-paper = light Paper surface (front door + connection results)
+     vl-dark  = dark surface (all risk lanes, degraded, withheld, unknown)
+   Rule: never add client-side switching between these classes. */
+
+:root {
+  --vl-paper-bg: #F7F3EC;
+  --vl-paper-panel: #FFFDF8;
+  --vl-paper-hairline: #E3D9CC;
+  --vl-paper-ink: #221A14;
+  --vl-paper-ink-dim: #6B5F54;
+  --vl-paper-ink-faint: #7A6552;
+  --vl-cyan-text: #0E7490;
+  --vl-violet-text: #6D28D9;
+  --vl-mint-text: #047857;
+  --vl-rose-text: #BE185D;
+  --vl-amber-text: #8A5A12;
+  --vl-red-text: #B42318;
+  --vl-cyan: #22D3EE;
+  --vl-violet: #8B5CF6;
+  --vl-peach: #F5A623;
+  --vl-rose: #F472B6;
+  --vl-mint: #34D399;
+  --vl-grad-front: linear-gradient(135deg, #22D3EE, #A78BFA);
+  --vl-grad-conn: linear-gradient(135deg, #F5A623, #F472B6);
+  --vl-cta-ink: #1A0F14;
+  --vl-risk-bg: #0A0E14;
+  --vl-risk-panel: #11161D;
+  --vl-risk-hairline: #232B36;
+  --vl-risk-ink: #F2EDEA;
+  --vl-risk-ink-dim: #B8AFA9;
+  --vl-risk-slate: #7D8CA3;
+  --vl-risk-amber: #E0A458;
+  --vl-risk-red: #E5484D;
+  --vl-radius: 14px;
+}
+
+/* ================= PAPER SURFACE: shared variable remap ================= */
+html.vl-paper {
+  /* result.html variable names */
+  --bg: var(--vl-paper-bg);
+  --panel: var(--vl-paper-panel);
+  --panel-2: #FFFFFF;
+  --border: var(--vl-paper-hairline);
+  --text: var(--vl-paper-ink);
+  --muted: var(--vl-paper-ink-dim);
+  --low: var(--vl-mint-text);
+  --med: var(--vl-amber-text);
+  --high: var(--vl-red-text);
+  --blue: var(--vl-cyan-text);
+  --chip: #FFFFFF;
+  --chip-good: rgba(4, 120, 87, 0.08);
+  --chip-warn: rgba(138, 90, 18, 0.08);
+  --shadow: 0 18px 40px -26px rgba(34, 26, 20, 0.28);
+  /* index.html variable names */
+  --cream: var(--vl-paper-bg);
+  --cream-2: var(--vl-paper-panel);
+  --ink: var(--vl-paper-ink);
+  --ink-soft: var(--vl-paper-ink-dim);
+  --coral-deep: var(--vl-cyan-text);
+  --teal: var(--vl-mint-text);
+  --amber: #9A6414;
+  --card: var(--vl-paper-panel);
+  --line: var(--vl-paper-hairline);
+  background: var(--vl-paper-bg);
+  color-scheme: light;
+}
+html.vl-paper.vl-front {
+  --coral: var(--vl-cyan-text);
+  --hud-glow: rgba(34, 211, 238, 0.22);
+  --hud-line: rgba(14, 116, 144, 0.18);
+}
+html.vl-paper.vl-conn {
+  --coral: var(--vl-rose-text);
+  --hud-glow: rgba(244, 114, 182, 0.28);
+  --hud-line: rgba(190, 24, 93, 0.16);
+}
+
+/* ================= DARK SURFACE: risk tokens ================= */
+html.vl-dark {
+  --bg: var(--vl-risk-bg);
+  --panel: var(--vl-risk-panel);
+  --panel-2: #161C24;
+  --border: var(--vl-risk-hairline);
+  --text: var(--vl-risk-ink);
+  --muted: var(--vl-risk-ink-dim);
+  --med: var(--vl-risk-amber);
+  --high: var(--vl-risk-red);
+  color-scheme: dark;
+}
+/* Result pages on the dark surface: slate accent, no cyan glow. */
+html.vl-dark.vl-conn {
+  --coral: var(--vl-risk-slate);
+  --hud-glow: rgba(125, 140, 163, 0.25);
+  --hud-line: rgba(125, 140, 163, 0.18);
+}
+html.vl-dark.vl-conn body {
+  background-color: var(--vl-risk-bg);
+  background-image:
+    repeating-linear-gradient(0deg, rgba(125, 140, 163, 0.03) 0px, rgba(125, 140, 163, 0.03) 1px, transparent 1px, transparent 42px),
+    repeating-linear-gradient(90deg, rgba(125, 140, 163, 0.03) 0px, rgba(125, 140, 163, 0.03) 1px, transparent 1px, transparent 42px);
+}
+html.vl-dark .badge.high::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vl-risk-red);
+  margin-right: 8px;
+  vertical-align: 1px;
+}
+html.vl-dark .vl-share-btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+
+/* ================= RESULT PAGE on PAPER ================= */
+html.vl-paper.vl-conn body {
+  background-color: var(--vl-paper-bg);
+  background-image: radial-gradient(80% 38% at 50% -8%, rgba(244, 114, 182, 0.16) 0%, rgba(245, 166, 35, 0.06) 45%, rgba(247, 243, 236, 0) 72%);
+  background-attachment: fixed;
+}
+html.vl-paper .conn-score-chip,
+html.vl-paper .score-box,
+html.vl-paper .signal-card,
+html.vl-paper .machine-card,
+html.vl-paper .feedback-note { background: var(--panel-2); }
+html.vl-paper .connection-tone-pill {
+  background: rgba(244, 114, 182, 0.12);
+  border-color: rgba(190, 24, 93, 0.28);
+  color: var(--vl-rose-text);
+}
+html.vl-paper .chip.good { border-color: rgba(4, 120, 87, 0.3); color: var(--vl-mint-text); }
+html.vl-paper .chip.warn { border-color: rgba(138, 90, 18, 0.3); color: var(--vl-amber-text); }
+html.vl-paper .note { border-color: rgba(138, 90, 18, 0.35); background: rgba(245, 166, 35, 0.1); color: var(--vl-amber-text); }
+html.vl-paper .badge.low { background: rgba(4, 120, 87, 0.1); color: var(--vl-mint-text); }
+html.vl-paper .badge.medium { background: rgba(245, 166, 35, 0.14); color: var(--vl-amber-text); }
+html.vl-paper .arc-direction-pill.improving { color: var(--vl-mint-text); }
+html.vl-paper .arc-direction-pill.worsening,
+html.vl-paper .arc-direction-pill.concerning { color: var(--vl-red-text); }
+html.vl-paper .arc-direction-pill.mixed { color: var(--vl-amber-text); }
+html.vl-paper .arc-direction-pill.neutral { background: rgba(34, 26, 20, 0.04); }
+html.vl-paper .turn-dot.low { color: var(--vl-mint-text); }
+html.vl-paper .turn-dot.medium { color: var(--vl-amber-text); }
+html.vl-paper .turn-dot.high { color: var(--vl-red-text); }
+html.vl-paper .arc-connector-line { background: rgba(34, 26, 20, 0.1); }
+html.vl-paper .gauge-track { stroke: rgba(34, 26, 20, 0.08); }
+html.vl-paper .gauge-fill { stroke: url(#vlConnGrad); filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.35)); }
+html.vl-paper .bar-row-track,
+html.vl-paper .evidence-bar-track { background: rgba(34, 26, 20, 0.08); }
+html.vl-paper .feedback-btn.up { border-color: rgba(4, 120, 87, 0.35); background: rgba(4, 120, 87, 0.07); color: var(--vl-mint-text); }
+html.vl-paper .feedback-btn.down { border-color: rgba(180, 35, 24, 0.3); background: rgba(180, 35, 24, 0.05); color: var(--vl-red-text); }
+html.vl-paper #feedback-thanks { color: var(--vl-mint-text) !important; }
+html.vl-paper .bottom-tabs { background: rgba(255, 253, 248, 0.92); }
+html.vl-paper .hero,
+html.vl-paper .section,
+html.vl-paper .arc-section,
+html.vl-paper details,
+html.vl-paper .feedback-box { box-shadow: var(--shadow); }
+html.vl-paper .hero::before,
+html.vl-paper .hero::after,
+html.vl-paper .section::before,
+html.vl-paper .section::after,
+html.vl-paper .arc-section::before,
+html.vl-paper .arc-section::after { opacity: 0.3; }
+html.vl-paper .vl-share-btn { background: var(--vl-grad-conn); color: var(--vl-cta-ink); }
+
+/* Components added in v2 (both surfaces) */
+.gauge-band { font-size: 20px; font-weight: 800; line-height: 1.15; color: var(--text); text-align: center; max-width: 120px; }
+.reply-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.reply-card .reply-tone { font-size: 11px; color: var(--coral); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.reply-card .reply-text { font-size: 15px; color: var(--text); line-height: 1.4; }
+.reply-card .copy-label { font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.vl-share-btn { border: none; border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 800; cursor: pointer; }
+.vl-chat-input { flex: 1; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--panel-2); color: var(--text); font-size: 14px; }
+.vl-chat-send { border: none; border-radius: 12px; padding: 12px 18px; background: var(--coral); color: #FFFFFF; font-size: 14px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
+.vl-chat-msg { padding: 12px 14px; border-radius: 14px; font-size: 14px; line-height: 1.55; max-width: 85%; white-space: pre-wrap; }
+.vl-chat-msg.you { align-self: flex-end; background: var(--chip-good); border: 1px solid var(--border); }
+.vl-chat-msg.them { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--border); }
+:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+/* ================= FRONT DOOR (index) on PAPER ================= */
+html.vl-paper.vl-front body {
+  background-color: var(--vl-paper-bg);
+  background-image: radial-gradient(70% 34% at 50% -6%, rgba(34, 211, 238, 0.16) 0%, rgba(167, 139, 250, 0.08) 45%, rgba(247, 243, 236, 0) 72%);
+  background-attachment: fixed;
+}
+html.vl-paper.vl-front .brand { background: linear-gradient(135deg, var(--vl-cyan-text), var(--vl-violet-text)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.vl-paper.vl-front .cta { background: var(--vl-grad-front); color: var(--vl-cta-ink); box-shadow: 0 16px 32px -16px rgba(109, 40, 217, 0.45); }
+html.vl-paper.vl-front .cta:hover { box-shadow: 0 22px 40px -16px rgba(109, 40, 217, 0.55); }
+html.vl-paper.vl-front .up-bar:hover,
+html.vl-paper.vl-front .conv-tab.active { background: #FFFFFF; }
+html.vl-paper.vl-front .conv-tab.active { box-shadow: 0 8px 22px -16px rgba(34, 26, 20, 0.35); }
+html.vl-paper.vl-front .gl-sel option { background: var(--vl-paper-panel); color: var(--vl-paper-ink); }
+html.vl-paper.vl-front .role-dd { background: var(--vl-paper-panel); box-shadow: 0 18px 44px -22px rgba(34, 26, 20, 0.35); }
+html.vl-paper.vl-front .r-opt:hover,
+html.vl-paper.vl-front .r-opt.act { background: var(--vl-paper-bg); }
+html.vl-paper.vl-front .conv-summary { background: var(--vl-paper-panel); border-color: var(--vl-paper-hairline); }
+html.vl-paper.vl-front .conv-summary .cs-pill.MEDIUM,
+html.vl-paper.vl-front .conv-expiry { color: var(--vl-amber-text); }
+html.vl-paper.vl-front .conv-summary .cs-pill.HIGH { color: var(--vl-red-text); }
+html.vl-paper.vl-front .ti img { border-color: rgba(34, 26, 20, 0.12); }
+html.vl-paper.vl-front .ov { background: rgba(247, 243, 236, 0.94); }
+/* Splash stays dark (brand aperture intro); only retint its text to the new gradient. */
+html.vl-paper.vl-front .splash-word { background: var(--vl-grad-front); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.vl-paper.vl-front .splash-tagline,
+html.vl-paper.vl-front .swipe-hint { color: var(--vl-risk-ink-dim); }
+html.vl-paper.vl-front .swipe-chevron { color: var(--vl-cyan); }
+
+/* Loader: the aperture ring (brand motif) replaces the plain spinner. */
+.vl-paper .sp,
+.vl-dark .sp {
+  width: 64px;
+  height: 64px;
+  border: none;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #22D3EE, #A78BFA, #F472B6, #22D3EE);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.45));
+}
+
+/* Sample chats */
+.vl-samples { margin: 6px 0 4px; text-align: center; font-size: 0.84rem; color: var(--ink-soft); }
+.vl-samples-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+.vl-sample-btn { font: inherit; font-size: 0.82rem; font-weight: 700; padding: 9px 14px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+.vl-sample-btn:hover { border-color: var(--coral); }
+dialog.vl-sample { margin: auto; width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0; border: none; border-radius: 20px; background: transparent; overflow: auto; }
+dialog.vl-sample::backdrop { background: rgba(34, 26, 20, 0.45); }
+.vl-s { padding: 22px 20px 18px; border-radius: 20px; }
+.vl-s-dark { background: var(--vl-risk-panel); color: var(--vl-risk-ink); border: 1px solid var(--vl-risk-hairline); }
+.vl-s-paper { background: var(--vl-paper-panel); color: var(--vl-paper-ink); border: 1px solid var(--vl-paper-hairline); }
+.vl-s-banner { font-size: 0.76rem; font-weight: 700; padding: 7px 12px; border-radius: 10px; margin: 0 0 14px; }
+.vl-s-dark .vl-s-banner { background: rgba(224, 164, 88, 0.14); color: var(--vl-risk-amber); }
+.vl-s-paper .vl-s-banner { background: rgba(167, 139, 250, 0.14); color: var(--vl-violet-text); }
+.vl-s-chat { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; font-size: 0.84rem; line-height: 1.4; }
+.vl-s-chat p { margin: 0; padding: 8px 12px; border-radius: 14px; max-width: 85%; }
+.vl-s-dark .vl-s-them { background: #1B222C; align-self: flex-start; }
+.vl-s-dark .vl-s-you { background: #243040; align-self: flex-end; }
+.vl-s-paper .vl-s-them { background: #EFE7DB; align-self: flex-start; }
+.vl-s-paper .vl-s-you { background: rgba(244, 114, 182, 0.16); align-self: flex-end; }
+.vl-s-band { display: inline-block; font-size: 0.76rem; font-weight: 800; padding: 5px 12px; border-radius: 999px; margin-bottom: 10px; }
+.vl-s-band-high { background: rgba(229, 72, 77, 0.16); color: var(--vl-risk-red); }
+.vl-s-band-warm { background: rgba(244, 114, 182, 0.14); color: var(--vl-rose-text); }
+.vl-s h3 { margin: 0 0 12px; font-size: 1.2rem; line-height: 1.3; }
+.vl-s-points { margin: 0 0 12px; padding-left: 18px; font-size: 0.86rem; line-height: 1.55; }
+.vl-s-dark .vl-s-points, .vl-s-dark .vl-s-next { color: var(--vl-risk-ink-dim); }
+.vl-s-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
+.vl-s-chips li { font-size: 0.8rem; font-weight: 700; padding: 6px 11px; border-radius: 999px; background: rgba(4, 120, 87, 0.08); color: var(--vl-mint-text); }
+.vl-s-next { font-size: 0.86rem; line-height: 1.55; margin: 0 0 16px; }
+.vl-s-paper .vl-s-next { color: var(--vl-paper-ink-dim); }
+.vl-s-close { width: 100%; font: inherit; font-weight: 800; font-size: 0.9rem; padding: 12px; border-radius: 12px; border: none; cursor: pointer; }
+.vl-s-dark .vl-s-close { background: #1B222C; color: var(--vl-risk-ink); }
+.vl-s-paper .vl-s-close { background: var(--vl-grad-conn); color: var(--vl-cta-ink); }
+
+/* ================= MOTION ================= */
+@keyframes vl-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes vl-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vl-draw { from { stroke-dashoffset: 339.3; } }
+@keyframes vl-alert { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes vl-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Connection result: one orchestrated reveal - hero children stagger, gauge draws in. */
+  html.vl-paper.vl-conn .hero > * { animation: vl-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  html.vl-paper.vl-conn .hero > *:nth-child(2) { animation-delay: 0.08s; }
+  html.vl-paper.vl-conn .hero > *:nth-child(3) { animation-delay: 0.16s; }
+  html.vl-paper.vl-conn .hero > *:nth-child(4) { animation-delay: 0.24s; }
+  html.vl-paper.vl-conn .hero > *:nth-child(5) { animation-delay: 0.32s; }
+  html.vl-paper.vl-conn .hero > *:nth-child(n+6) { animation-delay: 0.4s; }
+  html.vl-paper.vl-conn .gauge-fill { animation: vl-draw 1.1s 0.3s cubic-bezier(0.3, 0.8, 0.3, 1) both; }
+  /* Dark surface (risk / degraded): fade only, plus a single alert-dot pulse on HIGH. */
+  html.vl-dark.vl-conn .page { animation: vl-fade 0.4s ease both; }
+  html.vl-dark .badge.high::before { animation: vl-alert 1.8s ease-in-out infinite; }
+  /* Loader aperture */
+  .vl-paper .sp, .vl-dark .sp { animation: vl-spin 1.4s linear infinite; }
+  .vl-paper .cta:active { transform: scale(0.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
