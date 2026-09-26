@@ -177,17 +177,35 @@ def test_css_partial_is_jinja_safe_and_has_tokens():
     assert "prefers-reduced-motion: reduce" in css
 
 
-def test_relationship_picker_removed_and_fraud_screening_always_on():
-    # The picker is gone; the form always sends "stranger", which routes to the
-    # fraud-aware prompt. It must never send a relationship-only type.
+RELATIONSHIP_ONLY_TYPES = {"dating", "family", "friend", "business", "partner"}  # analyzer_combined.py
+
+
+def test_texting_picker_offers_relationships_and_keeps_fraud_screening():
     html = ENV.get_template("index.html").render(page_mode="connection")
-    assert 'id="relType"' not in html
-    assert "fd.append('relationship_type', 'stranger');" in html
-    for t in ("business", "family", "partner", "friend"):
-        assert f"value=\"{t}\"" not in html
+    m = re.search(r'<select class="gl-sel" id="relType">(.*?)</select>', html, flags=re.S)
+    assert m, "relationship picker missing"
+    options = dict((v, label) for v, label in re.findall(r'<option value="([^"]+)">([^<]+)</option>', m.group(1)))
+    for label in ("Dating app match", "Work associate", "Friend", "Family member", "Ex / Past partner", "Current partner"):
+        assert label in options.values(), label
+    # Every value must keep the fraud-aware prompt (none may be relationship-only).
+    assert not (set(options) & RELATIONSHIP_ONLY_TYPES), set(options) & RELATIONSHIP_ONLY_TYPES
+    assert "fd.append('relationship_type', document.getElementById('relType').value);" in html
+
+
+def test_gender_picker_removed_but_field_still_sent():
+    html = ENV.get_template("index.html").render(page_mode="connection")
+    assert 'id="genderSel"' not in html
+    assert "A woman" not in html and "A man" not in html
+    assert '<input type="hidden" id="otherGender" name="other_gender" value="unknown"/>' in html
 
 
 def test_purport_brand_removed():
     for name in ("index.html", "result.html"):
         src = open(os.path.join(TEMPLATES, name), encoding="utf-8").read()
         assert "PurPort" not in src and "/scam-check" not in src, name
+
+
+def test_brand_subtitle_is_social_intelligence():
+    html = ENV.get_template("index.html").render(page_mode="connection")
+    assert '<div class="brand-sub">Social Intelligence</div>' in html
+    assert "Dating Intelligence" not in html

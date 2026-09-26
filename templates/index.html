@@ -183,7 +183,7 @@ body {
 <div class="page">
 <div class="hd">
 <div class="brand-wrap"><span class="bolt bolt-l">⚡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">⚡</span></div>
-<div class="brand-sub">Dating Intelligence</div>
+<div class="brand-sub">Social Intelligence</div>
 <h1 class="headline">What's really going on in this chat?</h1>
 <p class="choose-lbl">The read your group chat wishes it could give you.</p>
 </div>
@@ -264,11 +264,10 @@ body {
 <textarea class="gl-ta" id="pasteBox" style="height:150px;" placeholder="paste the conversation here — oldest messages first&#10;&#10;tip: start their lines with THEM: and yours with YOU: for the sharpest read"></textarea>
 </div>
 <div class="sh">2. Who are you texting?</div>
-<select class="gl-sel" id="genderSel" onchange="document.getElementById('otherGender').value=this.value">
-<option value="unknown">Not sure</option>
-<option value="female">A woman</option>
-<option value="male">A man</option>
-</select>
+<!-- Values are chosen so every option keeps the fraud-aware analysis on.
+     "friend", "family", "partner", "business" route to a relationship-only prompt
+     that does NOT screen for scams, so they must not be sent from this picker. -->
+<select class="gl-sel" id="relType"><option value="stranger">Stranger / New person</option><option value="match">Dating app match</option><option value="coworker">Work associate</option><option value="close_friend">Friend</option><option value="family_member">Family member</option><option value="ex">Ex / Past partner</option><option value="current_partner">Current partner</option></select>
 <div class="sh">3. Which side are you?</div>
 <div class="role-wrap">
 <div class="role-disp" onclick="tDD()"><span id="rlbl">Left / White</span><span class="r-arr">▾</span></div>
@@ -574,8 +573,7 @@ function showEmailGate(){
     files.forEach(f => fd.append('files', f));
   }
   document.getElementById('ov').classList.add('on');
-  // Relationship picker removed: always send 'stranger' so the fraud-aware analysis runs on every chat.
-  fd.append('relationship_type', 'stranger');
+  fd.append('relationship_type', document.getElementById('relType').value);
   fd.append('context_note', document.getElementById('ctx').value);
   fd.append('requested_mode', document.getElementById('selMode').value);
   fd.append('conversation_id', document.getElementById('convId').value || '');
