@@ -175,3 +175,19 @@ def test_css_partial_is_jinja_safe_and_has_tokens():
     for token in ("--vl-paper-bg: #F7F3EC", "--vl-risk-bg: #0A0E14", "--vl-mint-text: #047857"):
         assert token in css
     assert "prefers-reduced-motion: reduce" in css
+
+
+def test_relationship_picker_removed_and_fraud_screening_always_on():
+    # The picker is gone; the form always sends "stranger", which routes to the
+    # fraud-aware prompt. It must never send a relationship-only type.
+    html = ENV.get_template("index.html").render(page_mode="connection")
+    assert 'id="relType"' not in html
+    assert "fd.append('relationship_type', 'stranger');" in html
+    for t in ("business", "family", "partner", "friend"):
+        assert f"value=\"{t}\"" not in html
+
+
+def test_purport_brand_removed():
+    for name in ("index.html", "result.html"):
+        src = open(os.path.join(TEMPLATES, name), encoding="utf-8").read()
+        assert "PurPort" not in src and "/scam-check" not in src, name

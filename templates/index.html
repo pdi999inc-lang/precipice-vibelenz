@@ -263,15 +263,13 @@ body {
 <div id="pasteWrap" style="display:none;">
 <textarea class="gl-ta" id="pasteBox" style="height:150px;" placeholder="paste the conversation here — oldest messages first&#10;&#10;tip: start their lines with THEM: and yours with YOU: for the sharpest read"></textarea>
 </div>
-<div class="sh">2. Who are you talking to?</div>
-<select class="gl-sel" id="relType"><option value="stranger">Stranger / New person</option><option value="match">Dating app match</option><option value="friend">Friend</option><option value="family">Family member</option><option value="ex">Ex / Past partner</option><option value="partner">Current partner</option></select>
-<div class="sh">3. Who are you texting?</div>
+<div class="sh">2. Who are you texting?</div>
 <select class="gl-sel" id="genderSel" onchange="document.getElementById('otherGender').value=this.value">
 <option value="unknown">Not sure</option>
 <option value="female">A woman</option>
 <option value="male">A man</option>
 </select>
-<div class="sh">4. Which side are you?</div>
+<div class="sh">3. Which side are you?</div>
 <div class="role-wrap">
 <div class="role-disp" onclick="tDD()"><span id="rlbl">Left / White</span><span class="r-arr">▾</span></div>
 <div class="role-dd" id="rdd">
@@ -280,7 +278,7 @@ body {
 <div class="r-opt" id="ro-mix" onclick="setRole('mix','Mix of roles')"><div class="rav rav-v">👥</div><span>Mix of roles</span></div>
 </div>
 </div>
-<div class="sh">5. Add an optional note <span style="font-weight:400;color:var(--ink-soft);font-size:0.78rem;">(optional)</span></div>
+<div class="sh">4. Add an optional note <span style="font-weight:400;color:var(--ink-soft);font-size:0.78rem;">(optional)</span></div>
 <textarea class="gl-ta" id="ctx" placeholder="e.g., I'm getting mixed signals from this match…"></textarea>
 <button type="submit" class="cta"><span id="ctaTxt">RUN THE VIBE CHECK</span> <span>✦</span></button>
 <p class="reassure">🔒 Your screenshots stay private — analysed, never shared.</p>
@@ -289,7 +287,6 @@ body {
   <div class="pb-row"><span class="pb-i">✓</span>Never shared or sold</div>
   <div class="pb-row"><span class="pb-i">✓</span>History on this device expires automatically after 30 days</div>
 </div>
-<p style="text-align:center;margin-top:18px;font-size:0.86rem;color:var(--ink-soft);">Worried it's a scam or manipulation? <a href="/scam-check" style="color:var(--teal);font-weight:700;text-decoration:none;">Check them with PurPort →</a></p>
 </form>
 </div>
 </section>
@@ -577,7 +574,8 @@ function showEmailGate(){
     files.forEach(f => fd.append('files', f));
   }
   document.getElementById('ov').classList.add('on');
-  fd.append('relationship_type', document.getElementById('relType').value);
+  // Relationship picker removed: always send 'stranger' so the fraud-aware analysis runs on every chat.
+  fd.append('relationship_type', 'stranger');
   fd.append('context_note', document.getElementById('ctx').value);
   fd.append('requested_mode', document.getElementById('selMode').value);
   fd.append('conversation_id', document.getElementById('convId').value || '');
