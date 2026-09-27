@@ -209,3 +209,12 @@ def test_brand_subtitle_is_social_intelligence():
     html = ENV.get_template("index.html").render(page_mode="connection")
     assert '<div class="brand-sub">Social Intelligence</div>' in html
     assert "Dating Intelligence" not in html
+
+
+def test_front_door_privacy_copy_is_truthful():
+    # Training notice goes live with this copy; data collected before it is never used for training.
+    html = ENV.get_template("index.html").render(page_mode="connection")
+    for gone in ("Never used to train AI", "Never shared or sold", "expires automatically after 30 days", "never shared"):
+        assert gone not in html, gone
+    assert "help sharpen the lens" in html
+    assert "read by our AI provider" in html
