@@ -518,9 +518,11 @@ function showEmailGate(){
   w.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(10,14,20,0.94);';
   w.innerHTML = `
     <div style="max-width:380px;width:100%;background:#0F1620;border:1px solid #5FDCE8;border-radius:14px;padding:24px;color:#E6EDF3;">
-      <div style="font-size:1.15rem;font-weight:700;color:#5FDCE8;margin-bottom:10px;">Want to keep going?</div>
-      <p style="font-size:0.92rem;line-height:1.5;margin:0 0 14px;">Add your email to keep using VibeLenz. We'll send a short reminder now and then. Nothing about what you checked ever goes in it, and you can stop it any time.</p>
-      <input id="emailGateInput" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" style="width:100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #2A3646;background:#0A0E14;color:#E6EDF3;font-size:1rem;">
+      <div style="font-size:1.15rem;font-weight:700;color:#5FDCE8;margin-bottom:10px;">Are you enjoying VibeLenz?</div>
+      <p style="font-size:0.92rem;line-height:1.5;margin:0 0 14px;">Consider filling out our form to receive relevant reminders, app updates, and launch date notifications. We don't sell your information — we'll only send you relevant updates.</p>
+      <input id="emailGateName" type="text" autocomplete="name" placeholder="Full name (optional)" style="width:100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #2A3646;background:#0A0E14;color:#E6EDF3;font-size:1rem;margin-bottom:10px;">
+      <input id="emailGateInput" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" style="width:100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #2A3646;background:#0A0E14;color:#E6EDF3;font-size:1rem;margin-bottom:10px;">
+      <input id="emailGatePhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="Phone number (optional)" style="width:100%;box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #2A3646;background:#0A0E14;color:#E6EDF3;font-size:1rem;">
       <div id="emailGateErr" style="min-height:18px;font-size:0.8rem;color:#FF8A80;margin:6px 0 10px;"></div>
       <div style="display:flex;gap:10px;">
         <button id="emailGateGo" type="button" style="flex:1;padding:12px;border:0;border-radius:8px;background:#5FDCE8;color:#0A0E14;font-weight:700;font-size:1rem;cursor:pointer;">Continue</button>
@@ -528,12 +530,16 @@ function showEmailGate(){
       </div>
     </div>`;
   document.body.appendChild(w);
+  const nameInp = document.getElementById('emailGateName');
   const inp = document.getElementById('emailGateInput');
+  const phoneInp = document.getElementById('emailGatePhone');
   const err = document.getElementById('emailGateErr');
   const go = document.getElementById('emailGateGo');
   document.getElementById('emailGateNo').addEventListener('click', () => { w.style.display = 'none'; });
   const submit = async () => {
     const email = inp.value.trim();
+    const full_name = nameInp.value.trim();
+    const phone = phoneInp.value.trim();
     err.textContent = '';
     if (!email) { err.textContent = 'Add your email to continue.'; return; }
     go.disabled = true;
@@ -541,7 +547,7 @@ function showEmailGate(){
       const r = await fetch('/email/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
+        body: JSON.stringify({ email: email, full_name: full_name, phone: phone })
       });
       if (r.ok) {
         go.disabled = false;
@@ -552,7 +558,9 @@ function showEmailGate(){
       }
       let code = '';
       try { code = (await r.json()).error || ''; } catch (_e) {}
-      err.textContent = code === 'invalid_email' ? "That email doesn't look right." : "Couldn't save that. Try again in a moment.";
+      if (code === 'invalid_email') err.textContent = "That email doesn't look right.";
+      else if (code === 'invalid_phone') err.textContent = "That phone number doesn't look right — you can leave it blank instead.";
+      else err.textContent = "Couldn't save that. Try again in a moment.";
     } catch (_e) {
       err.textContent = 'Network error. Try again.';
     }
