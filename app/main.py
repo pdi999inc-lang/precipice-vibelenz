@@ -21,6 +21,7 @@ from app.db import init_db, log_feedback
 from app.email_reminders import email_gate_middleware, router as email_router
 from app.literacy import router as literacy_router, build_prompt as build_literacy_prompt
 from app.glossary import build_glossary
+from app.trajectory import build_trajectory
 
 logger = logging.getLogger("vibelenz.main")
 
@@ -607,6 +608,15 @@ async def analyze_screenshots(
     except Exception as _save_err:
         logger.warning(f"[{request_id}] batch save failed: {_save_err}")
         payload["continuity_degraded"] = True
+
+    # --- Cross-session trajectory ("compared to last time"; see app/trajectory.py) ---
+    # Pure comparison over the frozen batch scores above. No new scoring, no new table.
+    # Fail-closed: any error means no trajectory shown, never a blocked read.
+    try:
+        payload["trajectory"] = build_trajectory(payload)
+    except Exception as _traj_err:
+        logger.warning(f"[{request_id}] trajectory skipped: {_traj_err}")
+        payload["trajectory"] = None
 
     # --- Outcome Engine Phase 1: emit + store one falsifiable prediction ---
     # Derived deterministically from existing payload fields — no new engine.
