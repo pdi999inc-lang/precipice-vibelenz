@@ -201,11 +201,13 @@ html.vl-paper.vl-front .conv-expiry { color: var(--vl-amber-text); }
 html.vl-paper.vl-front .conv-summary .cs-pill.HIGH { color: var(--vl-red-text); }
 html.vl-paper.vl-front .ti img { border-color: rgba(34, 26, 20, 0.12); }
 html.vl-paper.vl-front .ov { background: rgba(247, 243, 236, 0.94); }
-/* Splash (icon page) on Paper. The aperture image is an opaque glow-on-black
-   WebP, so it is inverted (black -> white), hue-restored to cyan, and multiplied
-   onto the paper so the white drops out. No new asset needed. */
+/* Splash (icon page) on Paper. The original aperture is glow-on-black with no
+   transparency, so Paper uses a second, transparent version (vl-ap-paper).
+   CSS blending was dropped: it rendered a white square on phones. */
 html.vl-paper.vl-front .splash-page { background: transparent; }
-html.vl-paper.vl-front .splash-aperture { filter: invert(1) hue-rotate(180deg) saturate(1.6) contrast(1.15); mix-blend-mode: multiply; }
+.vl-ap-paper { display: none; }
+html.vl-paper.vl-front .vl-ap-dark { display: none; }
+html.vl-paper.vl-front .vl-ap-paper { display: block; }
 html.vl-paper.vl-front .splash-word { background: linear-gradient(135deg, var(--vl-cyan-text), var(--vl-violet-text)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 html.vl-paper.vl-front .splash-tagline,
 html.vl-paper.vl-front .swipe-hint { color: var(--vl-paper-ink-dim); }

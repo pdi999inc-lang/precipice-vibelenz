@@ -296,7 +296,10 @@ def test_photo_check_only_for_match_purchase_or_scam(ctx, shown):
 def test_splash_uses_paper_on_front_door():
     css = open(os.path.join(TEMPLATES, "_vl_render_v2.css"), encoding="utf-8").read()
     assert "html.vl-paper.vl-front .splash-page { background: transparent; }" in css
-    assert "mix-blend-mode: multiply" in css
+    assert "mix-blend-mode" not in css  # caused a white square on phones
+    assert "html.vl-paper.vl-front .vl-ap-paper { display: block; }" in css
+    html = ENV.get_template("index.html").render(page_mode="connection")
+    assert 'class="splash-aperture vl-ap-dark"' in html and 'class="splash-aperture vl-ap-paper"' in html
 
 
 def test_swipe_hint_matches_horizontal_gesture():
@@ -305,3 +308,9 @@ def test_swipe_hint_matches_horizontal_gesture():
     assert '<span class="swipe-chevron">&lsaquo;</span>' in html
     css = open(os.path.join(TEMPLATES, "_vl_render_v2.css"), encoding="utf-8").read()
     assert ".vl-front .swipe-chevron { transform: none;" in css
+
+
+def test_splash_tagline_is_clue_me_in():
+    html = ENV.get_template("index.html").render(page_mode="connection")
+    assert '<div class="splash-tagline">Clue Me In</div>' in html
+    assert "Analyze the Vibe" not in html
