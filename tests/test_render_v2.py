@@ -291,3 +291,17 @@ def test_empty_dampener_cards_removed():
 ])
 def test_photo_check_only_for_match_purchase_or_scam(ctx, shown):
     assert ("Check their photos" in _render_result(**ctx)) is shown
+
+
+def test_splash_uses_paper_on_front_door():
+    css = open(os.path.join(TEMPLATES, "_vl_render_v2.css"), encoding="utf-8").read()
+    assert "html.vl-paper.vl-front .splash-page { background: transparent; }" in css
+    assert "mix-blend-mode: multiply" in css
+
+
+def test_swipe_hint_matches_horizontal_gesture():
+    html = ENV.get_template("index.html").render(page_mode="connection")
+    assert "Swipe left or tap to begin" in html
+    assert '<span class="swipe-chevron">&lsaquo;</span>' in html
+    css = open(os.path.join(TEMPLATES, "_vl_render_v2.css"), encoding="utf-8").read()
+    assert ".vl-front .swipe-chevron { transform: none;" in css

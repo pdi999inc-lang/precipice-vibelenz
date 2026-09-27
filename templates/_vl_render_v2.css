@@ -201,11 +201,18 @@ html.vl-paper.vl-front .conv-expiry { color: var(--vl-amber-text); }
 html.vl-paper.vl-front .conv-summary .cs-pill.HIGH { color: var(--vl-red-text); }
 html.vl-paper.vl-front .ti img { border-color: rgba(34, 26, 20, 0.12); }
 html.vl-paper.vl-front .ov { background: rgba(247, 243, 236, 0.94); }
-/* Splash stays dark (brand aperture intro); only retint its text to the new gradient. */
-html.vl-paper.vl-front .splash-word { background: var(--vl-grad-front); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* Splash (icon page) on Paper. The aperture image is an opaque glow-on-black
+   WebP, so it is inverted (black -> white), hue-restored to cyan, and multiplied
+   onto the paper so the white drops out. No new asset needed. */
+html.vl-paper.vl-front .splash-page { background: transparent; }
+html.vl-paper.vl-front .splash-aperture { filter: invert(1) hue-rotate(180deg) saturate(1.6) contrast(1.15); mix-blend-mode: multiply; }
+html.vl-paper.vl-front .splash-word { background: linear-gradient(135deg, var(--vl-cyan-text), var(--vl-violet-text)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 html.vl-paper.vl-front .splash-tagline,
-html.vl-paper.vl-front .swipe-hint { color: var(--vl-risk-ink-dim); }
-html.vl-paper.vl-front .swipe-chevron { color: var(--vl-cyan); }
+html.vl-paper.vl-front .swipe-hint { color: var(--vl-paper-ink-dim); }
+html.vl-paper.vl-front .swipe-chevron { color: var(--vl-cyan-text); }
+/* The splash advances with a horizontal swipe: point the chevron left and nudge sideways, not down. */
+.vl-front .swipe-chevron { transform: none; font-size: 2rem; }
+.vl-front .swipe-hint-text { white-space: nowrap; }
 
 /* Loader: the aperture ring (brand motif) replaces the plain spinner. */
 .vl-paper .sp,
@@ -259,6 +266,7 @@ dialog.vl-sample::backdrop { background: rgba(34, 26, 20, 0.45); }
 @keyframes vl-draw { from { stroke-dashoffset: 339.3; } }
 @keyframes vl-alert { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes vl-spin { to { transform: rotate(360deg); } }
+@keyframes vl-nudge-left { 0%, 100% { opacity: 0.55; transform: translateX(-50%); } 50% { opacity: 1; transform: translateX(calc(-50% - 8px)); } }
 
 @media (prefers-reduced-motion: no-preference) {
   /* Connection result: one orchestrated reveal - hero children stagger, gauge draws in. */
@@ -275,6 +283,7 @@ dialog.vl-sample::backdrop { background: rgba(34, 26, 20, 0.45); }
   /* Loader aperture */
   .vl-paper .sp, .vl-dark .sp { animation: vl-spin 1.4s linear infinite; }
   .vl-paper .cta:active { transform: scale(0.98); }
+  .vl-front .swipe-hint { animation: vl-nudge-left 2.2s ease-in-out infinite; }
 }
 
 @media (prefers-reduced-motion: reduce) {
