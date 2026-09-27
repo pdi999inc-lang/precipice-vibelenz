@@ -41,9 +41,18 @@ ENV
     EMAIL_FROM_NAME       default "VibeLenz"
     PUBLIC_BASE_URL       default https://app.appvibelenz.com
     EMAIL_GATE_ENABLED    "false" = kill switch, gate off, cookie/tracking still on
+
+CAPTURE FIELDS (2026-09-27 addition)
+    Full name and phone are OPTIONAL; only email is required to satisfy the
+    gate. Both are visitor-self-reported and stored as-is (no derivation).
+    The one exception to the "generic content" rule above: the reminder
+    email's greeting uses the visitor's own submitted first/full name if
+    given. This is not analysis-derived and does not touch the analyses
+    table — it is the same visitor-supplied string, echoed back to them.
 """
 from __future__ import annotations
 
+import html as _html
 import json
 import logging
 import os
@@ -137,6 +146,8 @@ CREATE TABLE IF NOT EXISTS email_visitors (
     use_count             INTEGER NOT NULL DEFAULT 0,
     last_active_at        TIMESTAMPTZ NOT NULL,
     email                 TEXT,
+    full_name             TEXT,
+    phone                 TEXT,
     email_captured_at     TIMESTAMPTZ,
     confirm_token         TEXT,
     confirmed_at          TIMESTAMPTZ,
@@ -152,6 +163,13 @@ CREATE TABLE IF NOT EXISTS email_visitors (
 # Deliberately NO column that references the analyses table or any analysis
 # content. Reminders cannot leak what they do not know.
 
+# Installs that predate full_name/phone: additive, nullable, no backfill
+# needed. Existing rows simply read NULL for both.
+_SCHEMA_MIGRATIONS = (
+    "ALTER TABLE email_visitors ADD COLUMN IF NOT EXISTS full_name TEXT",
+    "ALTER TABLE email_visitors ADD COLUMN IF NOT EXISTS phone TEXT",
+)
+
 _schema_ready = False
 
 
@@ -160,6 +178,8 @@ def ensure_schema() -> None:
     if _schema_ready:
         return
     _exec(_SCHEMA)
+    for _stmt in _SCHEMA_MIGRATIONS:
+        _exec(_stmt)
     _schema_ready = True
 
 
@@ -174,6 +194,29 @@ def normalize_email(raw: Any) -> Optional[str]:
     if len(e) > 254 or " " in e or not _EMAIL_RE.match(e):
         return None
     return e
+
+
+def normalize_name(raw: Any) -> Optional[str]:
+    """Optional. Visitor-supplied only — never derived, never validated for identity."""
+    if not isinstance(raw, str):
+        return None
+    n = raw.strip()
+    if not n or len(n) > 100:
+        return None
+    return n
+
+
+_PHONE_RE = re.compile(r"^[0-9+()\-.\s]{7,20}$")
+
+
+def normalize_phone(raw: Any) -> Optional[str]:
+    """Optional. Loose format check only — no delivery mechanism uses this yet."""
+    if not isinstance(raw, str):
+        return None
+    p = raw.strip()
+    if not p or len(p) > 20 or not _PHONE_RE.match(p):
+        return None
+    return p
 
 
 # --------------------------------------------------------------------------
@@ -327,15 +370,22 @@ def _confirm_message(confirm_url: str, unsub_url: str) -> Tuple[str, str, str]:
     return subject, text, html
 
 
-def _reminder_message(unsub_url: str) -> Tuple[str, str, str]:
+def _reminder_message(unsub_url: str, name: Optional[str] = None) -> Tuple[str, str, str]:
     subject = os.environ.get("EMAIL_REMINDER_SUBJECT", "Your session is waiting")
     link = _base_url()
+    # Personalization is the one exception to "generic content": it is the
+    # visitor's own submitted name, echoed back — never analysis-derived.
+    _name = name.strip() if isinstance(name, str) and name.strip() else ""
+    greeting_text = f"Hi {_name},\n\n" if _name else ""
+    greeting_html = f"<p>Hi {_html.escape(_name)},</p>" if _name else ""
     text = (
+        f"{greeting_text}"
         f"Your {_brand()} session is still here whenever you want to come back.\n\n"
         f"{link}\n\n"
         f"Stop these reminders:\n{unsub_url}\n"
     )
     html = (
+        f"{greeting_html}"
         f"<p>Your {_brand()} session is still here whenever you want to come back.</p>"
         f"<p><a href=\"{link}\">Open {_brand()}</a></p>"
         f"<p style=\"color:#666;font-size:12px\"><a href=\"{unsub_url}\">Stop these reminders</a></p>"
@@ -384,8 +434,15 @@ async def capture_email(request: Request):
     email = normalize_email(body.get("email") if isinstance(body, dict) else None)
     if not email:
         return JSONResponse({"error": "invalid_email"}, status_code=400)
+    full_name = normalize_name(body.get("full_name") if isinstance(body, dict) else None)
+    raw_phone = body.get("phone") if isinstance(body, dict) else None
+    phone: Optional[str] = None
+    if isinstance(raw_phone, str) and raw_phone.strip():
+        phone = normalize_phone(raw_phone)
+        if phone is None:
+            return JSONResponse({"error": "invalid_phone"}, status_code=400)
     try:
-        result = await run_in_threadpool(_capture, raw_vid, email)
+        result = await run_in_threadpool(_capture, raw_vid, email, full_name, phone)
     except Exception:
         log.exception("email_capture failed")
         return JSONResponse({"error": "temporarily_unavailable"}, status_code=503)
@@ -394,7 +451,7 @@ async def capture_email(request: Request):
     return JSONResponse({"ok": True})
 
 
-def _capture(vid: str, email: str) -> Optional[bool]:
+def _capture(vid: str, email: str, full_name: Optional[str] = None, phone: Optional[str] = None) -> Optional[bool]:
     ensure_schema()
     row = _exec(
         "SELECT email, confirm_sends, last_confirm_sent_at FROM email_visitors WHERE visitor_id = %s",
@@ -405,17 +462,25 @@ def _capture(vid: str, email: str) -> Optional[bool]:
     existing, confirm_sends, _last = row
     now = _utcnow()
     if existing == email:
-        return True  # idempotent: gate is already satisfied, no extra send
+        # Idempotent on email: gate already satisfied, no extra confirmation
+        # send. Still record name/phone in case this submission fills in
+        # optional fields left blank the first time.
+        _exec(
+            "UPDATE email_visitors SET full_name = %s, phone = %s WHERE visitor_id = %s",
+            (full_name, phone, vid),
+        )
+        return True
     confirm_token = secrets.token_urlsafe(24)
     unsub_token = secrets.token_urlsafe(24)
     _exec(
         """
-        UPDATE email_visitors SET email = %s, email_captured_at = %s,
-            confirm_token = %s, confirmed_at = NULL, unsub_token = %s,
-            unsubscribed_at = NULL, reminder_count = 0, last_reminder_at = NULL
+        UPDATE email_visitors SET email = %s, full_name = %s, phone = %s,
+            email_captured_at = %s, confirm_token = %s, confirmed_at = NULL,
+            unsub_token = %s, unsubscribed_at = NULL, reminder_count = 0,
+            last_reminder_at = NULL
         WHERE visitor_id = %s
         """,
-        (email, now, confirm_token, unsub_token, vid),
+        (email, full_name, phone, now, confirm_token, unsub_token, vid),
     )
     # Cap confirmation sends (email-bombing guard) then send.
     if confirm_sends < MAX_CONFIRM_SENDS:
@@ -513,7 +578,7 @@ def run_reminders(
     gap_cut = now - timedelta(hours=REMINDER_MIN_GAP_HOURS)
     rows = _exec(
         """
-        SELECT visitor_id, email, unsub_token FROM email_visitors
+        SELECT visitor_id, email, unsub_token, full_name FROM email_visitors
         WHERE confirmed_at IS NOT NULL AND unsubscribed_at IS NULL AND email IS NOT NULL
           AND reminder_count < %s AND last_active_at <= %s
           AND (last_reminder_at IS NULL OR last_reminder_at <= %s)
@@ -522,7 +587,7 @@ def run_reminders(
         (MAX_REMINDERS, inactive_cut, gap_cut, limit), "all",
     ) or []
     sent = failed = skipped = 0
-    for vid, email, unsub_token in rows:
+    for vid, email, unsub_token, full_name in rows:
         # Claim BEFORE sending: a crash after send can never double-send.
         claimed = _exec(
             """
@@ -538,7 +603,7 @@ def run_reminders(
             skipped += 1
             continue
         unsub_url = f"{_base_url()}/email/unsubscribe?t={unsub_token}"
-        subject, text, html = _reminder_message(unsub_url)
+        subject, text, html = _reminder_message(unsub_url, name=full_name)
         ok, err = sender(email, subject, text, html, unsub_url=unsub_url)
         if ok:
             sent += 1
