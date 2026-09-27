@@ -1009,11 +1009,104 @@
   <section class="rl-panel" data-tab="analytics">
     <div class="page">
       <div class="hero">
-        <div class="dash-eyebrow">Analytics</div>
-        <div class="dash-title">Coming soon</div>
-        <p class="connection-read">Trend tracking across your reads will live here.</p>
+        <div class="dash-eyebrow">Field guide</div>
+        <div class="dash-title" id="glosTitle">Patterns you've seen</div>
+        <p class="connection-read" id="glosProgress">Patterns show up here as you come across them.</p>
       </div>
+      {# Pattern glossary. Entries come from app/glossary.py for THIS read; the
+         seen-set lives in the browser only (localStorage), so nothing about a
+         person's history is stored server-side. #}
+      <div id="glosList"></div>
+      <div class="section" id="glosEmpty" hidden>
+        <p class="connection-read">Nothing to add from this read yet. Patterns get explained here the first time they turn up.</p>
+      </div>
+      <p class="connection-read" style="font-size:13px;opacity:0.7;margin-top:18px;">Saved on this device only. Clearing your browser clears this list.</p>
     </div>
+    <style>
+      .glos-item { border:1px solid var(--line); border-radius:16px; padding:14px 16px; margin-bottom:10px; background:var(--cream-2,transparent); }
+      .glos-head { display:flex; align-items:center; gap:10px; width:100%; background:none; border:0; padding:0; font:inherit; color:inherit; text-align:left; cursor:pointer; }
+      .glos-name { font-weight:800; font-size:15px; flex:1; }
+      .glos-new { font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--teal,#2F7E77); border:1px solid rgba(47,126,119,0.4); border-radius:999px; padding:2px 8px; }
+      .glos-caret { opacity:0.5; font-size:12px; }
+      .glos-body { margin-top:10px; font-size:15px; line-height:1.7; }
+      .glos-body p { margin:0 0 8px; }
+      .glos-body .glos-why { opacity:0.85; }
+      .glos-body[hidden] { display:none; }
+    </style>
+    <script>
+    (function () {
+      var G = {{ (glossary or None)|tojson }};
+      var KEY = "vl_glossary_seen_v1";
+      var list = document.getElementById("glosList");
+      var prog = document.getElementById("glosProgress");
+      var empty = document.getElementById("glosEmpty");
+      if (!list) return;
+
+      function load() {
+        try { var v = JSON.parse(localStorage.getItem(KEY) || "[]"); return Array.isArray(v) ? v : []; }
+        catch (e) { return []; }
+      }
+      function save(a) { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) {} }
+
+      var seen = load();
+      if (!G || !G.entries || !G.entries.length) {
+        if (empty) empty.hidden = false;
+        if (prog && seen.length) prog.textContent = seen.length + " pattern" + (seen.length === 1 ? "" : "s") + " seen so far.";
+        return;
+      }
+
+      var fresh = [];
+      G.entries.forEach(function (e) {
+        var isNew = seen.indexOf(e.key) === -1;
+        if (isNew) fresh.push(e.key);
+        var item = document.createElement("div");
+        item.className = "glos-item";
+        var head = document.createElement("button");
+        head.type = "button";
+        head.className = "glos-head";
+        head.setAttribute("aria-expanded", isNew ? "true" : "false");
+        var name = document.createElement("span");
+        name.className = "glos-name";
+        name.textContent = e.title;
+        head.appendChild(name);
+        if (isNew) {
+          var tag = document.createElement("span");
+          tag.className = "glos-new";
+          tag.textContent = "New";
+          head.appendChild(tag);
+        }
+        var caret = document.createElement("span");
+        caret.className = "glos-caret";
+        caret.textContent = "\u25BE";
+        head.appendChild(caret);
+        var body = document.createElement("div");
+        body.className = "glos-body";
+        body.hidden = !isNew;
+        var p1 = document.createElement("p");
+        p1.textContent = e.means;
+        var p2 = document.createElement("p");
+        p2.className = "glos-why";
+        p2.textContent = e.matters;
+        body.appendChild(p1);
+        body.appendChild(p2);
+        head.addEventListener("click", function () {
+          body.hidden = !body.hidden;
+          head.setAttribute("aria-expanded", body.hidden ? "false" : "true");
+        });
+        item.appendChild(head);
+        item.appendChild(body);
+        list.appendChild(item);
+      });
+
+      if (fresh.length) { seen = seen.concat(fresh); save(seen); }
+      if (prog) {
+        var total = G.catalogue_total || seen.length;
+        var n = Math.min(seen.length, total);
+        prog.textContent = n + " of " + total + " patterns seen"
+          + (fresh.length ? " \u2014 " + fresh.length + " new in this read." : ".");
+      }
+    })();
+    </script>
   </section>
   <section class="rl-panel" data-tab="reports">
     <div class="page">
