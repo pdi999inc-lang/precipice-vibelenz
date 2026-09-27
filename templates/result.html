@@ -258,15 +258,21 @@
     {% set is_withheld = risk_text == 'WITHHELD' %}
     <div class="topbar">
       <div>
+        {% if presentation_mode == 'connection' and not is_withheld %}
+        <h1 class="title">Conversation Analysis</h1>
+        {% else %}
         <h1 class="title">{{ mode_title or "VibeLenz Analysis" }}</h1>
         <div class="subtle">Request ID: {{ request_id }}</div>
         <div class="subtle">{{ mode_tagline or "Conversation analysis" }}</div>
+        {% endif %}
       </div>
+      {% if not vl_paper %}
       <div>
         <span class="badge {% if is_withheld %}withheld{% elif 'HIGH' in risk_text %}high{% elif 'MED' in risk_text %}medium{% else %}low{% endif %}">
           {{ risk_text }}
         </span>
       </div>
+      {% endif %}
     </div>
     {% if degraded %}
     <div class="degraded-banner">
@@ -331,7 +337,7 @@
     <div class="hero">
       <div class="dash-head">
         <div>
-          <div class="dash-eyebrow">Connection Analytics</div>
+          <div class="dash-eyebrow">THE VIBE</div>
           <div class="dash-title">{{ diagnosis or "Analysis complete." }}</div>
         </div>
         <div class="dash-badge-icon" aria-hidden="true">
@@ -377,18 +383,36 @@
       <div class="arc-header">
         <div>
           <div class="arc-eyebrow">Conversation arc — {{ turn_analysis.turn_count }} screenshots</div>
-          <div class="arc-label">{{ turn_analysis.arc_label }}</div>
+          {% set _vl_arc_map = {
+            "flat_low": "Steady and easy — the tone held the whole way through",
+            "de_escalating": "Things eased up as the conversation went on",
+            "volatile": "The energy kept shifting from screenshot to screenshot",
+            "escalating": "Things got more intense toward the end — worth a closer look"
+          } %}
+          <div class="arc-label">{{ _vl_arc_map.get(turn_analysis.arc, turn_analysis.arc_label) }}</div>
         </div>
-        <div class="arc-direction-pill {{ turn_analysis.direction or 'neutral' }}">{{ (turn_analysis.direction or 'neutral') | capitalize }}</div>
+        {% set _vl_dir_map = {"improving": "Warming up", "neutral": "Steady", "mixed": "Shifting", "worsening": "Worth a look", "concerning": "Worth a look"} %}
+        <div class="arc-direction-pill {{ turn_analysis.direction or 'neutral' }}">{{ _vl_dir_map.get(turn_analysis.direction or 'neutral', 'Steady') }}</div>
       </div>
       <div class="turn-timeline">
+        {% set _vl_mood_map = {
+          "warm receptivity": "Warm", "casual flirtation": "Flirty", "playful reengagement": "Playful",
+          "light sexual reciprocity": "Heating up", "confusion then repair": "Back on track",
+          "high intent mutual": "All in", "routine message": "Easygoing", "low information neutral": "Low-key",
+          "relationship context": "Familiar ground", "mixed intent genuine": "Mixed energy",
+          "mixed intent": "Mixed energy", "fear driven urgency": "Rushed"
+        } %}
         {% for turn in turn_analysis.turns %}
           <div class="turn-item">
             <div class="turn-dot {{ turn.color }}">{{ turn.turn_number }}</div>
             <div class="turn-meta">
               <div class="turn-num">Screenshot {{ turn.turn_number }}</div>
-              <div class="turn-verdict">{{ turn.verdict }}</div>
+              {% if turn.color == 'low' %}
+              <div class="turn-verdict">{{ _vl_mood_map.get((turn.label or '')|lower, 'Easygoing') }}</div>
+              {% else %}
+              <div class="turn-verdict">{{ 'Worth a closer look' if turn.color == 'medium' else turn.verdict }}</div>
               <div class="turn-label-text">{{ turn.label }}</div>
+              {% endif %}
             </div>
           </div>
           {% if not loop.last %}<div class="arc-connector"><div class="arc-connector-line"></div></div>{% endif %}
@@ -431,17 +455,7 @@
         {% if displayable_concerns and displayable_concerns|length > 0 %}
           {% for item in displayable_concerns %}<span class="chip warn">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
         {% else %}
-          <span class="chip">Nothing here strongly raises concern</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="section connection-section">
-      <h3>What kept this from reading worse</h3>
-      <div class="chips">
-        {% if key_dampeners and key_dampeners|length > 0 %}
-          {% for item in key_dampeners %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
-        {% else %}
-          <span class="chip">No dampeners surfaced</span>
+          <span class="chip">Nothing here stands out as off</span>
         {% endif %}
       </div>
     </div>
@@ -594,13 +608,14 @@
       </div>
     </div>
     {% endif %}
+    {% if key_dampeners and key_dampeners|length > 0 %}
     <div class="section">
       <h3>What lowers concern</h3>
       <div class="chips">
-        {% if key_dampeners and key_dampeners|length > 0 %}{% for item in key_dampeners %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
-        {% else %}<span class="chip">No dampeners surfaced</span>{% endif %}
+        {% for item in key_dampeners %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
       </div>
     </div>
+    {% endif %}
     <div class="section">
       <h3>Other plausible reads</h3>
       <div class="chips">
@@ -626,7 +641,16 @@
       <div class="section"><h3>Keep yourself honest</h3><p>{{ accountability or "Don't act on a non-result." }}</p></div>
     </div>
     {% endif %}
-    {% if not is_withheld %}
+    {% set _vl_txt = (extracted_text or '')|string|lower %}
+    {% set _vl_buy = namespace(hit=false) %}
+    {% for _k in ['deposit', 'payment', 'paypal', 'venmo', 'zelle', 'cash app', 'cashapp', 'gift card', 'wire transfer', 'crypto', 'bitcoin', 'shipping', 'for sale', 'price', 'invoice', 'purchase', 'buy ', 'buying', 'rental', ' rent ', 'selling', '$'] %}
+      {% if _k in _vl_txt %}{% set _vl_buy.hit = true %}{% endif %}
+    {% endfor %}
+    {% set _vl_show_photos = ((relationship_type or '')|string|lower == 'match')
+          or _vl_buy.hit
+          or (domain_mode in ['housing_rental', 'marketplace_transaction'])
+          or ((lane or '')|string|upper in ['FRAUD', 'COERCION_RISK']) %}
+    {% if not is_withheld and _vl_show_photos %}
     <div class="section">
       <h3>Check their photos</h3>
       <p style="margin-bottom:12px;">Reverse-search their profile pictures to see if the same photos show up elsewhere under a different name. Save their photo to your device, then run it through either tool:</p>

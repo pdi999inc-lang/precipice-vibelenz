@@ -218,3 +218,76 @@ def test_front_door_privacy_copy_is_truthful():
         assert gone not in html, gone
     assert "help sharpen the lens" in html
     assert "read by our AI provider" in html
+
+
+# ---------------------------------------------------------------- results copy (connection)
+LOW_TURNS = {
+    "turn_count": 3, "arc": "flat_low", "direction": "neutral",
+    "arc_label": "Low and stable — nothing escalated across these screenshots",
+    "turns": [
+        {"turn_number": 1, "risk_score": 5, "color": "low", "verdict": "Low concern", "label": "routine message"},
+        {"turn_number": 2, "risk_score": 8, "color": "low", "verdict": "Low concern", "label": "warm receptivity"},
+        {"turn_number": 3, "risk_score": 4, "color": "low", "verdict": "Low concern", "label": "casual flirtation"},
+    ],
+}
+
+
+def _visible_region(html):
+    m = re.search(r'<div class="vl-conn-region">(.*?)<!-- /vl-conn-region -->', html, flags=re.S)
+    assert m, "connection region marker missing"
+    return _visible_text(m.group(1))
+
+
+def test_connection_header_plain_title_no_request_id_or_badge():
+    html = _render_result(**dict(CONNECTION, mode_title="Connection Analysis",
+                                 mode_tagline="Warm read on chemistry, receptivity, emotional movement, and what to do next."))
+    text = _visible_text(html)
+    assert "Conversation Analysis" in text
+    assert "Request ID" not in text
+    assert "Warm read on chemistry" not in text
+    assert "Connection Analysis" not in text
+    assert 'class="badge' not in html
+
+
+def test_risk_header_keeps_request_id_and_badge():
+    html = _render_result(presentation_mode="risk", lane="FRAUD", risk_level="HIGH", mode_title="Risk Analysis")
+    assert "Request ID" in _visible_text(html)
+    assert 'class="badge high"' in html
+
+
+def test_first_card_eyebrow_is_the_vibe():
+    text = _visible_text(_render_result(**CONNECTION))
+    assert "THE VIBE" in text and "Connection Analytics" not in text
+
+
+def test_low_arc_uses_everyday_words_not_concern():
+    text = _visible_region(_render_result(**dict(CONNECTION, turn_analysis=LOW_TURNS)))
+    assert "concern" not in text.lower()
+    assert "Steady and easy" in text
+    for mood in ("Easygoing", "Warm", "Flirty"):
+        assert mood in text
+
+
+def test_medium_turn_still_flagged_in_plain_words():
+    turns = dict(LOW_TURNS, turns=LOW_TURNS["turns"][:2] + [
+        {"turn_number": 3, "risk_score": 40, "color": "medium", "verdict": "Worth watching", "label": "mixed intent"}])
+    text = _visible_region(_render_result(**dict(CONNECTION, turn_analysis=turns)))
+    assert "Worth a closer look" in text
+
+
+def test_empty_dampener_cards_removed():
+    for ctx in (CONNECTION, dict(presentation_mode="risk", lane="FRAUD", risk_level="HIGH")):
+        text = _visible_text(_render_result(**ctx))
+        assert "No dampeners surfaced" not in text
+        assert "What kept this from reading worse" not in text
+
+
+@pytest.mark.parametrize("ctx, shown", [
+    (dict(CONNECTION, relationship_type="coworker", extracted_text="THEM: meeting moved to 3\nYOU: works"), False),
+    (dict(CONNECTION, relationship_type="family_member", extracted_text="THEM: dinner sunday?\nYOU: yes"), False),
+    (dict(CONNECTION, relationship_type="match", extracted_text="THEM: hey you\nYOU: hi"), True),
+    (dict(CONNECTION, relationship_type="stranger", extracted_text="THEM: still selling the bike? what's the price"), True),
+    (dict(presentation_mode="risk", lane="FRAUD", risk_level="HIGH", relationship_type="stranger", extracted_text="hello"), True),
+])
+def test_photo_check_only_for_match_purchase_or_scam(ctx, shown):
+    assert ("Check their photos" in _render_result(**ctx)) is shown
