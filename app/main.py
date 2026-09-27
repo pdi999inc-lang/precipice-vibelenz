@@ -19,12 +19,14 @@ from app.degradation import assess_degradation, apply_degradation, DegradationSt
 from app.audit import write_audit_record, get_session_stats
 from app.db import init_db, log_feedback
 from app.email_reminders import email_gate_middleware, router as email_router
+from app.literacy import router as literacy_router, build_prompt as build_literacy_prompt
 
 logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
 app.middleware("http")(email_gate_middleware)
 app.include_router(email_router)
+app.include_router(literacy_router)
 
 
 @app.on_event("startup")
@@ -567,6 +569,14 @@ async def analyze_screenshots(
     payload["reply_mode"] = _reply_data.get("reply_mode", "error")
     payload["replies_suppressed"] = _reply_data.get("replies_suppressed", False)
     payload["replies_suppressed_reason"] = _reply_data.get("replies_suppressed_reason")
+
+    # --- Pattern literacy check (connection mode only; see app/literacy.py) ---
+    # Pure + deterministic. Fail-closed: any error means no card, never a blocked read.
+    try:
+        payload["literacy"] = build_literacy_prompt(payload)
+    except Exception as _lit_err:
+        logger.warning(f"[{request_id}] literacy prompt skipped: {_lit_err}")
+        payload["literacy"] = None
 
     # --- Phase 1 continuity: save this batch frozen + attach continuity fields ---
     # The per-batch score is written once and never updated by future visits.
