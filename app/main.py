@@ -20,6 +20,7 @@ from app.audit import write_audit_record, get_session_stats
 from app.db import init_db, log_feedback
 from app.email_reminders import email_gate_middleware, router as email_router
 from app.literacy import router as literacy_router, build_prompt as build_literacy_prompt
+from app.glossary import build_glossary
 
 logger = logging.getLogger("vibelenz.main")
 
@@ -577,6 +578,14 @@ async def analyze_screenshots(
     except Exception as _lit_err:
         logger.warning(f"[{request_id}] literacy prompt skipped: {_lit_err}")
         payload["literacy"] = None
+
+    # --- Pattern glossary (field guide behind the chips; see app/glossary.py) ---
+    # Pure + deterministic, no storage. Fail-closed: any error means no glossary.
+    try:
+        payload["glossary"] = build_glossary(payload)
+    except Exception as _glos_err:
+        logger.warning(f"[{request_id}] glossary skipped: {_glos_err}")
+        payload["glossary"] = None
 
     # --- Phase 1 continuity: save this batch frozen + attach continuity fields ---
     # The per-batch score is written once and never updated by future visits.
