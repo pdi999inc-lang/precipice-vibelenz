@@ -1013,6 +1013,38 @@
         <div class="dash-title" id="glosTitle">Patterns you've seen</div>
         <p class="connection-read" id="glosProgress">Patterns show up here as you come across them.</p>
       </div>
+      {# Cross-session trajectory. Built by app/trajectory.py from the frozen
+         per-batch scores; absent (None) on a first read or degraded continuity. #}
+      {% if trajectory and trajectory.points %}
+      <div class="section traj-card" id="trajCard">
+        <h3>{% if trajectory.voice == 'connection' %}Compared to last time{% else %}Movement since your last read{% endif %}</h3>
+        <p class="traj-summary">{{ trajectory.summary }}</p>
+        <div class="traj-spark" aria-hidden="true">
+          {% for p in trajectory.points %}
+          <div class="traj-bar-wrap" title="Read {{ p.n }}: {{ p.score }}">
+            <div class="traj-bar traj-{{ 'hi' if p.level in ('HIGH','CRITICAL','WITHHELD') else ('mid' if p.level == 'MEDIUM' else 'lo') }}{{ ' traj-now' if loop.last else '' }}" style="height:{{ [p.score, 4]|max }}%"></div>
+            <span class="traj-n">{{ p.n }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="traj-meta">
+          {{ trajectory.reads }} reads of this conversation{% if trajectory.peak_elevated %} &middot; highest was read {{ trajectory.peak_batch }}{% endif %}
+        </p>
+      </div>
+      <style>
+        .traj-summary { font-size:16px; line-height:1.7; margin:0 0 16px; }
+        .traj-spark { display:flex; align-items:flex-end; gap:6px; height:96px; padding:0 2px; }
+        .traj-bar-wrap { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; gap:5px; }
+        .traj-bar { width:100%; max-width:34px; border-radius:6px 6px 2px 2px; min-height:4px; opacity:0.55; }
+        .traj-bar.traj-now { opacity:1; }
+        .traj-lo { background:#2F9E6E; }
+        .traj-mid { background:#D9A441; }
+        .traj-hi { background:#C4553F; }
+        .traj-n { font-size:11px; opacity:0.55; font-variant-numeric:tabular-nums; }
+        .traj-meta { font-size:13px; opacity:0.7; margin-top:12px !important; }
+      </style>
+      {% endif %}
+
       {# Pattern glossary. Entries come from app/glossary.py for THIS read; the
          seen-set lives in the browser only (localStorage), so nothing about a
          person's history is stored server-side. #}
