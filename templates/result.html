@@ -434,6 +434,78 @@
        OR when accountability copy contradicts positive framing #}
     {% set score_val = (risk_score if risk_score is not none else 0)|int %}
     {% set has_positives = positive_signals and positive_signals|length > 0 %}
+    {# Pattern literacy check — connection mode only. Built server-side by app/literacy.py;
+       absent (None) for risk lanes, degraded, or withheld reads. #}
+    {% if literacy and literacy.options %}
+    <div class="section connection-section lit-card" id="litCard">
+      <h3>{{ literacy.question }}</h3>
+      <p class="lit-sub">{{ literacy.subtext }}</p>
+      <div class="chips lit-opts" id="litOpts">
+        {% for o in literacy.options %}<button type="button" class="chip lit-opt" data-key="{{ o.key }}" aria-pressed="false">{{ o.label }}</button>{% endfor %}
+      </div>
+      <button type="button" class="lit-go" id="litGo" disabled>See what this read picked up</button>
+      <p class="lit-result" id="litResult" hidden></p>
+    </div>
+    <style>
+      .lit-card .lit-sub { font-size: 15px !important; margin: 0 0 14px !important; color: var(--text-soft, var(--text)); text-transform: none; }
+      .lit-opt { cursor: pointer; font-family: inherit; }
+      .lit-opt[aria-pressed="true"] { border-color: var(--teal, #2F7E77); box-shadow: 0 0 0 2px var(--teal, #2F7E77) inset; }
+      .lit-opt.lit-hit { background: var(--chip-good); color: #2F9E6E; border-color: rgba(47,158,110,0.5); }
+      .lit-opt.lit-miss { opacity: 0.5; }
+      .lit-opt.lit-found::after { content: " \2713"; }
+      .lit-go { width: 100%; margin-top: 16px; padding: 14px; border-radius: 14px; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; border: 1px solid rgba(47,126,119,0.4); background: rgba(47,126,119,0.1); color: var(--teal, #2F7E77); }
+      .lit-go:disabled { opacity: 0.45; cursor: default; }
+      .lit-result { margin-top: 14px !important; font-size: 16px !important; }
+    </style>
+    <script>
+    (function () {
+      var DETECTED = {{ literacy.detected|tojson }};
+      var RID = {{ request_id|tojson }};
+      var card = document.getElementById("litCard");
+      if (!card) return;
+      var opts = card.querySelectorAll(".lit-opt");
+      var go = document.getElementById("litGo");
+      var done = false;
+      function picked() {
+        var out = [];
+        opts.forEach(function (b) { if (b.getAttribute("aria-pressed") === "true") out.push(b.getAttribute("data-key")); });
+        return out;
+      }
+      opts.forEach(function (b) {
+        b.addEventListener("click", function () {
+          if (done) return;
+          b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true");
+          go.disabled = picked().length === 0;
+        });
+      });
+      go.addEventListener("click", function () {
+        if (done) return;
+        var sel = picked();
+        if (!sel.length) return;
+        done = true;
+        go.disabled = true;
+        var hits = 0;
+        opts.forEach(function (b) {
+          var k = b.getAttribute("data-key");
+          if (DETECTED.indexOf(k) !== -1) { b.classList.add("lit-hit", "lit-found"); if (sel.indexOf(k) !== -1) hits++; }
+          else { b.classList.add("lit-miss"); }
+        });
+        var n = DETECTED.length;
+        var res = document.getElementById("litResult");
+        res.textContent = hits === n
+          ? "You caught everything this read picked up."
+          : "You caught " + hits + " of " + n + ". The checkmarks show what this read picked up.";
+        res.hidden = false;
+        fetch("/literacy/answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ request_id: RID, selected: sel })
+        }).catch(function () { /* fail silent: never block the read */ });
+        try { gtag("event", "literacy_answer", { event_category: "retention", value: hits }); } catch (e) {}
+      });
+    })();
+    </script>
+    {% endif %}
     <div class="section connection-section">
       <h3>What's working</h3>
       <div class="chips">
