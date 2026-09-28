@@ -157,6 +157,24 @@ async def about(request: Request):
     return _simple_page("About", "About page template not found.")
 
 
+# Privacy policy (templates/privacy.html). The contact address is env-overridable so it can
+# move to a branded mailbox without a code change.
+PRIVACY_CONTACT_EMAIL = os.environ.get("PRIVACY_CONTACT_EMAIL", "VibeLenz999@gmail.com")
+PRIVACY_EFFECTIVE_DATE = "September 28, 2026"
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy(request: Request):
+    privacy_file = TEMPLATES_DIR / "privacy.html"
+    if privacy_file.exists():
+        return templates.TemplateResponse(
+            "privacy.html",
+            {"request": request, "contact_email": PRIVACY_CONTACT_EMAIL,
+             "effective_date": PRIVACY_EFFECTIVE_DATE},
+        )
+    return _simple_page("Privacy", "Privacy policy template not found.")
+
+
 @app.get("/static/og-image.svg")
 async def og_image():
     target = STATIC_DIR / "og-image.svg"
