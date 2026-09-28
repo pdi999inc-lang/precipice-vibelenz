@@ -14,7 +14,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.analyzer_combined import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
-from app.ocr import extract_text_from_images
+from app.ocr import extract_text_from_images, normalize_user_side
 from app.degradation import assess_degradation, apply_degradation, DegradationState
 from app.audit import write_audit_record, get_session_stats
 from app.db import init_db, log_feedback
@@ -249,10 +249,18 @@ async def analyze_screenshots(
     conversation_id: str = Form(""),
     continue_last: str = Form("false"),
     other_gender: str = Form("unknown"),
+    user_side: str = Form("right"),
 ):
     request_id = str(uuid.uuid4())
     ts = datetime.now(timezone.utc).isoformat()
     timestamp_start = time.time()
+
+    # Which side of the screenshot is the submitter? missing/blank -> "right" (legacy);
+    # unrecognised -> "mix" (attribution unknown). Never a silent guess.
+    _raw_side = (user_side or "").strip().lower()
+    user_side = normalize_user_side(user_side)
+    if _raw_side and _raw_side != user_side:
+        logger.warning(f"[{request_id}] unrecognised user_side={_raw_side[:20]!r}; treating as mix")
 
     # Extract UTM params from query string — passed through to DB log for attribution.
     # The frontend must preserve these on the form POST (via hidden fields or JS).
@@ -384,7 +392,7 @@ async def analyze_screenshots(
                 )
         text_chunks = []
         for img_bytes in image_bytes_list:
-            chunk = extract_text_from_images([img_bytes])
+            chunk = extract_text_from_images([img_bytes], user_side=user_side)
             text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
         ocr_char_count = len(extracted_text)
@@ -498,6 +506,7 @@ async def analyze_screenshots(
             requested_mode=requested_mode,
             relationship_type=relationship_type,
             use_llm=True,
+            user_side=("right" if use_paste else user_side),
         )
         turn_analysis = analyze_turns(
             text_chunks=[t for t in text_chunks if t.strip()],
@@ -585,6 +594,8 @@ async def analyze_screenshots(
     )
     payload["analysis_mode"] = analysis_mode
     payload["input_source"] = "paste" if use_paste else "screenshots"
+    if not use_paste:
+        payload["user_side"] = user_side  # pasted text carries no side information
     payload["suggested_replies"] = _reply_data.get("suggested_replies", [])
     payload["reply_mode"] = _reply_data.get("reply_mode", "error")
     payload["replies_suppressed"] = _reply_data.get("replies_suppressed", False)
