@@ -26,6 +26,16 @@ class _Cur:
 
     def execute(self, sql, params=()):
         sql = sql.replace("%s", "?").replace("TIMESTAMPTZ", "TEXT")
+        if "ADD COLUMN IF NOT EXISTS" in sql:
+            # sqlite has no IF NOT EXISTS for ADD COLUMN. Emulate Postgres: add it,
+            # and treat "already there" as success.
+            sql = sql.replace("ADD COLUMN IF NOT EXISTS", "ADD COLUMN")
+            try:
+                self._c.execute(sql)
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e):
+                    raise
+            return
         params = tuple(p.isoformat() if isinstance(p, datetime) else p for p in params)
         self._c.execute(sql, params)
 
@@ -344,3 +354,102 @@ def test_reminder_and_confirm_copy_is_generic():
         blob = " ".join(msg).lower()
         for word in FORBIDDEN:
             assert word not in blob, f"generic-copy violation: {word!r}"
+
+
+# ---------------------------------------------------------------- name / phone (optional)
+def _person(db):
+    return db.execute("SELECT email, full_name, phone FROM email_visitors").fetchone()
+
+
+def test_migration_adds_columns_to_a_pre_existing_table(db):
+    # An install created before full_name/phone existed must be upgraded in place,
+    # keep its rows, and tolerate the migration running twice.
+    db.execute(
+        "CREATE TABLE email_visitors (visitor_id TEXT PRIMARY KEY, created_at TEXT NOT NULL, "
+        "use_count INTEGER NOT NULL DEFAULT 0, last_active_at TEXT NOT NULL, email TEXT, "
+        "email_captured_at TEXT, confirm_token TEXT, confirmed_at TEXT, "
+        "confirm_sends INTEGER NOT NULL DEFAULT 0, last_confirm_sent_at TEXT, unsub_token TEXT, "
+        "unsubscribed_at TEXT, reminder_count INTEGER NOT NULL DEFAULT 0, last_reminder_at TEXT, "
+        "last_send_error TEXT)"
+    )
+    db.execute("INSERT INTO email_visitors (visitor_id, created_at, last_active_at, email) "
+               "VALUES ('old-visitor', 'x', 'x', 'old@example.com')")
+    er.ensure_schema()
+    er._schema_ready = False
+    er.ensure_schema()  # idempotent
+    cols = {r[1] for r in db.execute("PRAGMA table_info(email_visitors)").fetchall()}
+    assert {"full_name", "phone"} <= cols
+    assert db.execute("SELECT email, full_name, phone FROM email_visitors").fetchone() == \
+        ("old@example.com", None, None)
+
+
+def test_capture_stores_name_and_phone(client, db):
+    client.post("/analyze-screenshots")
+    r = client.post("/email/capture", json={"email": "p@example.com", "full_name": "  Pat Lee ",
+                                            "phone": "(704) 555-0123"})
+    assert r.status_code == 200
+    assert _person(db) == ("p@example.com", "Pat Lee", "(704) 555-0123")
+
+
+@pytest.mark.parametrize("extra", [{}, {"full_name": "", "phone": ""}, {"full_name": "   ", "phone": "  "},
+                                   {"full_name": None, "phone": None}])
+def test_name_and_phone_are_optional(client, db, extra):
+    client.post("/analyze-screenshots")
+    body = {"email": "p@example.com", **extra}
+    assert client.post("/email/capture", json=body).status_code == 200
+    assert _person(db) == ("p@example.com", None, None)
+    assert client.post("/analyze-screenshots").status_code == 200  # gate satisfied by email alone
+
+
+@pytest.mark.parametrize("bad", ["not-a-phone!!", "12", "1" * 40, "555-CALL-NOW", "<script>"])
+def test_invalid_phone_rejected_and_nothing_saved(client, db, bad):
+    client.post("/analyze-screenshots")
+    r = client.post("/email/capture", json={"email": "p@example.com", "phone": bad})
+    assert r.status_code == 400 and r.json()["error"] == "invalid_phone"
+    assert _person(db) == (None, None, None)
+    assert client.post("/analyze-screenshots").status_code == 403  # still gated
+
+
+def test_overlong_name_is_ignored_not_stored(client, db):
+    client.post("/analyze-screenshots")
+    assert client.post("/email/capture", json={"email": "p@example.com", "full_name": "x" * 101}).status_code == 200
+    assert _person(db)[1] is None
+
+
+def test_same_email_resubmit_fills_in_optional_fields_without_a_second_email(client, db, outbox):
+    _capture(client)
+    assert len(outbox) == 1
+    assert client.post("/email/capture", json={"email": "p@example.com", "full_name": "Pat",
+                                               "phone": "704-555-0123"}).status_code == 200
+    assert _person(db) == ("p@example.com", "Pat", "704-555-0123")
+    assert len(outbox) == 1
+
+
+def test_confirmation_email_stays_generic_even_with_name_and_phone(client, outbox):
+    client.post("/analyze-screenshots")
+    client.post("/email/capture", json={"email": "p@example.com", "full_name": "Zed Quux", "phone": "704-555-0199"})
+    blob = (outbox[0]["subject"] + outbox[0]["text"] + outbox[0]["html"])
+    assert "Zed" not in blob and "Quux" not in blob and "0199" not in blob
+
+
+def test_reminder_greets_by_stored_name(client, outbox):
+    client.post("/analyze-screenshots")
+    client.post("/email/capture", json={"email": "p@example.com", "full_name": "Ricky", "phone": "704-555-0199"})
+    token = re.search(r"confirm\?t=([\w-]+)", outbox[0]["text"]).group(1)
+    client.get(f"/email/confirm?t={token}")
+    outbox.clear()
+    assert er.run_reminders(now=_now_plus(25))["sent"] == 1
+    assert outbox[0]["text"].startswith("Hi Ricky,")
+    assert "0199" not in outbox[0]["text"] and "0199" not in outbox[0]["html"]  # phone never emailed
+
+
+def test_reminder_without_a_name_stays_generic(client, outbox):
+    _confirmed_visitor(client, outbox)
+    assert er.run_reminders(now=_now_plus(25))["sent"] == 1
+    assert not outbox[0]["text"].startswith("Hi ")
+
+
+def test_reminder_name_is_html_escaped():
+    _subject, _text, html_body = er._reminder_message("https://x/u", name='Ri<b>cky</b> & "Co"')
+    assert "<b>cky" not in html_body
+    assert "&lt;b&gt;cky&lt;/b&gt;" in html_body
