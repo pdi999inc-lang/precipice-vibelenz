@@ -449,7 +449,7 @@ def _connection_copy(out: Dict[str, Any], other_gender: str = "unknown", relatio
     return out
 
 
-def _llm_enrich(result, extracted_text, presentation_mode, diagnosis, reasoning, practical_next_steps, accountability):
+def _llm_enrich(result, extracted_text, presentation_mode, diagnosis, reasoning, practical_next_steps, accountability, user_side="right"):
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
         return {"diagnosis": diagnosis, "reasoning": reasoning, "practical_next_steps": practical_next_steps, "accountability": accountability, "llm_enriched": False, "llm_error": "no_api_key"}
@@ -470,6 +470,14 @@ def _llm_enrich(result, extracted_text, presentation_mode, diagnosis, reasoning,
     else:
         system_prompt = "You are VibeLenz, a conversation safety analyst. Give the user a clear, honest read on risk signals. Be direct and specific. Do not catastrophize. Do not minimize. Return ONLY a JSON object with keys: diagnosis, reasoning, practical_next_steps, accountability. No preamble. No markdown. Raw JSON only."
         user_prompt = f"CONVERSATION:\n{extracted_text}\n\nDETECTED SIGNALS:\nRisk signals: {json.dumps(result.get('key_signals', []))}\nConcern signals: {json.dumps(concern_signals)}\nPrimary label: {primary_label}\nLane: {lane}\nRisk score: {risk_score}\n\nDETERMINISTIC DRAFT:\nDiagnosis: {diagnosis}\nReasoning: {reasoning}\nNext steps: {practical_next_steps}\nAccountability: {accountability}\n\nRewrite the draft to be more specific to this actual conversation. Return raw JSON only."
+    if user_side == "mix":
+        # Speaker attribution is unknown: the OCR labeled bubbles LEFT:/RIGHT: by position only.
+        user_prompt += (
+            "\n\nSPEAKER LABELS: Lines are labeled LEFT: and RIGHT: by screen position only. "
+            "It is NOT known which side is the user. Do not assume, and do not treat either side as 'you'. "
+            "Refer to them as 'the person on the left' and 'the person on the right', and keep any advice "
+            "general rather than aimed at one side. This overrides the YOU:/THEM: instruction above."
+        )
     try:
         client = _anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
@@ -494,6 +502,7 @@ def interpret_analysis(
     context_note: str = "",
     requested_mode: str = "risk",
     use_llm: bool = True,
+    user_side: str = "right",
 ) -> Dict[str, Any]:
     out = dict(result or {})
     requested_mode = str(requested_mode or "risk").lower().strip()
@@ -513,7 +522,7 @@ def interpret_analysis(
     out["requested_mode"] = requested_mode
     if use_llm and extracted_text:
         out["relationship_type"] = relationship_type
-        enriched = _llm_enrich(result=out, extracted_text=extracted_text, presentation_mode=out.get("presentation_mode", requested_mode), diagnosis=out.get("diagnosis", ""), reasoning=out.get("reasoning", ""), practical_next_steps=out.get("practical_next_steps", ""), accountability=out.get("accountability", ""))
+        enriched = _llm_enrich(result=out, extracted_text=extracted_text, presentation_mode=out.get("presentation_mode", requested_mode), diagnosis=out.get("diagnosis", ""), reasoning=out.get("reasoning", ""), practical_next_steps=out.get("practical_next_steps", ""), accountability=out.get("accountability", ""), user_side=user_side)
         out["diagnosis"] = enriched["diagnosis"]
         out["reasoning"] = enriched["reasoning"]
         out["practical_next_steps"] = enriched["practical_next_steps"]
