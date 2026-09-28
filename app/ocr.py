@@ -94,12 +94,79 @@ _VISION_USER_PROMPT = (
     "Return only the labeled messages, nothing else."
 )
 
+# ---------------------------------------------------------------------------
+# Which side of the screen is the person submitting? (front-door picker)
+#   right (default, and the legacy behaviour): right-aligned/green bubbles = YOU
+#   left:  left-aligned bubbles = YOU, right-aligned = THEM (bubble colour ignored)
+#   mix:   the submitter is unsure or the chat mixes roles. Bubbles are labeled by
+#          position only (LEFT:/RIGHT:); nothing downstream may assume who is "you".
+# ---------------------------------------------------------------------------
+VALID_USER_SIDES = ("right", "left", "mix")
 
-def extract_text_from_images(image_bytes_list: List[bytes]) -> str:
+_VISION_PROMPT_HEAD = "Extract every visible message from this chat screenshot.\n\nRules:\n"
+_VISION_PROMPT_TAIL = (
+    "- Preserve the exact message text \u2014 do not paraphrase, correct, or summarize.\n"
+    "- Skip timestamps, phone numbers, contact names, and UI elements.\n"
+    "- If a message spans multiple lines, keep it on one output line.\n"
+    "- Do not add any explanation, preamble, or commentary.\n\n"
+    "Return only the labeled messages, nothing else."
+)
+_VISION_RULE_LEFT = (
+    "- Label each message YOU or THEM based on bubble position only: "
+    "left-aligned bubbles = YOU, right-aligned bubbles = THEM. Ignore bubble color.\n"
+    "- Output one message per line in the format: YOU: <text> or THEM: <text>\n"
+)
+_VISION_RULE_MIX = (
+    "- Label each message LEFT or RIGHT based on bubble position only: "
+    "left-aligned bubbles = LEFT, right-aligned bubbles = RIGHT. "
+    "Do not guess who is who. Ignore bubble color.\n"
+    "- Output one message per line in the format: LEFT: <text> or RIGHT: <text>\n"
+)
+
+
+def normalize_user_side(value) -> str:
+    """
+    Missing or blank -> "right" (unchanged legacy behaviour, so an old cached page keeps
+    working). A recognised value is used as-is. Anything else is ambiguous -> "mix"
+    (attribution unknown), never a silent guess.
+    """
+    if value is None:
+        return "right"
+    v = str(value).strip().lower()
+    if v == "":
+        return "right"
+    return v if v in VALID_USER_SIDES else "mix"
+
+
+def _vision_user_prompt(user_side: str) -> str:
+    if user_side == "left":
+        return _VISION_PROMPT_HEAD + _VISION_RULE_LEFT + _VISION_PROMPT_TAIL
+    if user_side == "mix":
+        return _VISION_PROMPT_HEAD + _VISION_RULE_MIX + _VISION_PROMPT_TAIL
+    return _VISION_USER_PROMPT  # right / default: byte-identical to the legacy prompt
+
+
+def _speaker_for_position(rel_x: float, user_side: str):
+    """Tesseract fallback: map a line's horizontal position to a speaker label."""
+    if rel_x > 0.52:
+        side = "right"
+    elif rel_x < 0.48:
+        side = "left"
+    else:
+        return None
+    if user_side == "mix":
+        return "RIGHT" if side == "right" else "LEFT"
+    if user_side == "left":
+        return "YOU" if side == "left" else "THEM"
+    return "YOU" if side == "right" else "THEM"
+
+
+def extract_text_from_images(image_bytes_list: List[bytes], user_side: str = "right") -> str:
     """
     Accept list of raw image bytes. Return combined extracted text string.
-    Raises on unrecoverable error (caller must handle).
+    user_side: see normalize_user_side. Raises on unrecoverable error (caller must handle).
     """
+    user_side = normalize_user_side(user_side)
     if not image_bytes_list:
         return ""
 
@@ -107,7 +174,7 @@ def extract_text_from_images(image_bytes_list: List[bytes]) -> str:
 
     for idx, image_bytes in enumerate(image_bytes_list):
         try:
-            text = _extract_single(image_bytes, idx)
+            text = _extract_single(image_bytes, idx, user_side)
             if text:
                 extracted_parts.append(text.strip())
         except Exception as e:
@@ -119,7 +186,7 @@ def extract_text_from_images(image_bytes_list: List[bytes]) -> str:
     return combined
 
 
-def _extract_single(image_bytes: bytes, idx: int) -> str:
+def _extract_single(image_bytes: bytes, idx: int, user_side: str = "right") -> str:
     """
     Extract text from a single image.
 
@@ -132,7 +199,7 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
 
     if api_key and HTTPX_AVAILABLE:
         try:
-            text = _extract_via_vision(image_bytes, idx, api_key)
+            text = _extract_via_vision(image_bytes, idx, api_key, user_side)
             if text and text.strip():
                 logger.info(f"Image {idx}: vision OCR succeeded — {len(text)} chars")
                 return text
@@ -145,10 +212,10 @@ def _extract_single(image_bytes: bytes, idx: int) -> str:
         if not HTTPX_AVAILABLE:
             logger.info(f"Image {idx}: httpx unavailable — using Tesseract")
 
-    return _extract_via_tesseract(image_bytes, idx)
+    return _extract_via_tesseract(image_bytes, idx, user_side)
 
 
-def _extract_via_vision(image_bytes: bytes, idx: int, api_key: str) -> str:
+def _extract_via_vision(image_bytes: bytes, idx: int, api_key: str, user_side: str = "right") -> str:
     """
     [V1] Extract conversation text using Claude vision (Haiku).
 
@@ -187,7 +254,7 @@ def _extract_via_vision(image_bytes: bytes, idx: int, api_key: str) -> str:
                     },
                     {
                         "type": "text",
-                        "text": _VISION_USER_PROMPT,
+                        "text": _vision_user_prompt(user_side),
                     },
                 ],
             }
@@ -212,7 +279,7 @@ def _extract_via_vision(image_bytes: bytes, idx: int, api_key: str) -> str:
     return raw
 
 
-def _extract_via_tesseract(image_bytes: bytes, idx: int) -> str:
+def _extract_via_tesseract(image_bytes: bytes, idx: int, user_side: str = "right") -> str:
     """
     [V2] Tesseract fallback path.
 
@@ -281,12 +348,7 @@ def _extract_via_tesseract(image_bytes: bytes, idx: int) -> str:
             avg_cx = line["cx_sum"] / line["cx_count"]
             rel_x = avg_cx / img_width
 
-            if rel_x > 0.52:
-                speaker = "YOU"
-            elif rel_x < 0.48:
-                speaker = "THEM"
-            else:
-                speaker = None
+            speaker = _speaker_for_position(rel_x, user_side)
 
             words_sorted = " ".join(w for _, w in sorted(line["words"], key=lambda x: x[0]))
 
