@@ -70,6 +70,9 @@ html,body{min-height:100vh;width:100%;max-width:100%;-webkit-text-size-adjust:10
 .role-disp:hover{border-color:var(--coral);}
 .role-dd{display:none;position:absolute;right:0;top:0;min-width:210px;background:#16202C;border:1px solid var(--line);border-radius:16px;overflow:hidden;z-index:20;box-shadow:0 18px 44px -18px rgba(0,0,0,.45);}
 .role-dd.open{display:block;}
+.side-link{display:block;margin:14px auto 0;padding:6px 4px;background:none;border:0;font:inherit;font-size:0.8rem;color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
+.side-link:hover{color:var(--coral);}
+.side-link[hidden]{display:none;}
 .r-opt{padding:12px 15px;font-size:0.88rem;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;}
 .r-opt:hover{background:#16202C;}
 .r-opt.act{background:#16202C;}
@@ -236,7 +239,7 @@ body {
 </dialog>
 <form id="mf">
 <input type="hidden" id="selMode" value="connection"/>
-<input type="hidden" id="selRole" value="left_white"/>
+<input type="hidden" id="selRole" value="right_blue"/>
 <input type="hidden" id="convId" name="conversation_id" value=""/>
 <input type="hidden" id="continueLast" name="continue_last" value="false"/>
 <input type="hidden" id="otherGender" name="other_gender" value="unknown"/>
@@ -269,16 +272,19 @@ body {
      "friend", "family", "partner", "business" route to a relationship-only prompt
      that does NOT screen for scams, so they must not be sent from this picker. -->
 <select class="gl-sel" id="relType"><option value="stranger">Stranger / New person</option><option value="match">Dating app match</option><option value="coworker">Work associate</option><option value="close_friend">Friend</option><option value="family_member">Family member</option><option value="ex">Ex / Past partner</option><option value="current_partner">Current partner</option></select>
-<div class="sh">3. Which side are you?</div>
+<button type="button" class="side-link" id="sideToggle" aria-expanded="false" aria-controls="sidePanel">My messages aren't on the right</button>
+<div id="sidePanel" hidden>
+<div class="sh" style="margin-top:14px;">Which side are you?</div>
 <div class="role-wrap">
-<div class="role-disp" onclick="tDD()"><span id="rlbl">Left / White</span><span class="r-arr">▾</span></div>
+<div class="role-disp" onclick="tDD()"><span id="rlbl">Right / Blue or Green</span><span class="r-arr">▾</span></div>
 <div class="role-dd" id="rdd">
-<div class="r-opt act" id="ro-left_white" onclick="setRole('left_white','Left / White')"><div class="rav rav-b">👤</div><span>Left / White</span></div>
-<div class="r-opt" id="ro-right_blue" onclick="setRole('right_blue','Right / Blue or Green')"><div class="rav rav-p">👤</div><span>Right / Blue or Green</span></div>
-<div class="r-opt" id="ro-mix" onclick="setRole('mix','Mix of roles')"><div class="rav rav-v">👥</div><span>Mix of roles</span></div>
+<div class="r-opt" id="ro-left_white" onclick="setRole('left_white','Left / White')"><div class="rav rav-b">👤</div><span>Left / White</span></div>
+<div class="r-opt act" id="ro-right_blue" onclick="setRole('right_blue','Right / Blue or Green')"><div class="rav rav-p">👤</div><span>Right / Blue or Green</span></div>
+<div class="r-opt" id="ro-mix" onclick="setRole('mix','Not sure / mixed')"><div class="rav rav-v">👥</div><span>Not sure / mixed</span></div>
 </div>
 </div>
-<div class="sh">4. Add an optional note <span style="font-weight:400;color:var(--ink-soft);font-size:0.78rem;">(optional)</span></div>
+</div>
+<div class="sh">3. Add an optional note <span style="font-weight:400;color:var(--ink-soft);font-size:0.78rem;">(optional)</span></div>
 <textarea class="gl-ta" id="ctx" placeholder="e.g., I'm getting mixed signals from this match…"></textarea>
 <button type="submit" class="cta"><span id="ctaTxt">RUN THE VIBE CHECK</span> <span>✦</span></button>
 <p class="reassure">🔒 Your chats are never sold or posted.</p>
@@ -294,6 +300,7 @@ body {
 <script>
 function tDD(){document.getElementById('rdd').classList.toggle('open');}
 function setRole(v,lbl){document.getElementById('selRole').value=v;document.getElementById('rlbl').textContent=lbl;document.getElementById('rdd').classList.remove('open');document.querySelectorAll('.r-opt').forEach(o=>o.classList.remove('act'));document.getElementById('ro-'+v).classList.add('act');}
+document.getElementById('sideToggle').addEventListener('click',function(){this.hidden=true;this.setAttribute('aria-expanded','true');document.getElementById('sidePanel').hidden=false;});
 document.addEventListener('click',e=>{if(!e.target.closest('.role-wrap'))document.getElementById('rdd').classList.remove('open');});
 let inputMode='shots';
 function setInputMode(m){
@@ -589,6 +596,8 @@ function showEmailGate(){
   fd.append('conversation_id', document.getElementById('convId').value || '');
   fd.append('continue_last', document.getElementById('continueLast').value || 'false');
   fd.append('other_gender', document.getElementById('otherGender').value || 'unknown');
+  // Which side of the screenshot is the user? Unknown/odd value fails closed to 'mix'.
+  fd.append('user_side', ({left_white:'left', right_blue:'right', mix:'mix'})[document.getElementById('selRole').value] || 'mix');
   // Preserve UTM attribution on the POST
   const _up = new URLSearchParams();
   ['utm_source', 'utm_medium', 'utm_campaign'].forEach(k => {
