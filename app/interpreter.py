@@ -481,7 +481,7 @@ def _llm_enrich(result, extracted_text, presentation_mode, diagnosis, reasoning,
     try:
         client = _anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=os.environ.get("VL_ENRICH_MODEL", "claude-haiku-4-5-20251001"),
             max_tokens=1024,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
