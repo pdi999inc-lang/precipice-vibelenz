@@ -506,11 +506,35 @@
     })();
     </script>
     {% endif %}
+    {# Healthy patterns (app/healthy_patterns.py): what's going right, quote-backed. #}
+    {% if healthy_patterns and healthy_patterns.voice == 'connection' and healthy_patterns.patterns %}
+    <div class="section connection-section" id="healthyCard">
+      <h3>{{ healthy_patterns.heading }}</h3>
+      {% for n in healthy_patterns.coexist %}<p class="subtle">{{ n }}</p>{% endfor %}
+      {% for p in healthy_patterns.patterns %}
+      <div style="margin-top:12px">
+        <span class="chip good">{{ p.title }}</span>
+        <p>{{ p.body }}</p>
+        {% if p.evidence %}<p class="subtle">{% if p.speaker == 'you' %}You wrote{% else %}They wrote{% endif %}: &ldquo;{{ p.evidence }}&rdquo;</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     <div class="section connection-section">
       <h3>What's working</h3>
       <div class="chips">
         {% if has_positives %}
+          {% if healthy_patterns and healthy_patterns.voice == 'connection' %}
+            {% for c in healthy_patterns.chips %}<span class="chip good">{{ c.title }}</span>{% endfor %}
+            {% set _hp_means = healthy_patterns.chips|selectattr('means')|list %}
+            {% if _hp_means %}
+            <details style="margin-top:8px"><summary class="subtle">What these mean</summary>
+              {% for c in _hp_means %}<p><strong>{{ c.title }}.</strong> {{ c.means }}</p>{% endfor %}
+            </details>
+            {% endif %}
+          {% else %}
           {% for item in positive_signals %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
+          {% endif %}
         {% else %}
           <span class="chip">Read the full take above — it matters more than any single moment here</span>
         {% endif %}
@@ -531,6 +555,22 @@
         {% endif %}
       </div>
     </div>
+    {# Subtle patterns (app/subtle_patterns.py). Copy arrives already in the lane's voice. #}
+    {% if subtle_patterns and subtle_patterns.patterns %}
+    <div class="section connection-section" id="subtleCard">
+      <h3>{{ subtle_patterns.heading }}</h3>
+      {% if subtle_patterns.note %}<p class="subtle">{{ subtle_patterns.note }}</p>{% endif %}
+      {% for c in subtle_patterns.combos %}<p><strong>{{ c.text }}</strong></p>{% endfor %}
+      {% for p in subtle_patterns.patterns %}
+      <div style="margin-top:12px">
+        <span class="chip {% if p.tier == 'safety' %}warn{% endif %}">{{ p.title }}</span>
+        <p>{{ p.body }}</p>
+        {% if p.evidence %}<p class="subtle">{% if p.speaker == 'you' %}You wrote{% elif p.speaker == 'them' %}They wrote{% else %}In the chat{% endif %}: &ldquo;{{ p.evidence }}&rdquo;</p>{% endif %}
+        <p>{{ p.next_step }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     <div class="section connection-section">
       <h3>Other ways to read it</h3>
       <div class="chips">
@@ -662,6 +702,22 @@
       {% endif %}
     </div>
     {% endif %}
+    {# Subtle patterns (app/subtle_patterns.py). Copy arrives already in the lane's voice. #}
+    {% if subtle_patterns and subtle_patterns.patterns %}
+    <div class="section" id="subtleCard">
+      <h3>{{ subtle_patterns.heading }}</h3>
+      {% if subtle_patterns.note %}<p class="subtle">{{ subtle_patterns.note }}</p>{% endif %}
+      {% for c in subtle_patterns.combos %}<p><strong>{{ c.text }}</strong></p>{% endfor %}
+      {% for p in subtle_patterns.patterns %}
+      <div style="margin-top:12px">
+        <span class="chip {% if p.tier == 'safety' %}warn{% endif %}">{{ p.title }}</span>
+        <p>{{ p.body }}</p>
+        {% if p.evidence %}<p class="subtle">{% if p.speaker == 'you' %}You wrote{% elif p.speaker == 'them' %}They wrote{% else %}In the chat{% endif %}: &ldquo;{{ p.evidence }}&rdquo;</p>{% endif %}
+        <p>{{ p.next_step }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% if signal_breakdown and signal_breakdown|length > 0 %}
     <div class="evidence-section">
       <div class="evidence-eyebrow">Signal breakdown</div>
@@ -680,12 +736,23 @@
       </div>
     </div>
     {% endif %}
-    {% if key_dampeners and key_dampeners|length > 0 %}
+    {% set _hp_risk = healthy_patterns and healthy_patterns.voice == 'risk' and healthy_patterns.patterns %}
+    {% if (key_dampeners and key_dampeners|length > 0) or _hp_risk %}
     <div class="section">
       <h3>What lowers concern</h3>
       <div class="chips">
-        {% for item in key_dampeners %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
+        {% for item in (key_dampeners or []) %}<span class="chip good">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
       </div>
+      {% if _hp_risk %}
+      <p class="subtle">{{ healthy_patterns.caveat }}</p>
+      {% for p in healthy_patterns.patterns %}
+      <div style="margin-top:10px">
+        <span class="chip good">{{ p.title }}</span>
+        <p>{{ p.body }}</p>
+        {% if p.evidence %}<p class="subtle">Counterparty wrote: &ldquo;{{ p.evidence }}&rdquo;</p>{% endif %}
+      </div>
+      {% endfor %}
+      {% endif %}
     </div>
     {% endif %}
     <div class="section">
