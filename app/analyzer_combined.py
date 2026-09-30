@@ -1787,7 +1787,7 @@ _DUAL_PROMPT_LANE_THRESHOLD = 60  # matches the COERCION_RISK cutoff used elsewh
 def _call_claude_prompt(client, active_prompt: str, user_content: str) -> Dict[str, Any]:
     """Single Claude API call + JSON parse. Raises on any failure — caller decides fallback."""
     message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=os.environ.get("VL_ANALYSIS_MODEL", "claude-haiku-4-5-20251001"),
         max_tokens=2400,
         system=active_prompt,
         messages=[{"role": "user", "content": user_content}],
