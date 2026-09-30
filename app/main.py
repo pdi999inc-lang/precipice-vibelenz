@@ -162,7 +162,7 @@ async def about(request: Request):
 # Privacy policy (templates/privacy.html). The contact address is env-overridable so it can
 # move to a branded mailbox without a code change.
 PRIVACY_CONTACT_EMAIL = os.environ.get("PRIVACY_CONTACT_EMAIL", "VibeLenz999@gmail.com")
-PRIVACY_EFFECTIVE_DATE = "September 28, 2026"
+PRIVACY_EFFECTIVE_DATE = "September 30, 2026"
 
 
 @app.get("/privacy", response_class=HTMLResponse)
@@ -954,7 +954,7 @@ async def followup(request: Request):
             raise RuntimeError("ANTHROPIC_API_KEY not set")
         _client = anthropic.Anthropic(api_key=_api_key)
         _msg = _client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=os.environ.get("VL_FOLLOWUP_MODEL", "claude-haiku-4-5-20251001"),
             max_tokens=400,
             system=_fu_system + "\n\n" + _context_block,
             messages=_messages,
