@@ -61,7 +61,8 @@ except ImportError:
 
 
 # Vision API settings
-VISION_MODEL = "claude-haiku-4-5-20251001"
+# Model is env-configurable so it can be switched (or rolled back) in Railway without a deploy.
+VISION_MODEL = os.environ.get("VL_VISION_MODEL", "claude-haiku-4-5-20251001")
 VISION_TIMEOUT_S = 20.0
 VISION_MAX_TOKENS = 1024
 
