@@ -21,6 +21,8 @@ from app.db import init_db, log_feedback
 from app.email_reminders import email_gate_middleware, router as email_router
 from app.literacy import router as literacy_router, build_prompt as build_literacy_prompt
 from app.glossary import build_glossary
+from app.subtle_patterns import build_subtle_patterns
+from app.healthy_patterns import build_healthy_patterns
 from app.trajectory import build_trajectory
 
 logger = logging.getLogger("vibelenz.main")
@@ -616,6 +618,28 @@ async def analyze_screenshots(
     except Exception as _glos_err:
         logger.warning(f"[{request_id}] glossary skipped: {_glos_err}")
         payload["glossary"] = None
+
+    # --- Subtle patterns (deterministic backstop + 2 new checks; see app/subtle_patterns.py) ---
+    # Pure + deterministic, additive only: never changes lane/risk_score/flags.
+    # Runs in degraded mode on purpose. Fail-closed: any error means no card, never a blocked read.
+    try:
+        payload["subtle_patterns"] = build_subtle_patterns(payload)
+        if payload["subtle_patterns"]:
+            logger.info(f"[{request_id}] subtle_patterns keys={payload['subtle_patterns']['keys']}")
+    except Exception as _subtle_err:
+        logger.warning(f"[{request_id}] subtle_patterns skipped: {_subtle_err}")
+        payload["subtle_patterns"] = None
+
+    # --- Healthy patterns (what's going right; see app/healthy_patterns.py) ---
+    # Must run after subtle_patterns (reads it). Gated off on FRAUD/COERCION, score>=60,
+    # and money concerns. Additive only. Fail-closed: any error means no card.
+    try:
+        payload["healthy_patterns"] = build_healthy_patterns(payload)
+        if payload["healthy_patterns"] and payload["healthy_patterns"]["keys"]:
+            logger.info(f"[{request_id}] healthy_patterns keys={payload['healthy_patterns']['keys']}")
+    except Exception as _healthy_err:
+        logger.warning(f"[{request_id}] healthy_patterns skipped: {_healthy_err}")
+        payload["healthy_patterns"] = None
 
     # --- Phase 1 continuity: save this batch frozen + attach continuity fields ---
     # The per-batch score is written once and never updated by future visits.
