@@ -82,7 +82,7 @@ def main():
     ap.add_argument("--no-llm", action="store_true")
     a = ap.parse_args()
     use_llm = not a.no_llm
-    cases = [json.loads(l) for l in (ROOT / "evals/cases.jsonl").read_text().splitlines() if l.strip()]
+    cases = [json.loads(l) for l in (ROOT / "evals/cases.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     rows = [run_case(c, use_llm) for c in cases]
 
     models = {k: os.environ.get(k, "default(haiku)") for k in
@@ -104,7 +104,7 @@ def main():
         lines.append(f"**{r['id']}** — {r['diagnosis']}" + (f"  \n_llm_error: {r['llm_error']}_" if r["llm_error"] else ""))
         lines.append("")
     out = ROOT / f"evals/report_{a.label}.md"
-    out.write_text("\n".join(lines))
+    out.write_text("\n".join(lines), encoding="utf-8")
     print("\n".join(lines[:8]))
     print(f"\nFull report: {out}")
 
