@@ -803,10 +803,15 @@ async def outcome(request: Request):
         body = await request.json()
         conversation_id = str(body.get("conversation_id", ""))[:64]
         outcome_val = str(body.get("outcome", ""))[:40]
-        _allowed = {"warmed_up", "lukewarm", "went_quiet"}
-        if not conversation_id or outcome_val not in _allowed:
+        if not conversation_id:
             return JSONResponse(status_code=422, content={"error": "invalid_outcome"})
-        from app.db import record_outcome
+        # Only accept answers that fit the open prediction (e.g. a safety read never
+        # takes a "warmed up" answer). Fail-closed: no open prediction -> reject.
+        from app.db import get_open_prediction, record_outcome
+        from app.outcome_scoring import allowed_outcomes
+        _open = get_open_prediction(conversation_id) or {}
+        if outcome_val not in allowed_outcomes(_open.get("prediction_type")):
+            return JSONResponse(status_code=422, content={"error": "invalid_outcome"})
         _recorded = record_outcome(conversation_id, outcome_val, source="continue_last")
         logger.info(f"[outcome] conv={conversation_id} outcome={outcome_val} recorded={_recorded}")
         return JSONResponse({"status": "ok", "recorded": _recorded})
