@@ -1449,6 +1449,11 @@ def _assign_lane(
         "playful_reengagement", "confusion_then_repair", "light_sexual_reciprocity",
         "warm_receptivity", "casual_flirtation"
     }
+    # Family and friends are never routed into the dating lane. Fraud and coercion
+    # lanes above still apply; this only runs when nothing risky was found.
+    if (str(relationship_type or "").lower().strip() in {"family_member", "family", "close_friend", "friend"}
+            and not extraction_present and not pressure_present):
+        return {"lane": "RELATIONSHIP_NORMAL", "primary_label": "relationship_context"}
     if domain_mode == "dating_social":
         if "sexual_directness" in key_signals and reciprocity_level == "HIGH" and not extraction_present and not pressure_present:
             return {"lane": "DATING_AMBIGUOUS", "primary_label": "fast_escalation_noncoercive"}
@@ -1987,7 +1992,8 @@ However: if detected_concern_signals includes blame_inversion, plan_collapse_bla
         if active_prompt is RELATIONSHIP_PROMPT:
             user_content = f"{_lane_constraint}\n\nRelationship type: {relationship_type}\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
         else:
-            user_content = f"{_lane_constraint}\n\nContext note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
+            _rel_line = _relationship_context_line(relationship_type)
+            user_content = f"{_lane_constraint}\n\n{_rel_line}Context note: {context_note or 'None'}\n\nAnalyze this conversation:\n\n{text}"
         result = _call_claude_prompt(client, active_prompt, user_content)
         dual_prompt_sources = ["relationship"] if active_prompt is RELATIONSHIP_PROMPT else ["fraud"]
 
@@ -2152,7 +2158,10 @@ def analyze_text(
             result = _run_deterministic(text, relationship_type)
             result = _apply_relationship_guardrails(result, relationship_type)
             result = _sanitize_prohibited_claims(result)
-            result["degraded"] = False  # deterministic succeeded — not truly degraded
+            # The LLM failed. The deterministic engine is a backup that misses many scams,
+            # so this read is explicitly degraded (invariant: degraded mode must be visible).
+            result["degraded"] = True
+            result["degradation_reason"] = "llm_unavailable"
             result["fallback_reason"] = str(e)
             return result
         except Exception as e2:
@@ -2231,6 +2240,38 @@ def _arc_label(scores: List[int], labels: List[str]) -> Dict[str, Any]:
     return {"arc": arc, "arc_label": arc_label, "direction": direction, "delta": delta}
 
 
+# Picker values (templates/index.html) whose conversations are never romantic.
+# Legacy API values are included so direct callers get the same treatment.
+_PLATONIC_TYPES = {"family_member", "family", "close_friend", "friend", "coworker", "business"}
+
+# Romantic per-screenshot labels -> neutral labels already in the result.html mood map.
+# Display only: risk scores are never changed here.
+_PLATONIC_LABEL_MAP = {
+    "casual_flirtation": "warm_receptivity",        # shown as "Warm"
+    "light_sexual_reciprocity": "relationship_context",  # shown as "Familiar ground"
+    "high_intent_mutual": "relationship_context",
+    "playful_reengagement": "confusion_then_repair",  # shown as "Back on track"
+}
+
+_RELATIONSHIP_CONTEXT_LINES = {
+    "family_member": "Relationship type: family member. This is a family relationship, not a romantic one. Never describe it as flirty, romantic, or dating-related.",
+    "close_friend": "Relationship type: friend. This is a platonic friendship. Do not describe it as flirty or romantic unless the text explicitly shows romantic intent.",
+    "coworker": "Relationship type: work associate. Treat requests involving payments, invoices, bank-detail changes, gift cards, or credentials with business-fraud scrutiny.",
+    "current_partner": "Relationship type: current partner.",
+}
+
+
+def _relationship_context_line(relationship_type: str) -> str:
+    line = _RELATIONSHIP_CONTEXT_LINES.get(str(relationship_type or "").lower().strip())
+    return f"{line}\n" if line else ""
+
+
+def _platonic_turn_label(label: str, relationship_type: str) -> str:
+    if str(relationship_type or "").lower().strip() in _PLATONIC_TYPES:
+        return _PLATONIC_LABEL_MAP.get(label, label)
+    return label
+
+
 def analyze_turns(
     text_chunks: List[str],
     relationship_type: str = "stranger",
@@ -2263,6 +2304,7 @@ def analyze_turns(
         # Re-use its cached concern_signals rather than calling it a second time.
         connection_data = {"connection_signals": result.get("positive_signals", [])}
 
+        label = _platonic_turn_label(label, relationship_type)
         scores.append(score)
         labels.append(label)
 
