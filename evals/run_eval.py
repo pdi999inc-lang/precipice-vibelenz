@@ -71,6 +71,7 @@ def run_case(case, use_llm):
     signals = set(_list(out.get("concern_signals")) + _list(out.get("key_signals"))
                   + _list(res.get("concern_signals")) + _list(res.get("key_signals")))
     checks = {}
+    voice_hits = []
     checks["lane"] = lane in case["expect_lanes"]
     if "min_risk" in case:
         checks["min_risk"] = score is not None and float(score) >= case["min_risk"]
@@ -82,7 +83,8 @@ def run_case(case, use_llm):
         checks["narrative_complete"] = all(str(out.get(k) or "").strip() for k in NARRATIVE_KEYS)
     if out.get("presentation_mode") == "connection" and lane not in ("FRAUD", "COERCION_RISK"):
         text = " ".join(str(out.get(k) or "") for k in NARRATIVE_KEYS).lower()
-        checks["voice"] = not _clinical_hits(text)
+        voice_hits = sorted(set(_clinical_hits(text)))
+        checks["voice"] = not voice_hits
     if case.get("no_romance"):
         text_all = " ".join(str(out.get(k) or "") for k in NARRATIVE_KEYS + ["human_label", "interest_summary", "social_tone"]).lower()
         checks["no_romance"] = not any(w in text_all for w in ROMANCE)
@@ -90,7 +92,7 @@ def run_case(case, use_llm):
         "id": case["id"], "lane": lane, "score": score, "secs": round(secs, 1),
         "enriched": out.get("llm_enriched"), "llm_error": out.get("llm_error"),
         "degraded": out.get("degraded"), "checks": checks,
-        "passed": all(checks.values()),
+        "passed": all(checks.values()), "voice_hits": voice_hits,
         "diagnosis": str(out.get("diagnosis") or "")[:300],
     }
 
@@ -116,7 +118,8 @@ def main():
              "| Case | Pass | Lane | Score | Secs | Failed checks |",
              "|---|---|---|---|---|---|"]
     for r in rows:
-        failed = ", ".join(k for k, v in r["checks"].items() if not v) or "—"
+        failed = ", ".join((f"voice({'/'.join(r['voice_hits'])})" if k == "voice" else k)
+                           for k, v in r["checks"].items() if not v) or "—"
         lines.append(f"| {r['id']} | {'✅' if r['passed'] else '❌'} | {r['lane']} | {r['score']} | {r['secs']} | {failed} |")
     lines += ["", "## Diagnoses (read these — specificity is judged by you, not the script)", ""]
     for r in rows:
