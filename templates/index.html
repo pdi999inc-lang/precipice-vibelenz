@@ -454,18 +454,28 @@ async function fetchSummary(cid){
       el.innerHTML = `<span class="cs-pill ${lvl}">${lvl}</span> Continuing — ${data.batch_count} prior batch${data.batch_count>1?'es':''}, last on ${when}`;
       // Outcome Engine: if the last read left an open prediction, ask what happened.
       if(data.open_prediction){
+        const _ptype = data.open_prediction.prediction_type;
         const _q = {
-          engagement: 'Last read expected them to keep engaging. What happened?',
-          fade: 'Last read flagged fade risk. What happened?',
-          escalation: 'Last read flagged pressure. What happened since?',
+          engagement: 'Last time, it looked like they were into it. How has it gone since?',
+          fade: 'Last time, it looked like things might be slowing down. How has it gone since?',
+          escalation: 'Last time, they were pushing you toward something. Since then, have they kept at it?',
           steady: 'Since your last read — how did it go?'
-        }[data.open_prediction.prediction_type] || 'Since your last read — how did it go?';
+        }[_ptype] || 'Since your last read — how did it go?';
+        // Safety reads get their own answers: each one says whether the pressure
+        // continued, and none of them is a warm option. Must match app/outcome_scoring.py.
+        const _opts = _ptype === 'escalation' ? [
+          ['HIGH', 'pressure_continued', 'Still pushing / asked again'],
+          ['MEDIUM', 'pressure_stopped', 'They backed off'],
+          ['MEDIUM', 'no_contact', 'No contact since']
+        ] : [
+          ['LOW', 'warmed_up', 'Replied / warmed up'],
+          ['MEDIUM', 'lukewarm', 'Slow / lukewarm'],
+          ['HIGH', 'went_quiet', 'Went quiet']
+        ];
         el.innerHTML += `<div id="outcomeAsk" style="margin-top:10px;">
           <div style="font-weight:700;margin-bottom:7px;">${_q}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <span class="cs-pill LOW" style="cursor:pointer;" onclick="recordOutcome('warmed_up')">Replied / warmed up</span>
-            <span class="cs-pill MEDIUM" style="cursor:pointer;" onclick="recordOutcome('lukewarm')">Slow / lukewarm</span>
-            <span class="cs-pill HIGH" style="cursor:pointer;" onclick="recordOutcome('went_quiet')">Went quiet</span>
+            ${_opts.map(o => `<span class="cs-pill ${o[0]}" style="cursor:pointer;" onclick="recordOutcome('${o[1]}')">${o[2]}</span>`).join('')}
           </div></div>`;
       }
     } else {
@@ -490,7 +500,7 @@ async function recordOutcome(v){
       body:JSON.stringify({conversation_id:document.getElementById('convId').value,outcome:v})});
   }catch(e){}
   const box=document.getElementById('outcomeAsk');
-  if(box) box.innerHTML='<span style="font-size:0.75rem;color:#4FB8AC;font-weight:700;">Noted — this makes your next read sharper.</span>';
+  if(box) box.innerHTML='<span style="font-size:0.75rem;color:#4FB8AC;font-weight:700;">Thanks — this helps us check how accurate VibeLenz is.</span>';
 }
 function initConvUI(){
   const existing = loadConv();
