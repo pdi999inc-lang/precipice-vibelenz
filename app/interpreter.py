@@ -436,6 +436,14 @@ def _connection_copy(out: Dict[str, Any], other_gender: str = "unknown", relatio
     out["accountability"] = copy["accountability"]
     out["social_tone"] = _social_tone(out)
     out["interest_summary"] = _interest_summary(out)
+    # Family and friends: no romantic framing anywhere on the page. Keyword markers like
+    # "come over" or "send me" are not flirting between a parent and child.
+    if str(relationship_type or "").lower().strip() in {"family_member", "family", "close_friend", "friend"}:
+        out["mode_tagline"] = "Warm read on how this conversation is going and what to do next."
+        if out["social_tone"] in {"playful, flirtatious, and reciprocal", "light and socially positive"}:
+            out["social_tone"] = "open, warm, and responsive"
+        out["interest_summary"] = "warm and connected"
+        out["positive_signals"] = [p for p in (out.get("positive_signals") or []) if "sexual" not in str(p)]
     # T1: non-stranger relationship_type shifts accountability framing to established-relationship context
     if relationship_type not in {"", "stranger"}:
         out["accountability"] = "You are analyzing an established relationship context — compare this exchange against the pattern you already know, not against how a new interaction would read."
