@@ -952,14 +952,17 @@ async def followup(request: Request):
         _api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if not _api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
+        from app.llm_util import sdk_kwargs, sdk_text
         _client = anthropic.Anthropic(api_key=_api_key)
+        _fu_model = os.environ.get("VL_FOLLOWUP_MODEL", "claude-haiku-4-5-20251001")
         _msg = _client.messages.create(
-            model=os.environ.get("VL_FOLLOWUP_MODEL", "claude-haiku-4-5-20251001"),
+            model=_fu_model,
             max_tokens=400,
             system=_fu_system + "\n\n" + _context_block,
             messages=_messages,
+            **sdk_kwargs(_fu_model),
         )
-        _answer = _msg.content[0].text.strip()
+        _answer = sdk_text(_msg)
         _answer = _sanitize_prohibited_claims(_answer)
         logger.info(f"[followup:{request_id}] q#{_prior_user_turns + 1} lane={_lane} answered ({len(_answer)} chars)")
         return JSONResponse({
