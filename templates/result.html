@@ -280,7 +280,7 @@
       {% if degradation_reason == "ocr_insufficient_text" %}
         Not enough readable text was found in your screenshots to run a full analysis.
       {% elif degradation_reason == "llm_unavailable" %}
-        The full analysis engine was temporarily unavailable. This result used the deterministic engine only — the read may be less specific than usual.
+        The full analysis engine was temporarily unavailable, so this read came from a backup engine that can miss scams. Don't treat a calm result here as an all-clear — try again in a few minutes.
       {% elif degradation_reason == "analysis_engine_failure" %}
         The analysis engine couldn't complete this request. This is a temporary issue, not a result.
       {% else %}
