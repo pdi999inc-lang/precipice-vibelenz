@@ -479,14 +479,17 @@ def _llm_enrich(result, extracted_text, presentation_mode, diagnosis, reasoning,
             "general rather than aimed at one side. This overrides the YOU:/THEM: instruction above."
         )
     try:
+        from app.llm_util import sdk_kwargs, sdk_text
         client = _anthropic.Anthropic(api_key=api_key)
+        _model = os.environ.get("VL_ENRICH_MODEL", "claude-haiku-4-5-20251001")
         message = client.messages.create(
-            model=os.environ.get("VL_ENRICH_MODEL", "claude-haiku-4-5-20251001"),
+            model=_model,
             max_tokens=1024,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
+            **sdk_kwargs(_model),
         )
-        raw = message.content[0].text.strip()
+        raw = sdk_text(message)
         from app.analyzer_combined import _extract_first_json_object
         parsed = _extract_first_json_object(raw)
         return {"diagnosis": parsed.get("diagnosis", diagnosis), "reasoning": parsed.get("reasoning", reasoning), "practical_next_steps": parsed.get("practical_next_steps", practical_next_steps), "accountability": parsed.get("accountability", accountability), "llm_enriched": True, "llm_error": None}
