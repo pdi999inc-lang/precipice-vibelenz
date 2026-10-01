@@ -438,7 +438,8 @@ def record_outcome(conversation_id: str, outcome: str,
     """
     Attach an observed outcome to the latest open prediction for this
     conversation. Stores the raw outcome only — hit/miss scoring is computed
-    offline, never at write time. Fail-closed: False on any error.
+    offline by scripts/score_outcomes.py (rules in app/outcome_scoring.py),
+    never at write time. Fail-closed: False on any error.
     """
     if not conversation_id or not outcome:
         return False
