@@ -29,7 +29,23 @@ sys.path.insert(0, str(ROOT))
 from app.analyzer_combined import analyze_text  # noqa: E402
 from app.interpreter import interpret_analysis  # noqa: E402
 
+import re
+
 CLINICAL = ["risk", "pressure", "danger", "flag", "signal", "elevated", "assessment"]
+# A clinical word right after a negation ("no pressure", "nothing points to games or
+# pressure", "zero red flags") reassures rather than alarms, so it is allowed.
+_NEGATION = r"\b(?:no|not|nothing|zero|without|never|any|n't)\b(?:\W+\w+){0,7}\W+"
+ROMANCE = ["flirt", "romantic", "chemistry", "crush", "dating", "date night", "attraction"]
+
+
+def _clinical_hits(text):
+    hits = []
+    for w in CLINICAL:
+        for m in re.finditer(r"\b" + w, text):
+            before = text[max(0, m.start() - 60):m.start()]
+            if not re.search(_NEGATION + r"$", before):
+                hits.append(w)
+    return hits
 NARRATIVE_KEYS = ["diagnosis", "reasoning", "practical_next_steps", "accountability"]
 
 
@@ -66,7 +82,10 @@ def run_case(case, use_llm):
         checks["narrative_complete"] = all(str(out.get(k) or "").strip() for k in NARRATIVE_KEYS)
     if out.get("presentation_mode") == "connection" and lane not in ("FRAUD", "COERCION_RISK"):
         text = " ".join(str(out.get(k) or "") for k in NARRATIVE_KEYS).lower()
-        checks["voice"] = not any(w in text for w in CLINICAL)
+        checks["voice"] = not _clinical_hits(text)
+    if case.get("no_romance"):
+        text_all = " ".join(str(out.get(k) or "") for k in NARRATIVE_KEYS + ["human_label", "interest_summary", "social_tone"]).lower()
+        checks["no_romance"] = not any(w in text_all for w in ROMANCE)
     return {
         "id": case["id"], "lane": lane, "score": score, "secs": round(secs, 1),
         "enriched": out.get("llm_enriched"), "llm_error": out.get("llm_error"),
