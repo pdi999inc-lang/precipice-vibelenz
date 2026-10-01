@@ -261,6 +261,8 @@ def _extract_via_vision(image_bytes: bytes, idx: int, api_key: str, user_side: s
             }
         ],
     }
+    from app.llm_util import payload_extras, json_text
+    payload.update(payload_extras(VISION_MODEL))
 
     response = httpx.post(
         "https://api.anthropic.com/v1/messages",
@@ -275,7 +277,7 @@ def _extract_via_vision(image_bytes: bytes, idx: int, api_key: str, user_side: s
     response.raise_for_status()
 
     data = response.json()
-    raw = data["content"][0]["text"].strip()
+    raw = json_text(data)
     logger.debug(f"Image {idx}: vision raw output: {raw[:200]}")
     return raw
 
