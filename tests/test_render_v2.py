@@ -314,3 +314,12 @@ def test_splash_tagline_is_clue_me_in():
     html = ENV.get_template("index.html").render(page_mode="connection")
     assert '<div class="splash-tagline">Clue Me In</div>' in html
     assert "Analyze the Vibe" not in html
+
+
+def test_llm_unavailable_banner_warns_backup_can_miss_scams():
+    # Fallback reads come from the deterministic engine, which misses many scams.
+    # The banner must say so plainly so a calm result is not read as an all-clear.
+    html = _render_result(**dict(CONNECTION, degraded=True, degradation_reason="llm_unavailable"))
+    text = _visible_text(html)
+    assert "can miss scams" in text
+    assert "all-clear" in text
