@@ -736,7 +736,7 @@
       </div>
     </div>
     {% endif %}
-    {% set _hp_risk = healthy_patterns and healthy_patterns.voice == 'risk' and healthy_patterns.patterns %}
+    {% set _hp_risk = healthy_patterns and healthy_patterns.voice == 'risk' and healthy_patterns.patterns and primary_label != 'physical_harm_disclosed' %}
     {% if (key_dampeners and key_dampeners|length > 0) or _hp_risk %}
     <div class="section">
       <h3>What lowers concern</h3>
@@ -789,7 +789,7 @@
           or _vl_buy.hit
           or (domain_mode in ['housing_rental', 'marketplace_transaction'])
           or ((lane or '')|string|upper in ['FRAUD', 'COERCION_RISK']) %}
-    {% if not is_withheld and _vl_show_photos %}
+    {% if not is_withheld and _vl_show_photos and primary_label != 'physical_harm_disclosed' %}
     <div class="section">
       <h3>Check their photos</h3>
       <p style="margin-bottom:12px;">Reverse-search their profile pictures to see if the same photos show up elsewhere under a different name. Save their photo to your device, then run it through either tool:</p>
