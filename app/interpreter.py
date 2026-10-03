@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from typing import Any, Dict, List
 
 import anthropic as _anthropic
@@ -117,7 +118,12 @@ def _risk_override(result: Dict[str, Any]) -> bool:
 def _risk_copy(out: Dict[str, Any]) -> Dict[str, Any]:
     lane = str(out.get("lane", "BENIGN"))
     domain_mode = str(out.get("domain_mode", "general_unknown"))
-    if lane == "FRAUD":
+    if str(out.get("primary_label", "")) == "physical_harm_disclosed":
+        diagnosis = "This conversation describes physical harm. That is a safety issue, not a communication-style issue."
+        reasoning = "Someone being hit, choked, shoved, threatened, or kept from leaving is the most serious thing a conversation can show. An apology or 'it only happened once' does not lower that risk, and arguing about the other things that were named is a separate problem on top of it."
+        next_steps = "If you or someone in this conversation is in danger, call 911. For support and safety planning, the National Domestic Violence Hotline is available 24/7: call 1-800-799-7233 or text START to 88788. Consider telling someone you trust what has happened."
+        accountability = "You do not need to win this argument or get them to agree before you protect yourself."
+    elif lane == "FRAUD":
         if domain_mode == "housing_rental":
             diagnosis = "This looks more like a setup than a normal rental conversation."
             reasoning = "The concern is the sequence. Once verification gets inverted, money enters the picture, or the story starts shifting, the interaction stops reading like normal logistics and starts reading like a transactional risk pattern."
@@ -498,6 +504,10 @@ def _llm_enrich(result, extracted_text, presentation_mode, diagnosis, reasoning,
             **sdk_kwargs(_model),
         )
         raw = sdk_text(message)
+        # The model must never narrate our process (e.g. "the draft is wrong"). If it
+        # does, discard the enrichment and keep the deterministic copy.
+        if re.search(r"\b(?:draft|deterministic|the model|this analysis tool|lane)\b", raw, re.I):
+            raise ValueError("enrichment referenced internal process")
         from app.analyzer_combined import _extract_first_json_object
         parsed = _extract_first_json_object(raw)
         return {"diagnosis": parsed.get("diagnosis", diagnosis), "reasoning": parsed.get("reasoning", reasoning), "practical_next_steps": parsed.get("practical_next_steps", practical_next_steps), "accountability": parsed.get("accountability", accountability), "llm_enriched": True, "llm_error": None}
