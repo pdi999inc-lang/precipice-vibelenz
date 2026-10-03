@@ -230,6 +230,11 @@ This is NOT a fraud/scam analysis. This is a behavioral dynamics analysis.
 
 SIGNAL LIBRARY — RELATIONSHIP DYNAMICS:
 
+CRITICAL (overrides everything else):
+- physical_harm: any admission, accusation, or description of hitting, slapping, choking, shoving, or other physical violence, or threats of it
+- physical_intimidation: blocking doors, preventing someone from leaving, following them room to room, standing over them
+If either appears, risk_score must be at least 80, even if the speaker apologizes or says it happened once. An apology does not lower the risk of physical harm.
+
 HIGH CONCERN (weight 0.8):
 - guilt_induction: making other person responsible for speaker feelings; "after everything I've done", "you never", "I always"
 - blame_shifting: deflecting all accountability to circumstances or the other party
@@ -2096,7 +2101,73 @@ However: if detected_concern_signals includes blame_inversion, plan_collapse_bla
 # PUBLIC INTERFACE
 # ===========================================================================
 
+# ===========================================================================
+# PHYSICAL HARM OVERRIDE (deterministic, runs after every analysis path)
+# A conversation that discloses or threatens physical violence is a safety read,
+# whatever the model scored it and whatever mode the user picked. Precision-tuned
+# patterns; false positives produce a protective read, which is the safe failure.
+# ===========================================================================
+
+_HARM_PATTERNS = [
+    # "I have hit you once", "he slapped me", "she choked her"
+    re.compile(r"\b(?:hit|hits|hitting|slapped|slapping|punched|punching|kicked|kicking|choked|choking|"
+               r"strangled|strangling|shoved|shoving|smacked|beat|beaten|beating)\s+(?:me|you|her|him|them)\b"
+               r"(?!\s+(?:up|back|with|on|in|off|at|by|to)\b)", re.I),
+    re.compile(r"\bput\s+(?:his|her|their|your|my)\s+hands\s+on\s+(?:me|you|her|him|them)\b", re.I),
+    re.compile(r"\b(?:domestic\s+(?:abuse|violence)|abusive\s+relationship|physically\s+abus\w*)\b", re.I),
+    re.compile(r"\bthreat\w*\s+to\s+(?:kill|hurt|beat|shoot|stab)\b", re.I),
+    re.compile(r"\b(?:i\s*'?ll|i\s+will|i\s*'?m\s+(?:going\s+to|gonna)|im\s+gonna)\s+(?:kill|beat|shoot|stab)\s+"
+               r"(?:you|her|him|them)\b", re.I),
+    re.compile(r"\b(?:block(?:ed|ing|s)?\s+(?:the\s+)?doors?(?:way)?|(?:won'?t|wouldn'?t|didn'?t)\s+let\s+me\s+leave)\b", re.I),
+    re.compile(r"\b(?:follow(?:s|ed|ing)?\s+me\s+(?:from\s+)?room\s+to\s+room|stand(?:s|ing)?\s+over\s+me|pinned\s+me)\b", re.I),
+]
+
+
+def detect_physical_harm(text: str) -> List[str]:
+    """Return the matched phrases (empty list if none)."""
+    hits: List[str] = []
+    for pat in _HARM_PATTERNS:
+        for m in pat.finditer(text or ""):
+            hits.append(m.group(0))
+    return hits
+
+
+def _apply_physical_harm_override(result: Dict[str, Any], text: str) -> Dict[str, Any]:
+    if not isinstance(result, dict) or result.get("lane") == "BLOCKED":
+        return result
+    hits = detect_physical_harm(text)
+    if not hits:
+        return result
+    out = dict(result)
+    out["lane"] = "COERCION_RISK"
+    out["primary_label"] = "physical_harm_disclosed"
+    out["risk_score"] = max(85, int(out.get("risk_score", 0) or 0))
+    out["risk_level"] = "HIGH"
+    out["vie_action"] = "WARN"
+    flags = [f for f in (out.get("flags") or []) if f not in ("No signals detected", "No concerning patterns detected")]
+    out["flags"] = list(dict.fromkeys(["physical_harm_disclosed"] + flags))
+    evidence = dict(out.get("evidence") or {})
+    evidence.setdefault("physical_harm_disclosed", hits[0])
+    out["evidence"] = evidence
+    out["physical_harm_override"] = True
+    out["interest_score"] = None
+    out["interest_label"] = "Not Applicable"
+    return out
+
+
 def analyze_text(
+    text: str,
+    relationship_type: str = "stranger",
+    context_note: str = "",
+    use_llm: bool = True,
+    conversation_id: str = None,
+) -> Dict[str, Any]:
+    """Analyze, then apply the deterministic physical-harm override (fail-closed)."""
+    result = _analyze_text_core(text, relationship_type, context_note, use_llm, conversation_id)
+    return _apply_physical_harm_override(result, text)
+
+
+def _analyze_text_core(
     text: str,
     relationship_type: str = "stranger",
     context_note: str = "",
