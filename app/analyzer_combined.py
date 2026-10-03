@@ -516,6 +516,11 @@ DEFAULT_FEATURE_REGISTRY = [
 # ===========================================================================
 
 SIGNAL_REGISTRY = {
+    "physical_harm_disclosed": {
+        "tier": "CRITICAL", "weight": 0.95,
+        "label": "Physical harm described",
+        "explanation": "The conversation describes hitting, choking, shoving, threats of violence, or someone being blocked or kept from leaving. That is a safety issue regardless of apologies or how long ago it happened.",
+    },
     "payment_before_verification": {
         "tier": "CRITICAL", "weight": 0.90,
         "label": "Payment before verification",
@@ -2150,6 +2155,13 @@ def _apply_physical_harm_override(result: Dict[str, Any], text: str) -> Dict[str
     evidence.setdefault("physical_harm_disclosed", hits[0])
     out["evidence"] = evidence
     out["physical_harm_override"] = True
+    # Nothing on the page may contradict the safety read.
+    out["key_dampeners"] = []
+    out["alternative_explanations"] = []
+    _sigs = ["physical_harm_disclosed"] + [str(x) for x in (out.get("key_signals") or [])
+                                          if x and x not in ("No signals detected", "physical_harm_disclosed")]
+    out["key_signals"] = _sigs
+    out["evidence_scoring"] = _score_evidence(_sigs)
     out["interest_score"] = None
     out["interest_label"] = "Not Applicable"
     return out
@@ -2368,7 +2380,7 @@ def analyze_turns(
             skipped += 1
             continue
 
-        result = _run_deterministic(chunk, relationship_type)
+        result = _apply_physical_harm_override(_run_deterministic(chunk, relationship_type), chunk)
         score = result.get("risk_score", 0)
         label = result.get("primary_label", "routine_message")
         # _run_deterministic already calls _detect_connection_signals internally.
@@ -2393,6 +2405,9 @@ def analyze_turns(
         })
 
     arc_data = _arc_label(scores, labels)
+    if "physical_harm_disclosed" in labels:
+        arc_data = {"arc": "physical_harm", "direction": "concerning", "delta": arc_data.get("delta", 0),
+                    "arc_label": "Physical harm is described in this conversation \u2014 see the safety read above"}
 
     return {
         "turn_count": len(turns),
