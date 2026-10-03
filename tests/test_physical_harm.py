@@ -77,3 +77,32 @@ def test_real_screenshot_conversation_is_caught_on_multiple_independent_signals(
     assert any("blocking doors" in h for h in hits)
     assert any("room to room" in h for h in hits)
     assert any("standing over me" in h for h in hits)
+
+
+def test_per_screenshot_timeline_flags_harm_instead_of_low_and_stable():
+    from app.analyzer_combined import analyze_turns
+    chunks = [
+        "THEM: So you\u2019re in a domestic abuse relationship\nYOU: Very clearly\nTHEM: I have hit you once\nTHEM: And I regret it",
+        "YOU: Not the slap. All the other stuff\nTHEM: Then why are you with me",
+        "THEM: What is making you bring that up?\nTHEM: Bring up something that happened in the past.",
+    ]
+    res = analyze_turns(chunks, relationship_type="ex")
+    assert res["turns"][0]["verdict"] == "High concern"
+    assert res["turns"][0]["label"] == "physical harm disclosed"
+    assert res["arc"] == "physical_harm" and "Low and stable" not in res["arc_label"]
+
+
+def test_harm_read_has_no_contradicting_reassurance_on_the_page():
+    import re
+    from jinja2 import Environment, FileSystemLoader
+    from pathlib import Path
+    res = analyze_text(ABUSE, relationship_type="ex", use_llm=False)
+    assert res["key_dampeners"] == [] and res["alternative_explanations"] == []
+    assert res["evidence_scoring"]["evidence_verdict"] == "ELEVATED"
+    out = interpret_analysis(res, extracted_text=ABUSE, relationship_type="ex", requested_mode="connection", use_llm=False)
+    tdir = Path(__file__).resolve().parent.parent / "templates"
+    html = Environment(loader=FileSystemLoader(str(tdir))).get_template("result.html").render(**out)
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<(script|style)\b.*?</\1>", " ", html, flags=re.S)))
+    assert "1-800-799-7233" in text
+    for bad in ("Check their photos", "What lowers concern", "No risk signals detected", "Ordinary Conversation"):
+        assert bad not in text, bad
