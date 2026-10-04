@@ -106,3 +106,17 @@ def test_harm_read_has_no_contradicting_reassurance_on_the_page():
     assert "1-800-799-7233" in text
     for bad in ("Check their photos", "What lowers concern", "No risk signals detected", "Ordinary Conversation"):
         assert bad not in text, bad
+
+
+def test_harm_card_leads_with_resources_not_the_explanation():
+    import re
+    from jinja2 import Environment, FileSystemLoader
+    from pathlib import Path
+    res = analyze_text(ABUSE, relationship_type="ex", use_llm=False)
+    out = interpret_analysis(res, extracted_text=ABUSE, relationship_type="ex", requested_mode="connection", use_llm=False)
+    tdir = Path(__file__).resolve().parent.parent / "templates"
+    html = Environment(loader=FileSystemLoader(str(tdir))).get_template("result.html").render(**out)
+    card = html.split('class="dash-title"', 1)[1].split('class="gauge-card"', 1)[0]
+    assert "1-800-799-7233" in card
+    assert "Someone being hit" not in card          # explanation moved out of the top card
+    assert html.count("Someone being hit") == 1      # still shown once, under "Why it was flagged"
