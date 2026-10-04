@@ -598,7 +598,12 @@
           <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="var(--coral)" stroke-width="1.6"/></svg>
         </div>
       </div>
+      {% if primary_label == 'physical_harm_disclosed' %}
+      {# Safety first: lead with what to do. The explanation stays in "Why it was flagged" below. #}
+      <p class="connection-read">{{ practical_next_steps }}</p>
+      {% else %}
       <p class="connection-read">{{ reasoning or summary_logic or "No additional reasoning available." }}</p>
+      {% endif %}
       {% if mode_override_note %}<div class="note">{{ mode_override_note }}</div>{% endif %}
       <div class="gauge-card">
         <div class="gauge-wrap">
