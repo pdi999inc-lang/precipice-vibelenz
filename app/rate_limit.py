@@ -15,11 +15,16 @@ HOW
     It resets on redeploy, which is acceptable for abuse control.
 
 CLIENT IP
-    Railway's edge proxy appends the connecting address to X-Forwarded-For, so
-    values a client sends itself sit to the LEFT of Railway's entry. We take the
-    rightmost public address (skipping private/internal hops), then fall back to
-    X-Real-IP, then the socket peer. A client therefore cannot pick its own key
-    by forging headers.
+    Chosen by VL_CLIENT_IP_MODE:
+      leftmost  (default) first X-Forwarded-For entry. Railway staff state their
+                edge controls this header and the real client is leftmost.
+      rightmost last public X-Forwarded-For entry (skips private hops). Wrong
+                if a CDN/edge appends its own public address per request.
+      realip    X-Real-IP.
+    Each falls back to the socket peer. Live behavior was observed on
+    2026-10-06 to defeat 'rightmost' (no request was ever grouped), so the mode
+    is switchable without a code change. GET /diag/client-ip (STATS_SECRET)
+    shows what every mode would pick for the caller.
 
 FAIL MODE
     Fails OPEN on any internal error (logged): a bug in the limiter must never
@@ -103,18 +108,66 @@ def _is_public(value: str) -> bool:
     return ip.is_global
 
 
-def client_ip(request: Request) -> str:
-    xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        for part in reversed([p.strip() for p in xff.split(",") if p.strip()]):
-            if _is_public(part):
-                return part
-    real = request.headers.get("x-real-ip", "").strip()
-    if real and _is_public(real):
-        return real
+def _valid(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value.strip())
+        return True
+    except ValueError:
+        return False
+
+
+def _xff(request: Request) -> List[str]:
+    raw = request.headers.get("x-forwarded-for", "")
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
+def _peer(request: Request) -> str:
     if request.client and request.client.host:
         return request.client.host
     return "unknown"
+
+
+def _ip_leftmost(request: Request) -> Optional[str]:
+    parts = _xff(request)
+    if parts and _valid(parts[0]):
+        return parts[0]
+    return None
+
+
+def _ip_rightmost(request: Request) -> Optional[str]:
+    for part in reversed(_xff(request)):
+        if _is_public(part):
+            return part
+    return None
+
+
+def _ip_realip(request: Request) -> Optional[str]:
+    real = request.headers.get("x-real-ip", "").strip()
+    return real if real and _valid(real) else None
+
+
+_MODES = {"leftmost": _ip_leftmost, "rightmost": _ip_rightmost, "realip": _ip_realip}
+
+
+def ip_mode() -> str:
+    m = os.environ.get("VL_CLIENT_IP_MODE", "leftmost").strip().lower()
+    return m if m in _MODES else "leftmost"
+
+
+def client_ip(request: Request) -> str:
+    return _MODES[ip_mode()](request) or _peer(request)
+
+
+def diag_info(request: Request) -> dict:
+    """What each mode would key this caller on. Behind STATS_SECRET."""
+    return {
+        "mode": ip_mode(),
+        "key": client_ip(request),
+        "x_forwarded_for": request.headers.get("x-forwarded-for", ""),
+        "x_real_ip": request.headers.get("x-real-ip", ""),
+        "peer": _peer(request),
+        "by_mode": {name: fn(request) for name, fn in _MODES.items()},
+    }
 
 
 def _mask(ip: str) -> str:
