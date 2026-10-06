@@ -28,7 +28,7 @@ def test_privacy_renders_with_contact_and_effective_date(client):
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     assert "VibeLenz999@gmail.com" in r.text
-    assert "Effective September 28, 2026" in r.text
+    assert "Effective September 30, 2026" in r.text
     assert "We don&rsquo;t sell your information" in r.text
 
 
