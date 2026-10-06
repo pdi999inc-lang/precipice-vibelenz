@@ -113,3 +113,16 @@ def stats_headers() -> dict:
     if not secret:
         pytest.skip("set VIBELENZ_STATS_SECRET to test /audit/stats contents")
     return {"x-stats-secret": secret}
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    """Each test starts with empty rate-limit counters (tests share one client IP)."""
+    try:
+        from app import rate_limit
+    except Exception:
+        yield
+        return
+    rate_limit.reset()
+    yield
+    rate_limit.reset()
