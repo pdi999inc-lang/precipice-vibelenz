@@ -42,7 +42,8 @@ def sdk_text(message: Any) -> str:
     """Concatenate text blocks from an SDK Message; ignore thinking blocks."""
     parts = []
     for block in getattr(message, "content", None) or []:
-        if getattr(block, "type", None) == "text":
+        # Real API blocks carry type="text"; tolerate a missing type (older SDKs, mocks).
+        if getattr(block, "type", "text") == "text" and getattr(block, "text", None):
             parts.append(getattr(block, "text", "") or "")
     text = "".join(parts).strip()
     if not text:
@@ -53,7 +54,7 @@ def sdk_text(message: Any) -> str:
 def json_text(data: Dict[str, Any]) -> str:
     """Concatenate text blocks from a raw /v1/messages JSON response."""
     parts = [b.get("text", "") or "" for b in (data.get("content") or [])
-             if isinstance(b, dict) and b.get("type") == "text"]
+             if isinstance(b, dict) and b.get("type", "text") == "text" and b.get("text")]
     text = "".join(parts).strip()
     if not text:
         raise ValueError("model returned no text block")
