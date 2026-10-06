@@ -84,29 +84,64 @@ def test_blocked_analysis_never_reaches_handler(monkeypatch):
     assert calls["n"] == 0
 
 
-def test_forged_left_xff_does_not_change_key():
-    # Railway appends the real address on the right; anything the client
-    # put on the left must not create a fresh bucket.
-    reqs = []
-    for i in range(7):
-        reqs.append({"x-forwarded-for": f"9.9.9.{i}, 8.8.4.4"})
+class _R:
+    def __init__(self, h, peer="100.64.0.3"):
+        self.headers = h
+        self.client = type("C", (), {"host": peer})()
+
+
+def test_default_mode_is_leftmost(monkeypatch):
+    monkeypatch.delenv("VL_CLIENT_IP_MODE", raising=False)
+    r = _R({"x-forwarded-for": "8.8.4.4, 66.33.22.9, 10.0.0.5"})
+    assert rl.client_ip(r) == "8.8.4.4"
+
+
+def test_rightmost_mode_skips_internal_hops(monkeypatch):
+    monkeypatch.setenv("VL_CLIENT_IP_MODE", "rightmost")
+    assert rl.client_ip(_R({"x-forwarded-for": "1.2.3.4, 8.8.4.4, 10.0.0.5"})) == "8.8.4.4"
+
+
+def test_realip_mode_and_bad_mode_fallback(monkeypatch):
+    monkeypatch.setenv("VL_CLIENT_IP_MODE", "realip")
+    assert rl.client_ip(_R({"x-real-ip": "1.1.1.1"})) == "1.1.1.1"
+    monkeypatch.setenv("VL_CLIENT_IP_MODE", "nonsense")
+    assert rl.ip_mode() == "leftmost"
+
+
+def test_missing_headers_fall_back_to_peer(monkeypatch):
+    monkeypatch.delenv("VL_CLIENT_IP_MODE", raising=False)
+    assert rl.client_ip(_R({})) == "100.64.0.3"
+    assert rl.client_ip(_R({"x-forwarded-for": "garbage"})) == "100.64.0.3"
+
+
+def test_rotating_edge_ip_still_groups_one_client(monkeypatch):
+    # The live failure: a per-request public edge address on the right made
+    # every request look new under 'rightmost'. Leftmost groups them.
+    monkeypatch.delenv("VL_CLIENT_IP_MODE", raising=False)
 
     async def run():
         transport = httpx.ASGITransport(app=main.app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
-            return [await c.post("/email/capture", headers=h, json={}) for h in reqs]
+            return [await c.post("/email/capture", json={},
+                                 headers={"x-forwarded-for": f"8.8.4.4, 66.33.22.{i}"})
+                    for i in range(7)]
     codes = [r.status_code for r in asyncio.run(run())]
-    assert codes[5] == 429
+    assert codes[5] == 429 and codes[6] == 429
 
 
-def test_client_ip_skips_internal_hops():
-    class R:
-        def __init__(self, h):
-            self.headers = h
-            self.client = None
-    assert rl.client_ip(R({"x-forwarded-for": "1.2.3.4, 8.8.4.4, 10.0.0.5"})) == "8.8.4.4"
-    assert rl.client_ip(R({"x-forwarded-for": "10.0.0.5", "x-real-ip": "1.1.1.1"})) == "1.1.1.1"
-    assert rl.client_ip(R({})) == "unknown"
+def test_diag_endpoint_requires_secret(monkeypatch):
+    async def run(h):
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+            return await c.get("/diag/client-ip", headers=h)
+    monkeypatch.setattr(main, "STATS_SECRET", "")
+    assert asyncio.run(run({"x-stats-secret": ""})).status_code == 403
+    monkeypatch.setattr(main, "STATS_SECRET", "s3")
+    assert asyncio.run(run({"x-stats-secret": "nope"})).status_code == 403
+    r = asyncio.run(run({"x-stats-secret": "s3", "x-forwarded-for": "8.8.4.4, 66.33.22.1"}))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["key"] == "8.8.4.4" and body["by_mode"]["rightmost"] == "66.33.22.1"
 
 
 def test_get_pages_and_health_never_limited():
