@@ -1,11 +1,10 @@
 """
 tests/test_integration.py — VibeLenz Live Endpoint Smoke Tests
 
-Hits the Railway deployment at app.appvibelenz.com.
-Requires network access and a live Railway instance.
+Opt-in: skipped unless VIBELENZ_URL is set, because each run posts real
+analyses to that deployment (real API cost, real rows in the reads table).
 
-Override target URL:
-    VIBELENZ_URL=https://your-url pytest tests/test_integration.py -v
+    VIBELENZ_URL=https://app.appvibelenz.com pytest tests/test_integration.py -v
 
 Run: pytest tests/test_integration.py -v -s
 """
@@ -58,24 +57,28 @@ class TestHealth:
 
 class TestAuditStats:
 
-    def test_audit_stats_returns_200(self, live_base_url):
+    def test_audit_stats_is_default_deny(self, live_base_url):
         resp = requests.get(f"{live_base_url}/audit/stats", timeout=10)
+        assert resp.status_code == 403
+
+    def test_audit_stats_returns_200(self, live_base_url, stats_headers):
+        resp = requests.get(f"{live_base_url}/audit/stats", headers=stats_headers, timeout=10)
         assert resp.status_code == 200
 
-    def test_audit_stats_has_session_id(self, live_base_url):
-        resp = requests.get(f"{live_base_url}/audit/stats", timeout=10)
+    def test_audit_stats_has_session_id(self, live_base_url, stats_headers):
+        resp = requests.get(f"{live_base_url}/audit/stats", headers=stats_headers, timeout=10)
         data = resp.json()
         assert "session_id" in data, f"Missing session_id. Got: {data}"
 
-    def test_audit_stats_has_total_analyses(self, live_base_url):
-        resp = requests.get(f"{live_base_url}/audit/stats", timeout=10)
+    def test_audit_stats_has_total_analyses(self, live_base_url, stats_headers):
+        resp = requests.get(f"{live_base_url}/audit/stats", headers=stats_headers, timeout=10)
         data = resp.json()
         assert "total_analyses" in data, f"Missing total_analyses. Got: {data}"
         assert isinstance(data["total_analyses"], int)
 
-    def test_audit_stats_not_stub(self, live_base_url):
+    def test_audit_stats_not_stub(self, live_base_url, stats_headers):
         # DEFECT-004 guard: confirm it is not returning the old stub string
-        resp = requests.get(f"{live_base_url}/audit/stats", timeout=10)
+        resp = requests.get(f"{live_base_url}/audit/stats", headers=stats_headers, timeout=10)
         assert resp.text.strip() != '"rewrite_stub"'
         assert isinstance(resp.json(), dict)
 
@@ -123,12 +126,15 @@ class TestAnalyzeScreenshotsValidation:
         resp = _post_screenshots(
             live_base_url, [sample_png_blank], relationship_type="stranger"
         )
-        # Accept 422 (insufficient OCR) or 503 (Tesseract can't process tiny image)
-        assert resp.status_code in {422, 503}, (
-            f"Expected 422 or 503 for unreadable image, got {resp.status_code}: {resp.text[:300]}"
+        # Current behavior: a withheld "nothing to assess" read (200) that claims no
+        # verdict either way. 422/503 remain acceptable for older deployments.
+        assert resp.status_code in {200, 422, 503}, (
+            f"Unexpected status for unreadable image {resp.status_code}: {resp.text[:300]}"
         )
-        if resp.status_code == 422:
-            data = resp.json()
+        data = resp.json()
+        if resp.status_code == 200:
+            assert "No conversation text detected" in data.get("flags", [])
+        elif resp.status_code == 422:
             assert data.get("error") == "insufficient_ocr_data"
 
 
@@ -207,9 +213,9 @@ class TestAnalyzeScreenshotsSuccess:
         # Degraded should be False on a clean readable image
         assert data.get("degraded") is False, f"Clean image marked degraded: {data.get('degradation_reasons')}"
 
-    def test_audit_stats_increments_after_analysis(self, live_base_url, sample_png_benign_dating):
+    def test_audit_stats_increments_after_analysis(self, live_base_url, sample_png_benign_dating, stats_headers):
         # Get baseline count
-        before = requests.get(f"{live_base_url}/audit/stats", timeout=10).json()
+        before = requests.get(f"{live_base_url}/audit/stats", headers=stats_headers, timeout=10).json()
         before_count = before.get("total_analyses", 0)
 
         # Run an analysis
@@ -217,7 +223,7 @@ class TestAnalyzeScreenshotsSuccess:
         assert resp.status_code == 200
 
         # Stats should increment (session-level — only works if same dyno serves both requests)
-        after = requests.get(f"{live_base_url}/audit/stats", timeout=10).json()
+        after = requests.get(f"{live_base_url}/audit/stats", headers=stats_headers, timeout=10).json()
         after_count = after.get("total_analyses", 0)
 
         # Note: Railway may route to different dyno. Accept either increment or same.
