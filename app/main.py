@@ -224,6 +224,16 @@ async def health():
 STATS_SECRET = os.environ.get("STATS_SECRET", "")
 
 
+@app.get("/diag/client-ip")
+async def diag_client_ip(request: Request):
+    # Default-deny, same secret as /audit/stats. Shows only the caller's own
+    # forwarding headers and which address the rate limiter keys them on.
+    if not STATS_SECRET or request.headers.get("x-stats-secret") != STATS_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    from app.rate_limit import diag_info
+    return JSONResponse(diag_info(request))
+
+
 @app.get("/audit/stats")
 async def audit_stats(request: Request):
     # Default-deny: requires STATS_SECRET env var AND matching x-stats-secret header.
