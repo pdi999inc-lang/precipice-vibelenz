@@ -97,5 +97,19 @@ def sample_png_blank() -> bytes:
 
 @pytest.fixture(scope="session")
 def live_base_url() -> str:
-    """Railway deployment URL. Override with VIBELENZ_URL env var if needed."""
-    return os.environ.get("VIBELENZ_URL", "https://app.appvibelenz.com")
+    """Live deployment URL for smoke tests. Opt-in only: these tests post real
+    analyses (real API cost, real rows in the reads table), so they never run
+    unless VIBELENZ_URL is set explicitly, e.g. VIBELENZ_URL=https://app.appvibelenz.com"""
+    url = os.environ.get("VIBELENZ_URL", "").strip()
+    if not url:
+        pytest.skip("live smoke tests are opt-in: set VIBELENZ_URL to run them")
+    return url.rstrip("/")
+
+
+@pytest.fixture(scope="session")
+def stats_headers() -> dict:
+    """/audit/stats is default-deny; tests that read it need VIBELENZ_STATS_SECRET."""
+    secret = os.environ.get("VIBELENZ_STATS_SECRET", "").strip()
+    if not secret:
+        pytest.skip("set VIBELENZ_STATS_SECRET to test /audit/stats contents")
+    return {"x-stats-secret": secret}
