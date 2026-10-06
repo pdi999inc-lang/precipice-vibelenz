@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import List, Optional
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from app.analyzer_combined import analyze_text, analyze_turns
 from app.interpreter import interpret_analysis
@@ -60,6 +62,31 @@ MAX_PASTE_CHARS = 15000
 # natural premium metering point later.
 MAX_FOLLOWUP_QUESTIONS = 5
 MAX_FOLLOWUP_CHARS = 500
+
+# Server-side follow-up counter. The client-sent history alone can be emptied to
+# reset the count, so the server keeps its own tally per analysis. In-memory: it
+# resets on redeploy and is per-process (single worker today); good enough to stop
+# casual abuse, not a substitute for rate limiting.
+_FOLLOWUP_COUNTS: dict = {}
+_FOLLOWUP_LOCK = threading.Lock()
+_FOLLOWUP_MAX_TRACKED = 20000
+
+
+def _followup_used(request_id: str) -> int:
+    with _FOLLOWUP_LOCK:
+        return _FOLLOWUP_COUNTS.get(request_id, 0)
+
+
+def _followup_take(request_id: str) -> bool:
+    """Atomically reserve one follow-up for this analysis. False if none left."""
+    with _FOLLOWUP_LOCK:
+        used = _FOLLOWUP_COUNTS.get(request_id, 0)
+        if used >= MAX_FOLLOWUP_QUESTIONS:
+            return False
+        if len(_FOLLOWUP_COUNTS) >= _FOLLOWUP_MAX_TRACKED:
+            _FOLLOWUP_COUNTS.clear()
+        _FOLLOWUP_COUNTS[request_id] = used + 1
+        return True
 
 
 def _simple_page(title: str, body: str) -> HTMLResponse:
@@ -394,7 +421,8 @@ async def analyze_screenshots(
                 )
         text_chunks = []
         for img_bytes in image_bytes_list:
-            chunk = extract_text_from_images([img_bytes], user_side=user_side)
+            # Blocking network call (vision OCR): keep it off the event loop.
+            chunk = await run_in_threadpool(extract_text_from_images, [img_bytes], user_side=user_side)
             text_chunks.append(chunk)
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
         ocr_char_count = len(extracted_text)
@@ -496,13 +524,17 @@ async def analyze_screenshots(
 
     try:
         _analysis_input = (prior_context + "\n\n" + extracted_text)[-6000:] if prior_context else extracted_text
-        analysis = analyze_text(
+        # The analysis, narrative, and per-screenshot steps make blocking network
+        # calls; run them in the thread pool so one read never stalls the site.
+        analysis = await run_in_threadpool(
+            analyze_text,
             _analysis_input,
             relationship_type=relationship_type,
             context_note=context_note,
             conversation_id=conv_meta["conversation_id"] or None,
         )
-        narrative = interpret_analysis(
+        narrative = await run_in_threadpool(
+            interpret_analysis,
             analysis,
             extracted_text=extracted_text,
             requested_mode=requested_mode,
@@ -510,7 +542,8 @@ async def analyze_screenshots(
             use_llm=True,
             user_side=("right" if use_paste else user_side),
         )
-        turn_analysis = analyze_turns(
+        turn_analysis = await run_in_threadpool(
+            analyze_turns,
             text_chunks=[t for t in text_chunks if t.strip()],
             relationship_type=relationship_type,
         )
@@ -539,7 +572,8 @@ async def analyze_screenshots(
     # --- Reply suggestions ---
     try:
         from app.reply_engine import generate_replies
-        _reply_data = generate_replies(
+        _reply_data = await run_in_threadpool(
+            generate_replies,
             payload=dict(analysis, **narrative),
             extracted_text=extracted_text,
             other_gender=other_gender,
@@ -849,6 +883,7 @@ async def followup(request: Request):
         h for h in history
         if isinstance(h, dict) and h.get("role") == "user" and str(h.get("content", "")).strip()
     ])
+    _prior_user_turns = max(_prior_user_turns, _followup_used(request_id))
     if _prior_user_turns >= MAX_FOLLOWUP_QUESTIONS:
         return JSONResponse(status_code=429, content={
             "error": "question_limit",
@@ -960,7 +995,14 @@ async def followup(request: Request):
         from app.llm_util import sdk_kwargs, sdk_text
         _client = anthropic.Anthropic(api_key=_api_key)
         _fu_model = os.environ.get("VL_FOLLOWUP_MODEL", "claude-haiku-4-5-20251001")
-        _msg = _client.messages.create(
+        if not _followup_take(request_id):
+            return JSONResponse(status_code=429, content={
+                "error": "question_limit",
+                "message": "That's the limit for this read. Run a fresh analysis as the conversation develops.",
+            })
+        # Blocking network call: run it off the event loop so other visitors aren't stalled.
+        _msg = await run_in_threadpool(
+            _client.messages.create,
             model=_fu_model,
             max_tokens=400,
             system=_fu_system + "\n\n" + _context_block,
