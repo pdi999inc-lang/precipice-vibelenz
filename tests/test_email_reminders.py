@@ -13,7 +13,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import email_reminders as er  # in the repo this is: from app import email_reminders as er
+from app import email_reminders as er
 
 _REAL_SEND = er._send_email  # captured before fixtures monkeypatch it
 _REAL_CONNECT = er._connect
