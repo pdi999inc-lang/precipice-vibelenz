@@ -21,6 +21,7 @@ from app.degradation import assess_degradation, apply_degradation, DegradationSt
 from app.audit import write_audit_record, get_session_stats
 from app.db import init_db, log_feedback
 from app.email_reminders import email_gate_middleware, router as email_router
+from app.rate_limit import rate_limit_middleware
 from app.literacy import router as literacy_router, build_prompt as build_literacy_prompt
 from app.glossary import build_glossary
 from app.subtle_patterns import build_subtle_patterns
@@ -31,6 +32,9 @@ logger = logging.getLogger("vibelenz.main")
 
 app = FastAPI(title="VibeLenz")
 app.middleware("http")(email_gate_middleware)
+# Registered after the email gate so it runs first: a rate-limited request
+# never reaches the gate and never counts as a use.
+app.middleware("http")(rate_limit_middleware)
 app.include_router(email_router)
 app.include_router(literacy_router)
 
