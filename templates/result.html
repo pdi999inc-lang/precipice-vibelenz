@@ -1003,7 +1003,7 @@
           if (left <= 0) { inp.disabled = true; btn.textContent = 'Done'; return; }
         } else {
           _appendMsg('vibelenz', (data && (data.message || data.detail)) || 'Follow-up unavailable right now.');
-          if (res.status === 429) { inp.disabled = true; btn.textContent = 'Done'; return; }
+          if (res.status === 429 && !(data && data.error === 'rate_limited')) { inp.disabled = true; btn.textContent = 'Done'; return; }
         }
       } catch (e) {
         _appendMsg('vibelenz', 'Network hiccup — try that again.');
