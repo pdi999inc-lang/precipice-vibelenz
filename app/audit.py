@@ -57,6 +57,7 @@ def write_audit_record(
     result: Dict[str, Any],
     degraded: bool = False,
     error: Optional[str] = None,
+    vie_t: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Write a structured audit record for a single analysis request.
@@ -86,6 +87,10 @@ def write_audit_record(
         "degraded": degraded,
         "error": error,
     }
+    # Shadow-mode in-conversation trajectory (app/vie_t_adapter.py). Audit-only:
+    # additive key, absent when not computed, never affects the decision above.
+    if vie_t is not None:
+        record["vie_t"] = vie_t
 
     logger.info(f"[AUDIT] {json.dumps(record)}")
 

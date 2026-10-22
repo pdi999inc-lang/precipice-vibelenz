@@ -30,6 +30,16 @@ from app.trajectory import build_trajectory
 
 logger = logging.getLogger("vibelenz.main")
 
+# VIE-T in-conversation trajectory, SHADOW MODE (audit-only; see app/vie_t.py).
+# Import is guarded: an advisory layer must never be able to stop the app booting.
+# Kill switch: set VIE_T_SHADOW_ENABLED=false in Railway to disable without a redeploy.
+try:
+    from app.vie_t_adapter import run_shadow as _vie_t_shadow
+except Exception as _vie_t_import_err:  # noqa: BLE001
+    _vie_t_shadow = None
+    logger.warning(f"VIE-T shadow disabled at import: {_vie_t_import_err}")
+_VIE_T_SHADOW_ENABLED = os.environ.get("VIE_T_SHADOW_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
+
 app = FastAPI(title="VibeLenz")
 app.middleware("http")(email_gate_middleware)
 # Registered after the email gate so it runs first: a rate-limited request
@@ -763,6 +773,17 @@ async def analyze_screenshots(
     except Exception as _db_err:
         logger.warning(f"DB log skipped: {_db_err}")
 
+    # --- VIE-T shadow trajectory (audit-only) ---
+    # Computed AFTER every decision above is final. Never added to the payload,
+    # never alters a score/lane/action. run_shadow() never raises; the outer guard
+    # is belt-and-braces so this can never block a read.
+    _vie_t_audit = None
+    if _vie_t_shadow is not None and _VIE_T_SHADOW_ENABLED:
+        try:
+            _vie_t_audit = await run_in_threadpool(_vie_t_shadow, extracted_text, relationship_type)
+        except Exception as _vt_err:  # noqa: BLE001
+            _vie_t_audit = {"vie_t_status": "ERROR", "vie_t_error": f"{type(_vt_err).__name__}: {_vt_err}"[:200]}
+
     # --- Audit record ---
     write_audit_record(
         request_id=request_id,
@@ -771,6 +792,7 @@ async def analyze_screenshots(
         ocr_char_count=ocr_char_count,
         result=payload,
         degraded=bool(payload.get("degraded", False)),
+        vie_t=_vie_t_audit,
     )
 
     logger.info(
