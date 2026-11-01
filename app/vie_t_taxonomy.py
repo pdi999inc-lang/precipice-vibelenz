@@ -44,7 +44,7 @@ from app.analyzer_combined import (
 )
 from app.vie_t import Taxonomy
 
-TAXONOMY_VERSION = "vie-t-tax-2026-10-21-a"
+TAXONOMY_VERSION = "vie-t-tax-2026-11-01-a"  # +hard_rejection_present, repair_attempt_present, warm_reception_present (context, unscored)
 
 # Pressure applied TO the subject. Excludes the subject's own boundary assertion,
 # which is the semantic opposite (v0.1.0 of the prototype conflated them).
@@ -127,6 +127,10 @@ KNOWN_UNCATEGORIZED: FrozenSet[str] = frozenset(
         "high_reciprocity",
         "short_term_alignment_noncoercive",
         "routine_transactional_context",
+        # relational context surfaced by the 2026-11-01 eval corpus: not harm
+        "hard_rejection_present",
+        "repair_attempt_present",
+        "warm_reception_present",
         # safety read handled by the physical-harm override, not by trajectory
         "physical_harm_disclosed",
         }

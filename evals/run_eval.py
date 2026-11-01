@@ -11,6 +11,8 @@ Usage (from repo root, ANTHROPIC_API_KEY set):
     python evals/run_eval.py --no-llm         # deterministic engine only (free)
 
 Compare models by setting VL_ANALYSIS_MODEL / VL_ENRICH_MODEL before each run.
+Cases are synthetic by design (provenance field). Cases with provenance other than
+"synthetic" must live outside the repo (local runs only) and never appear in marketing.
 Cases are synthetic by design: the privacy policy bars using stored user
 conversations to improve VibeLenz until a redaction step exists.
 """
@@ -85,6 +87,11 @@ def run_case(case, use_llm):
         text = " ".join(str(out.get(k) or "") for k in NARRATIVE_KEYS).lower()
         voice_hits = sorted(set(_clinical_hits(text)))
         checks["voice"] = not voice_hits
+    # Effort balance (connection reads): compares the AI's own effort call with the label.
+    # Only checked when the enrichment ran and returned one; "unclear" labels are skipped.
+    _eff = out.get("effort_balance_raw")
+    if case.get("expect_effort") and case["expect_effort"] != "unclear" and _eff:
+        checks["effort"] = str(_eff).lower() == case["expect_effort"]
     if case.get("no_romance"):
         text_all = " ".join(str(out.get(k) or "") for k in NARRATIVE_KEYS + ["human_label", "interest_summary", "social_tone"]).lower()
         checks["no_romance"] = not any(w in text_all for w in ROMANCE)

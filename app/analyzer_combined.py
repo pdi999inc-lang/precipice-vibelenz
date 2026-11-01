@@ -2174,9 +2174,13 @@ def analyze_text(
     use_llm: bool = True,
     conversation_id: str = None,
 ) -> Dict[str, Any]:
-    """Analyze, then apply the deterministic physical-harm override (fail-closed)."""
+    """Analyze, then apply the deterministic physical-harm override and safety floors (fail-closed)."""
     result = _analyze_text_core(text, relationship_type, context_note, use_llm, conversation_id)
-    return _apply_physical_harm_override(result, text)
+    result = _apply_physical_harm_override(result, text)
+    # Raise-only deterministic safety floors + lane/score coherence (app/safety_floors.py).
+    # Enforced on both the AI path and the fallback engine. Never lowers a read.
+    from app.safety_floors import apply_safety_floors
+    return apply_safety_floors(result, text, relationship_type)
 
 
 def _analyze_text_core(
