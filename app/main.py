@@ -40,6 +40,15 @@ except Exception as _vie_t_import_err:  # noqa: BLE001
     logger.warning(f"VIE-T shadow disabled at import: {_vie_t_import_err}")
 _VIE_T_SHADOW_ENABLED = os.environ.get("VIE_T_SHADOW_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
 
+# Gottman/texting patterns, SHADOW MODE (audit-only; see app/gottman_patterns.py).
+# Guarded import: if it fails the app still boots. Kill switch GOTTMAN_SHADOW_ENABLED is
+# read per call inside the module; a Railway variable change restarts the service.
+try:
+    from app.gottman_patterns import build_gottman_patterns as _gottman_shadow
+except Exception as _gottman_import_err:  # noqa: BLE001
+    _gottman_shadow = None
+    logger.warning(f"Gottman shadow disabled at import: {_gottman_import_err}")
+
 app = FastAPI(title="VibeLenz")
 app.middleware("http")(email_gate_middleware)
 # Registered after the email gate so it runs first: a rate-limited request
@@ -699,6 +708,19 @@ async def analyze_screenshots(
         logger.warning(f"[{request_id}] healthy_patterns skipped: {_healthy_err}")
         payload["healthy_patterns"] = None
 
+    # --- Gottman shadow patterns (audit-only) ---
+    # Reads the payload but is NEVER written into it. relationship_type comes from the
+    # form (the analysis payload does not carry it). Never raises; None means nothing fired.
+    _gottman_audit = None
+    if _gottman_shadow is not None:
+        try:
+            _gottman_audit = _gottman_shadow(payload, relationship_type)
+            if _gottman_audit:
+                logger.info(f"[{request_id}] gottman keys={_gottman_audit.get('keys')}")
+        except Exception as _gt_err:  # noqa: BLE001
+            logger.warning(f"[{request_id}] gottman skipped: {type(_gt_err).__name__}")
+            _gottman_audit = None
+
     # --- Phase 1 continuity: save this batch frozen + attach continuity fields ---
     # The per-batch score is written once and never updated by future visits.
     try:
@@ -793,6 +815,7 @@ async def analyze_screenshots(
         result=payload,
         degraded=bool(payload.get("degraded", False)),
         vie_t=_vie_t_audit,
+        gottman=_gottman_audit,
     )
 
     logger.info(
