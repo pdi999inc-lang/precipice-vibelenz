@@ -101,10 +101,30 @@ def test_floor_raises_lane_and_score_and_clears_reassurance():
     assert out["safety_floors"]["fired"] == ["money_request_floor"]
 
 
-def test_never_lowers_score_or_changes_existing_risk_lane():
+def test_never_lowers_score_or_leaves_a_risk_lane():
     out = apply_safety_floors(_r(lane="COERCION_RISK", risk_score=92, risk_level="HIGH"),
-                              "THEM: Send the codes", "stranger")
+                              "THEM: I have screenshots of everything. Don't make me use them.", "stranger")
     assert out["risk_score"] == 92 and out["lane"] == "COERCION_RISK" and out["risk_level"] == "HIGH"
+    out = apply_safety_floors(_r(lane="FRAUD", risk_score=95, risk_level="HIGH"),
+                              "THEM: other people complicate things, they don't know what we have. keep this between us", "stranger")
+    assert out["lane"] == "FRAUD" and out["risk_score"] == 95
+
+
+def test_money_floor_corrects_coercion_lane_to_fraud():
+    out = apply_safety_floors(_r(lane="COERCION_RISK", risk_score=62, risk_level="MEDIUM"),
+                              "THEM: Private investment group, doubled what I put in. You need a starting balance on their platform", "stranger")
+    assert out["lane"] == "FRAUD" and out["risk_score"] >= 70
+
+
+def test_no_lane_correction_when_coercion_floor_also_fires():
+    out = apply_safety_floors(_r(lane="COERCION_RISK", risk_score=80, risk_level="HIGH"),
+                              "THEM: send 500 dollars or I post the pictures, people should know", "stranger")
+    assert out["lane"] == "COERCION_RISK"
+
+
+def test_no_lane_correction_on_physical_harm():
+    r = _r(lane="COERCION_RISK", risk_score=88, physical_harm_override=True)
+    assert apply_safety_floors(r, "THEM: send the codes", "stranger")["lane"] == "COERCION_RISK"
 
 
 def test_precedence_threat_over_money():

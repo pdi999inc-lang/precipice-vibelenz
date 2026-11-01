@@ -101,6 +101,7 @@ def run_case(case, use_llm):
         "degraded": out.get("degraded"), "checks": checks,
         "passed": all(checks.values()), "voice_hits": voice_hits,
         "diagnosis": str(out.get("diagnosis") or "")[:300],
+        "effort": out.get("effort_balance_raw"),
     }
 
 

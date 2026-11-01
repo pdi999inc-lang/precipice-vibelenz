@@ -240,6 +240,15 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/health/llm")
+async def health_llm():
+    """Is the AI path serving reads? 503 unless ok, so an uptime monitor can alert.
+    Counts only; no content. See app/llm_health.py."""
+    from app import llm_health
+    st = await run_in_threadpool(llm_health.status)
+    return JSONResponse(st, status_code=200 if st["status"] == "ok" else 503)
+
+
 STATS_SECRET = os.environ.get("STATS_SECRET", "")
 
 
@@ -583,6 +592,11 @@ async def analyze_screenshots(
     except Exception as e:
         analysis_error = str(e)
         logger.error(f"[{request_id}] Analysis failure: {e}")
+        try:
+            from app import llm_health
+            llm_health.record_read(True, str(e))
+        except Exception:  # noqa: BLE001
+            pass
         write_audit_record(
             request_id=request_id,
             timestamp_start=timestamp_start,
@@ -844,6 +858,12 @@ async def analyze_screenshots(
         gottman=_gottman_audit,
         consistency=_consistency_audit,
     )
+
+    try:
+        from app import llm_health
+        llm_health.record_read(bool(payload.get("degraded", False)), payload.get("fallback_reason") or payload.get("llm_error"))
+    except Exception:  # noqa: BLE001
+        pass
 
     logger.info(
         f"[{request_id}] Risk={payload.get('risk_score')} Lane={payload.get('lane')} "

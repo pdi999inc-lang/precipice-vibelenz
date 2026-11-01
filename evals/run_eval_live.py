@@ -88,7 +88,8 @@ def main():
             rows.append(r)
             with res_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(r, ensure_ascii=False, default=str) + "\n")
-            failed = ", ".join(k for k, v in r["checks"].items() if not v)
+            failed = ", ".join((f"effort(got {r.get('effort')})" if k == "effort" else k)
+                               for k, v in r["checks"].items() if not v)
             mark = "PASS" if r["passed"] else "FAIL"
             print(f"[{i}/{total}] {mark} {r['id']:<40} {r['lane']}{' (fallback)' if r['fallback'] else ''} "
                   f"score={r['score']} {r['secs']}s {failed}", flush=True)

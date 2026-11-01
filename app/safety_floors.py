@@ -27,6 +27,8 @@ MVP SCOPE (only what the other party says; the user's own lines never trigger)
   F5 money_mule_floor        reshipping packages / moving payments for them -> FRAUD, >= 60
   Family/friend reads: a plain "can you lend me $50" does NOT fire F1; it fires
   only with a classic scam tell (gift cards, codes, crypto, wire, new account).
+  L1 lane correction        COERCION_RISK + a money/investment floor (and no coercion
+                             floor) -> FRAUD. Moves between risk lanes only.
   C1 lane/score coherence    risk lane with score < 35 -> score 35;
                              score >= 35 in a non-risk lane -> risk_level matches
                              score (protective read) + flag lane_score_conflict
@@ -211,6 +213,15 @@ def apply_safety_floors(result: Dict[str, Any], text: str, relationship_type: st
             score = max(score, tscore)
             if lane not in RISK_LANES:
                 lane = tlane          # first fired floor wins; order = precedence
+
+        # Lane correction within risk lanes: a money/investment floor with no coercion
+        # floor means the AI's COERCION label is the wrong risk lane (eval: crypto pitch
+        # came back COERCION 62-70). Still a risk read either way; FRAUD copy fits.
+        _fraud_floors = {"investment_pitch_floor", "money_request_floor", "money_mule_floor"}
+        _coercion_floors = {"leverage_threat_floor", "isolation_secrecy_floor"}
+        if lane == "COERCION_RISK" and (set(fired) & _fraud_floors) and not (set(fired) & _coercion_floors) \
+                and not out.get("physical_harm_override"):
+            lane = "FRAUD"
 
         coherence = "ok"
         if lane in RISK_LANES and score < 35:
