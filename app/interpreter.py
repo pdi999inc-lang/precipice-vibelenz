@@ -115,7 +115,68 @@ def _risk_override(result: Dict[str, Any]) -> bool:
     return lane in {"FRAUD", "COERCION_RISK"} or risk_level in {"HIGH", "MEDIUM"}
 
 
-def _risk_copy(out: Dict[str, Any]) -> Dict[str, Any]:
+# ---------------------------------------------------------------------------
+# MEDIUM reads outside the fraud/coercion lanes (2026-11-01).
+# The AI path marks any score >= 35 as MEDIUM, and every MEDIUM read takes the
+# risk page. In a non-risk lane that page used to say "This does not currently
+# read like a strong risk pattern" under a "Medium concern" gauge. The 29-case
+# local eval put 7/26 awkward-but-not-fraud chats there (deception, contempt,
+# transactional asks). This picks copy that matches the gauge. Deterministic;
+# cues are read from the conversation text; first match wins.
+# ---------------------------------------------------------------------------
+_MED_DECEPTION = re.compile(
+    r"(?:profile\s+says|wasn'?t\s+(?:even\s+)?you|different\s+(?:picture|photo|pic)|not\s+(?:even\s+)?you\s+in|"
+    r"\b(?:fianc[eé]e?|wife|husband|girlfriend|boyfriend)\s+has\s+my|"
+    r"\bmy\s+(?:fianc[eé]e?|wife|husband|girlfriend|boyfriend)\b[^\n]{0,40}\b(?:know|find\s+out|see|pw|password)|"
+    r"why\s+does\s+your\s+profile|so\s+i\s+can\s+match\s+with|lied\s+about|fake\s+(?:profile|pics?|photos?))", re.I)
+_MED_CONTEMPT = re.compile(
+    r"\b(?:gross|pathetic|delusion\w*|brat|ugly|fat|stupid|idiot|loser|disgusting|"
+    r"f(?:uck|\[uck\]|\*+k)?\s+off|tf\s+did\s+u|spoiled|within\s+your\s+(?:means|league)|"
+    r"are\s+you\s+autistic|who\s+hurt\s+you)\b", re.I)
+_MED_TRANSACTIONAL = re.compile(
+    r"(?:what\s+do\s+i\s+get\s+out\s+of\s+it|you\s+owe\s+me|least\s+you\s+(?:can|could)\s+do|"
+    r"what'?s\s+in\s+it\s+for\s+me|after\s+(?:all|everything)\s+i\s+(?:did|paid|bought))", re.I)
+
+_MEDIUM_NONFRAUD_COPY = {
+    "deception": (
+        "Something about who they are or what they've told you doesn't add up.",
+        "This isn't a scam pattern. The concern is honesty: a profile detail, a photo, or a relationship status that turns out to be different from what was shown. How someone handles small truths early is usually how they handle bigger ones later.",
+        "Ask about it directly, once, and see whether you get a straight answer or a deflection. Don't build plans on details you haven't been able to confirm.",
+        "Don't let a charming explanation stand in for the truth you actually asked for.",
+    ),
+    "contempt": (
+        "This is someone being disrespectful, not just awkward.",
+        "Insults, mocking, or talking down to you, especially this early, tell you how this person handles disagreement and disappointment. It isn't a fraud pattern, but it is a clear read on how you'd be treated.",
+        "You don't owe a reply. If you do answer, keep it short and don't argue. Blocking or unmatching is a complete response.",
+        "Don't treat their rudeness as a puzzle you have to solve or a test you have to pass.",
+    ),
+    "transactional": (
+        "This person is framing contact as a trade: what do they get out of it.",
+        "When someone links basic effort, a ride, a date, time together, to what they'll receive in return, the interest is conditional. That isn't fraud, but it's a reliable preview of how the arrangement would run.",
+        "Notice whether anything is offered without a price attached. If it's all terms, you have your answer.",
+        "Don't negotiate your way into being treated well.",
+    ),
+    "general": (
+        "Something here is worth a closer look, even though it isn't a scam pattern.",
+        "Nothing points to money, extraction, or control. But part of this conversation landed harder than ordinary awkwardness, enough that you should look at it on purpose rather than skim past it.",
+        "Reread the part that made you screenshot this. Ask one direct question about it and see whether the answer is straightforward.",
+        "Don't talk yourself out of something that bothered you just because it doesn't fit a known label.",
+    ),
+}
+
+
+def _medium_nonfraud_kind(text: str) -> str:
+    t = text or ""
+    if _MED_DECEPTION.search(t):
+        return "deception"
+    if _MED_TRANSACTIONAL.search(t):
+        return "transactional"
+    if _MED_CONTEMPT.search(t):
+        return "contempt"
+    return "general"
+
+
+def _risk_copy(out: Dict[str, Any], text: str = "") -> Dict[str, Any]:
     lane = str(out.get("lane", "BENIGN"))
     domain_mode = str(out.get("domain_mode", "general_unknown"))
     if str(out.get("primary_label", "")) == "physical_harm_disclosed":
@@ -145,6 +206,11 @@ def _risk_copy(out: Dict[str, Any]) -> Dict[str, Any]:
             reasoning = "What pushes this upward is not mere discomfort. The visible pattern starts to lean on pressure or boundary friction, which matters more than tone alone."
             next_steps = "Tighten the boundary. State it clearly once, then watch whether the other person respects it without needing a long argument."
             accountability = "Do not explain away pressure just because it arrives wrapped in charm, confusion, or emotion."
+    elif str(out.get("risk_level", "LOW")).upper() in ("MEDIUM", "HIGH"):
+        # Non-fraud, non-coercion lane but a MEDIUM/HIGH score: copy must match the gauge.
+        _kind = _medium_nonfraud_kind(text)
+        out["medium_read_kind"] = _kind
+        diagnosis, reasoning, next_steps, accountability = _MEDIUM_NONFRAUD_COPY[_kind]
     else:
         diagnosis = "This does not currently read like a strong risk pattern."
         reasoning = "Nothing shown here strongly supports fraud, coercion, or extraction as the main story."
@@ -580,7 +646,7 @@ def interpret_analysis(
         requested_mode = "risk"
     other_gender = _norm_gender(other_gender)
     if _risk_override(out):
-        out = _risk_copy(out)
+        out = _risk_copy(out, extracted_text)
         if requested_mode == "connection":
             out["mode_override_note"] = "Connection mode was selected, but stronger safety signals pushed this result into a more protective read."
         out["requested_mode"] = requested_mode
@@ -588,7 +654,7 @@ def interpret_analysis(
     if requested_mode == "connection":
         out = _connection_copy(out, other_gender=other_gender, relationship_type=relationship_type)
     else:
-        out = _risk_copy(out)
+        out = _risk_copy(out, extracted_text)
     out["requested_mode"] = requested_mode
     if use_llm and extracted_text:
         out["relationship_type"] = relationship_type
