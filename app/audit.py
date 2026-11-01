@@ -59,6 +59,7 @@ def write_audit_record(
     error: Optional[str] = None,
     vie_t: Optional[Dict[str, Any]] = None,
     gottman: Optional[Dict[str, Any]] = None,
+    consistency: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Write a structured audit record for a single analysis request.
@@ -94,6 +95,8 @@ def write_audit_record(
         record["vie_t"] = vie_t
     if gottman is not None:
         record["gottman"] = gottman
+    if consistency is not None:
+        record["consistency"] = consistency
 
     logger.info(f"[AUDIT] {json.dumps(record)}")
 

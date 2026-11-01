@@ -333,7 +333,7 @@
     {% set gauge_circ = 339.3 %}
     {% set gauge_offset = (gauge_circ * (1 - conf_pct/100))|round(1) %}
     {% set flag_count = (positive_signals|length if positive_signals else 0) %}
-    {% set concern_count_raw = (concern_signals|length if concern_signals else 0) %}
+    {% set concern_count_raw = ((concern_signals|reject("equalto", "No signals detected")|list|length) if concern_signals else 0) + (((context_reads or {}).watch or [])|length) %}
     <div class="hero">
       <div class="dash-head">
         <div>
@@ -434,78 +434,8 @@
        OR when accountability copy contradicts positive framing #}
     {% set score_val = (risk_score if risk_score is not none else 0)|int %}
     {% set has_positives = positive_signals and positive_signals|length > 0 %}
-    {# Pattern literacy check — connection mode only. Built server-side by app/literacy.py;
-       absent (None) for risk lanes, degraded, or withheld reads. #}
-    {% if literacy and literacy.options %}
-    <div class="section connection-section lit-card" id="litCard">
-      <h3>{{ literacy.question }}</h3>
-      <p class="lit-sub">{{ literacy.subtext }}</p>
-      <div class="chips lit-opts" id="litOpts">
-        {% for o in literacy.options %}<button type="button" class="chip lit-opt" data-key="{{ o.key }}" aria-pressed="false">{{ o.label }}</button>{% endfor %}
-      </div>
-      <button type="button" class="lit-go" id="litGo" disabled>See what this read picked up</button>
-      <p class="lit-result" id="litResult" hidden></p>
-    </div>
-    <style>
-      .lit-card .lit-sub { font-size: 15px !important; margin: 0 0 14px !important; color: var(--text-soft, var(--text)); text-transform: none; }
-      .lit-opt { cursor: pointer; font-family: inherit; }
-      .lit-opt[aria-pressed="true"] { border-color: var(--teal, #2F7E77); box-shadow: 0 0 0 2px var(--teal, #2F7E77) inset; }
-      .lit-opt.lit-hit { background: var(--chip-good); color: #2F9E6E; border-color: rgba(47,158,110,0.5); }
-      .lit-opt.lit-miss { opacity: 0.5; }
-      .lit-opt.lit-found::after { content: " \2713"; }
-      .lit-go { width: 100%; margin-top: 16px; padding: 14px; border-radius: 14px; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; border: 1px solid rgba(47,126,119,0.4); background: rgba(47,126,119,0.1); color: var(--teal, #2F7E77); }
-      .lit-go:disabled { opacity: 0.45; cursor: default; }
-      .lit-result { margin-top: 14px !important; font-size: 16px !important; }
-    </style>
-    <script>
-    (function () {
-      var DETECTED = {{ literacy.detected|tojson }};
-      var RID = {{ request_id|tojson }};
-      var card = document.getElementById("litCard");
-      if (!card) return;
-      var opts = card.querySelectorAll(".lit-opt");
-      var go = document.getElementById("litGo");
-      var done = false;
-      function picked() {
-        var out = [];
-        opts.forEach(function (b) { if (b.getAttribute("aria-pressed") === "true") out.push(b.getAttribute("data-key")); });
-        return out;
-      }
-      opts.forEach(function (b) {
-        b.addEventListener("click", function () {
-          if (done) return;
-          b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true");
-          go.disabled = picked().length === 0;
-        });
-      });
-      go.addEventListener("click", function () {
-        if (done) return;
-        var sel = picked();
-        if (!sel.length) return;
-        done = true;
-        go.disabled = true;
-        var hits = 0;
-        opts.forEach(function (b) {
-          var k = b.getAttribute("data-key");
-          if (DETECTED.indexOf(k) !== -1) { b.classList.add("lit-hit", "lit-found"); if (sel.indexOf(k) !== -1) hits++; }
-          else { b.classList.add("lit-miss"); }
-        });
-        var n = DETECTED.length;
-        var res = document.getElementById("litResult");
-        res.textContent = hits === n
-          ? "You caught everything this read picked up."
-          : "You caught " + hits + " of " + n + ". The checkmarks show what this read picked up.";
-        res.hidden = false;
-        fetch("/literacy/answer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ request_id: RID, selected: sel })
-        }).catch(function () { /* fail silent: never block the read */ });
-        try { gtag("event", "literacy_answer", { event_category: "retention", value: hits }); } catch (e) {}
-      });
-    })();
-    </script>
-    {% endif %}
+    {# Pattern literacy check removed 2026-11-01 (owner decision). #}
+    {% if mixed_signals_note %}<div class="section connection-section"><p class="subtle">{{ mixed_signals_note }}</p></div>{% endif %}
     {# Healthy patterns (app/healthy_patterns.py): what's going right, quote-backed. #}
     {% if healthy_patterns and healthy_patterns.voice == 'connection' and healthy_patterns.patterns %}
     <div class="section connection-section" id="healthyCard">
@@ -540,21 +470,26 @@
         {% endif %}
       </div>
     </div>
-    <div class="section connection-section">
+    {# Worth watching: deterministic concern chips + quote-verified items (app/context_reads.py).
+       Hidden entirely when there is nothing specific to say — no generic filler. #}
+    {% set _ctx = context_reads or {} %}
+    {% set _watch = _ctx.watch or [] %}
+    {% set displayable_concerns = [] %}
+    {% for c in (concern_signals or []) %}{% if c != "No signals detected" %}{% set _ = displayable_concerns.append(c) %}{% endif %}{% endfor %}
+    {% if displayable_concerns or _watch %}
+    <div class="section connection-section" id="watchCard">
       <h3>Worth watching</h3>
-      <div class="chips">
-        {% set concerns = concern_signals or [] %}
-        {% set displayable_concerns = [] %}
-        {% for c in concerns %}
-          {% if c != "No signals detected" %}{% set _ = displayable_concerns.append(c) %}{% endif %}
-        {% endfor %}
-        {% if displayable_concerns and displayable_concerns|length > 0 %}
-          {% for item in displayable_concerns %}<span class="chip warn">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
-        {% else %}
-          <span class="chip">Nothing here stands out as off</span>
-        {% endif %}
+      {% if displayable_concerns %}
+      <div class="chips">{% for item in displayable_concerns %}<span class="chip warn">{{ item|replace('_', ' ')|title }}</span>{% endfor %}</div>
+      {% endif %}
+      {% for w in _watch %}
+      <div style="margin-top:12px">
+        <p>{{ w.text }}</p>
+        <p class="subtle">{% if w.speaker == 'you' %}You wrote{% elif w.speaker == 'them' %}They wrote{% else %}In the chat{% endif %}: &ldquo;{{ w.quote }}&rdquo;</p>
       </div>
+      {% endfor %}
     </div>
+    {% endif %}
     {# Subtle patterns (app/subtle_patterns.py). Copy arrives already in the lane's voice. #}
     {% if subtle_patterns and subtle_patterns.patterns %}
     <div class="section connection-section" id="subtleCard">
@@ -571,16 +506,20 @@
       {% endfor %}
     </div>
     {% endif %}
-    <div class="section connection-section">
+    {# Other ways to read it: quote-verified alternative reads only (app/context_reads.py).
+       The old static per-lane list is no longer shown in connection mode. Hidden when empty. #}
+    {% set _alts = (context_reads or {}).alt_reads or [] %}
+    {% if _alts %}
+    <div class="section connection-section" id="altCard">
       <h3>Other ways to read it</h3>
-      <div class="chips">
-        {% if alternative_explanations and alternative_explanations|length > 0 %}
-          {% for item in alternative_explanations %}<span class="chip">{{ item|replace('_', ' ')|title }}</span>{% endfor %}
-        {% else %}
-          <span class="chip">None surfaced</span>
-        {% endif %}
+      {% for a in _alts %}
+      <div style="margin-top:12px">
+        <p>{{ a.text }}</p>
+        <p class="subtle">{% if a.speaker == 'you' %}You wrote{% elif a.speaker == 'them' %}They wrote{% else %}In the chat{% endif %}: &ldquo;{{ a.quote }}&rdquo;</p>
       </div>
+      {% endfor %}
     </div>
+    {% endif %}
     </div><!-- /vl-conn-region -->
     {% elif not is_withheld %}
     <!-- RISK MODE -->

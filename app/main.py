@@ -670,13 +670,10 @@ async def analyze_screenshots(
     payload["replies_suppressed"] = _reply_data.get("replies_suppressed", False)
     payload["replies_suppressed_reason"] = _reply_data.get("replies_suppressed_reason")
 
-    # --- Pattern literacy check (connection mode only; see app/literacy.py) ---
-    # Pure + deterministic. Fail-closed: any error means no card, never a blocked read.
-    try:
-        payload["literacy"] = build_literacy_prompt(payload)
-    except Exception as _lit_err:
-        logger.warning(f"[{request_id}] literacy prompt skipped: {_lit_err}")
-        payload["literacy"] = None
+    # --- Pattern literacy check: REMOVED from the result page (2026-11-01, owner decision).
+    # app/literacy.py and POST /literacy/answer stay in place (harmless, tested); the card
+    # is no longer built or rendered.
+    payload["literacy"] = None
 
     # --- Pattern glossary (field guide behind the chips; see app/glossary.py) ---
     # Pure + deterministic, no storage. Fail-closed: any error means no glossary.
@@ -707,6 +704,35 @@ async def analyze_screenshots(
     except Exception as _healthy_err:
         logger.warning(f"[{request_id}] healthy_patterns skipped: {_healthy_err}")
         payload["healthy_patterns"] = None
+
+    # --- Context reads: grounded "Worth watching" / "Other ways to read it" ---
+    # Filters the enrichment call's raw extras (quote must appear in the chat).
+    # Fail-closed: any error means the sections hide, never a blocked read.
+    try:
+        from app.context_reads import build_context_reads, audit_view as _ctx_audit_view
+        payload["context_reads"] = build_context_reads(payload)
+    except Exception as _ctx_err:  # noqa: BLE001
+        logger.warning(f"[{request_id}] context_reads skipped: {type(_ctx_err).__name__}")
+        payload["context_reads"] = None
+        _ctx_audit_view = lambda _c: None  # noqa: E731
+    for _k in ("watch_items_raw", "alt_reads_raw", "effort_balance_raw"):
+        payload.pop(_k, None)  # raw LLM extras never leave the server unfiltered
+
+    # --- Consistency gate (SHADOW by default; see app/consistency_gate.py) ---
+    _consistency_audit = None
+    try:
+        from app import consistency_gate as _cgate
+        if _cgate.shadow_enabled():
+            _cg = _cgate.check_consistency(payload)
+            if _cg is not None:
+                if _cgate.enforce_enabled():
+                    payload = _cgate.apply_enforcement(payload, _cg)
+                _consistency_audit = dict(_cg, context=_ctx_audit_view(payload.get("context_reads")))
+                if _cg["violations"]:
+                    logger.info(f"[{request_id}] consistency_shadow violations={_cg['violations']} enforced={_cg['enforced']}")
+    except Exception as _cg_err:  # noqa: BLE001
+        logger.warning(f"[{request_id}] consistency gate skipped: {type(_cg_err).__name__}")
+        _consistency_audit = None
 
     # --- Gottman shadow patterns (audit-only) ---
     # Reads the payload but is NEVER written into it. relationship_type comes from the
@@ -816,6 +842,7 @@ async def analyze_screenshots(
         degraded=bool(payload.get("degraded", False)),
         vie_t=_vie_t_audit,
         gottman=_gottman_audit,
+        consistency=_consistency_audit,
     )
 
     logger.info(
