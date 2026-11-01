@@ -466,6 +466,13 @@ async def analyze_screenshots(
             # Blocking network call (vision OCR): keep it off the event loop.
             chunk = await run_in_threadpool(extract_text_from_images, [img_bytes], user_side=user_side)
             text_chunks.append(chunk)
+        # Overlapping screenshots repeat their boundary bubbles; drop the repeats so the
+        # analysis never blames the user for "asking twice" (app/screenshot_merge.py).
+        if len(text_chunks) > 1:
+            from app.screenshot_merge import merge_chunks
+            text_chunks, _merge_info = merge_chunks(text_chunks)
+            if _merge_info.get("overlaps_removed"):
+                logger.info(f"[{request_id}] screenshot overlap removed={_merge_info['overlaps_removed']} pairs={_merge_info['pairs']}")
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
         ocr_char_count = len(extracted_text)
       except Exception as e:

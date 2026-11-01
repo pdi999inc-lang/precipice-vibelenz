@@ -80,6 +80,7 @@ You analyze conversation text extracted from screenshots using the full VIE 30-s
 - Do not infer sex or gender from writing style.
 - Do not say "this looks male" or "this looks female."
 - Do not say "men text like this" or "women text like this."
+- Do not name a relationship status (ex, partner, spouse, situationship) unless the messages state it.
 - Prefer observable behavior over identity assumptions.
 - If evidence is limited, reduce confidence and say so.
 
@@ -225,6 +226,7 @@ This is NOT a fraud/scam analysis. This is a behavioral dynamics analysis.
 - Do not infer sex or gender from writing style.
 - Do not say "this looks male" or "this looks female."
 - Do not say "men text like this" or "women text like this."
+- Do not name a relationship status (ex, partner, spouse, situationship) unless the messages state it.
 - Prefer observable behavior over identity assumptions.
 - If evidence is limited, reduce confidence and say so.
 

@@ -310,6 +310,15 @@ def _blocked_by_risk(payload: Dict[str, Any]) -> bool:
     return bool(concerns & MONEY_CONCERNS)
 
 
+# Scanner-style reassurances from the AI's safe list. Meaningful in risk mode
+# ("no money came up"), but clinical as connection-mode praise and they violate
+# the connection voice rule. Hidden in connection voice (2026-11-01 live read).
+CONNECTION_HIDDEN_CHIPS = frozenset({
+    "no_financial_topics", "adult_consensual_tone", "transparent_intentions",
+    "consistent_identity", "verifiable_details", "no_coercion", "no_pressure", "no_extraction",
+})
+
+
 def _chips(payload: Dict[str, Any], voice: str, concern_keys: set, pattern_keys: set) -> List[Dict[str, str]]:
     try:
         from app.glossary import entry_for
@@ -320,6 +329,8 @@ def _chips(payload: Dict[str, Any], voice: str, concern_keys: set, pattern_keys:
         if not isinstance(key, str) or key in pattern_keys:
             continue
         if CHIP_SUPPRESSED_BY.get(key) in concern_keys:
+            continue
+        if voice == CONNECTION and key in CONNECTION_HIDDEN_CHIPS:
             continue
         e = entry_for(key, voice) if entry_for else None
         title = (e or {}).get("title") or key.replace("_", " ").strip().capitalize()

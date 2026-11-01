@@ -148,3 +148,12 @@ def test_adversarial_input_is_fast():
     t = time.time()
     build_healthy_patterns(payload(evil))
     assert time.time() - t < 2.0
+
+
+def test_connection_hides_scanner_chips_2026_11_01():
+    from app.healthy_patterns import _chips, CONNECTION, CONNECTION_HIDDEN_CHIPS
+    payload = {"positive_signals": ["reciprocal_engagement", "no_financial_topics",
+                                    "adult_consensual_tone", "transparent_intentions"]}
+    keys = [c["key"] for c in _chips(payload, CONNECTION, set(), set())]
+    assert keys == ["reciprocal_engagement"]
+    assert not (set(keys) & CONNECTION_HIDDEN_CHIPS)
