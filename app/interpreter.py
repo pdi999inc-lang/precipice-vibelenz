@@ -618,6 +618,34 @@ def _match_case(src: str, repl: str) -> str:
     return repl
 
 
+# Relationship labels the conversation never states (2026-11-02 live read: the
+# prompt rule alone did not stop "ex dynamic" / "the ex context"). Applied only
+# when the extracted chat itself never uses the word.
+_EX_IN_CHAT = re.compile(r"\bex(?:es)?\b|\bex-?(?:girlfriend|boyfriend|wife|husband|partner|gf|bf)\b", re.I)
+_EX_SUBS = [
+    (re.compile(r"\b(?:an|your|the|this|my|her|his)\s+ex-?(?:girlfriend|boyfriend|wife|husband|partner|gf|bf)s?\b", re.I), "someone from your past"),
+    (re.compile(r"\bex-(?:girlfriend|boyfriend|wife|husband|partner|gf|bf)s?\b", re.I), "someone from your past"),
+    (re.compile(r"\b(?:an|your|the|this|my)\s+ex\s+(dynamic|context|situation|relationship|thing|energy)\b", re.I), r"the \1"),
+    (re.compile(r"[\w-]*\s*\bex\s+(dynamic|context|situation|relationship|thing|energy)\b", re.I), None),
+    (re.compile(r"\b(?:an|your|this)\s+ex\b", re.I), "someone you have history with"),
+    (re.compile(r"\bthe\s+ex\b", re.I), "this person"),
+    (re.compile(r"\bexes\b", re.I), "past partners"),
+]
+
+
+def scrub_unstated_ex(text: str, chat: str) -> str:
+    if not isinstance(text, str) or not text or _EX_IN_CHAT.search(chat or ""):
+        return text
+    out = text
+    for pat, repl in _EX_SUBS:
+        if repl is None:
+            # "physically-familiar ex dynamic" -> "physically-familiar dynamic"
+            out = pat.sub(lambda m: m.group(0)[: m.group(0).lower().rfind("ex ")].rstrip() + " " + m.group(1), out)
+        else:
+            out = pat.sub(lambda m, r=repl: _match_case(m.group(0), m.expand(r)), out)
+    return re.sub(r"  +", " ", out)
+
+
 def scrub_connection_voice(text: str) -> str:
     if not isinstance(text, str) or not text:
         return text
@@ -679,7 +707,10 @@ def interpret_analysis(
         if str(out.get("lane", "")) not in ("FRAUD", "COERCION_RISK"):
             for _vf in ("diagnosis", "reasoning", "practical_next_steps", "accountability"):
                 if isinstance(out.get(_vf), str):
-                    out[_vf] = scrub_connection_voice(out[_vf])
+                    _before = out[_vf]
+                    out[_vf] = scrub_unstated_ex(scrub_connection_voice(out[_vf]), extracted_text)
+                    if "ex" in _before.lower() and out[_vf] != scrub_connection_voice(_before):
+                        out["relationship_label_scrubbed"] = True
 
     # Sanitize forward-looking contrast language — strip failure framing
     _bad_phrases = ["initial analysis failed", "analysis failed", "the initial read failed", "first pass failed"]

@@ -107,17 +107,41 @@ def _build_system_prompt() -> str:
     )
 
 
+_SCRAMBLED = ("out of order", "reverse", "scrambled", "chopped up", "chunks", "timeline is fuzzy")
+
+
+def _last_lines(extracted_text: str) -> Dict[str, str]:
+    out = {"them": "", "you": ""}
+    for line in reversed([l.strip() for l in (extracted_text or "").splitlines() if l.strip()]):
+        u = line.upper()
+        if u.startswith("THEM:") and not out["them"]:
+            out["them"] = line[5:].strip()
+        elif u.startswith("YOU:") and not out["you"]:
+            out["you"] = line[4:].strip()
+        if out["them"] and out["you"]:
+            break
+    return out
+
+
 def _build_user_prompt(
     extracted_text: str,
     reply_mode: str,
     other_gender: str,
     payload: dict,
 ) -> str:
-    mode_instruction = (
-        "Respond specifically to their last message (THEM:)."
-        if reply_mode == "reply"
-        else "Suggest what to send next — the user sent the last message or is re-initiating."
-    )
+    last = _last_lines(extracted_text)
+    next_move = str(payload.get("practical_next_steps") or "").strip()
+    read = str(payload.get("diagnosis") or "").strip()
+    if reply_mode == "reply":
+        mode_instruction = (
+            f'Reply to THEIR last message: "{last["them"]}". You are writing as the user (YOU:), '
+            "answering them. Never restate their words back as if the user had said them."
+        )
+    else:
+        mode_instruction = (
+            "Suggest what the user should send next (the user sent the last message, or the order is unclear). "
+            "Do not reply to an older line as if it were the latest."
+        )
     return (
         f"CONVERSATION:\n{extracted_text}\n\n"
         f"REPLY MODE: {reply_mode} — {mode_instruction}\n"
@@ -126,7 +150,14 @@ def _build_user_prompt(
         f"- Primary label: {payload.get('primary_label', 'unknown')}\n"
         f"- Social tone: {payload.get('social_tone', 'unknown')}\n"
         f"- Lane: {payload.get('lane', 'BENIGN')}\n"
-        f"- Presentation mode: {payload.get('presentation_mode', 'risk')}\n\n"
+        f"- Presentation mode: {payload.get('presentation_mode', 'risk')}\n"
+        f"- The read: {read[:600]}\n"
+        f"- YOUR NEXT MOVE (the advice shown to the user): {next_move[:800]}\n\n"
+        "ALIGNMENT RULES:\n"
+        "- Every suggestion must follow YOUR NEXT MOVE. If it says to drop a topic, no suggestion mentions it.\n"
+        "- If it says to stop pitching or inviting, no suggestion pitches or invites.\n"
+        "- If it recommends one specific ask, at most one suggestion makes that ask.\n"
+        "- Speak as the user. Never answer a question the user asked; never repeat the other person's line as the user's own.\n\n"
         f"Generate 3 reply suggestions. Raw JSON array only."
     )
 
@@ -171,17 +202,21 @@ def _call_llm(
 
     try:
         import anthropic
+        from app.llm_util import sdk_kwargs, sdk_text
         client = anthropic.Anthropic(api_key=api_key)
+        _model = (os.environ.get("VL_REPLY_MODEL") or os.environ.get("VL_ENRICH_MODEL")
+                  or "claude-haiku-4-5-20251001")
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=512,
+            model=_model,
+            max_tokens=1024,
             system=_build_system_prompt(),
             messages=[{
                 "role": "user",
                 "content": _build_user_prompt(extracted_text, reply_mode, other_gender, payload),
             }],
+            **sdk_kwargs(_model),
         )
-        raw = message.content[0].text.strip()
+        raw = sdk_text(message).strip()
         # Strip markdown fences if present
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[-1]
@@ -225,6 +260,11 @@ def generate_replies(
 
     # Determine reply vs next-move
     reply_mode = _detect_reply_mode(extracted_text)
+    # If the read says the screenshots are out of order, the last line is not the
+    # latest message: suggest a next move instead of replying to an older line.
+    _diag = (str(payload.get("diagnosis") or "") + " " + str(payload.get("reasoning") or "")).lower()
+    if reply_mode == "reply" and any(k in _diag for k in _SCRAMBLED):
+        reply_mode = "next_move"
 
     # Generate via LLM
     suggestions = _call_llm(extracted_text, reply_mode, other_gender, payload)
