@@ -14,7 +14,7 @@ def _conn(**kw):
                 practical_next_steps=NEXT, accountability="Don't mistake politeness for movement.",
                 suggested_replies=REPLIES, replies_suppressed=False,
                 mixed_signals_note="Heads up: parts of this read point different ways.",
-                turn_analysis={"turn_count": 2, "arc": "flat_low", "direction": "neutral",
+                turn_analysis={"turn_count": 2, "arc": "escalating", "direction": "worsening",
                                "turns": [{"turn_number": 1, "color": "low", "label": "routine message"},
                                          {"turn_number": 2, "color": "low", "label": "routine message"}]})
     base.update(kw)

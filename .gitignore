@@ -24,3 +24,8 @@ venv/
 .idea/
 .DS_Store
 *.log
+
+# Local eval runs: real transcripts and run reports never leave this machine (2026-11-08)
+evals/_local_real*
+evals/report_*.md
+evals/results_*.jsonl

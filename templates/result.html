@@ -369,7 +369,13 @@
           <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="var(--coral)" stroke-width="1.6"/></svg>
         </div>
       </div>
-      <div class="connection-tone-pill">{{ tone_map.get(social_tone, social_tone) or "casual vibes only" }}</div>
+      {# 2026-11-08: fallback labels ("fairly low-stakes" / "low-stakes interaction" / "context dependent")
+         come from the rule engine when it found nothing specific. They contradicted the written read
+         (a heated debate labelled "casual vibes only"), so a fallback label renders nothing. #}
+      {% set _tone_is_default = (social_tone or "") in ["", "fairly low-stakes", "low-stakes interaction"] %}
+      {% set _vibe_is_default = (human_label or "") in ["", "low-stakes interaction", "routine logistics"] %}
+      {% set _chem_is_default = (interest_summary or "") in ["", "context dependent", "Not the focus here"] %}
+      {% if not _tone_is_default %}<div class="connection-tone-pill">{{ tone_map.get(social_tone, social_tone) }}</div>{% endif %}
       <p class="connection-read">{{ reasoning or "No additional reasoning available." }}</p>
       {% if mode_override_note %}<div class="note">{{ mode_override_note }}</div>{% endif %}
       <div class="gauge-card">
@@ -383,7 +389,10 @@
             <div class="gauge-band">{{ 'Clear read' if conf_pct >= 75 else ('Solid read' if conf_pct >= 50 else 'Early read') }}</div>
           </div>
         </div>
-        <div class="gauge-tier">{{ vibe_map.get(human_label, human_label) or "just vibes" }} &middot; {{ chem_map.get(interest_summary, interest_summary) or "jury's still out" }}</div>
+        {% set _tier_parts = [] %}
+        {% if not _vibe_is_default %}{% set _ = _tier_parts.append(vibe_map.get(human_label, human_label)) %}{% endif %}
+        {% if not _chem_is_default %}{% set _ = _tier_parts.append(chem_map.get(interest_summary, interest_summary)) %}{% endif %}
+        {% if _tier_parts %}<div class="gauge-tier">{{ _tier_parts|join(" · ") }}</div>{% endif %}
       </div>
       <div class="stat-tiles">
         <div class="stat-tile">
@@ -503,7 +512,12 @@
       {% endfor %}
     </div>
     {% endif %}
-    {% if turn_analysis and turn_analysis.turn_count and turn_analysis.turn_count > 1 %}
+    {# 2026-11-08: the arc measures concern per screenshot, not tone. A flat-low arc whose turns carry
+       no mood beyond "routine" says nothing, and its "tone held the whole way through" headline
+       contradicted reads where the tone clearly moved. Hide it in that case only. #}
+    {% set _arc_moods = (turn_analysis.turns if turn_analysis and turn_analysis.turns else [])|map(attribute="label")|map("default", "")|map("lower")|reject("in", ["", "routine message", "low information neutral"])|list %}
+    {% set _arc_uninformative = turn_analysis and turn_analysis.arc == "flat_low" and not _arc_moods %}
+    {% if turn_analysis and turn_analysis.turn_count and turn_analysis.turn_count > 1 and not _arc_uninformative %}
     <div class="arc-section">
       <div class="arc-header">
         <div>
