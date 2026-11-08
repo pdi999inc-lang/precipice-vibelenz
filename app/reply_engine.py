@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re as _re
 from typing import Any, Dict, List
 
 logger = logging.getLogger("vibelenz.reply_engine")
@@ -107,6 +108,23 @@ def _build_system_prompt() -> str:
     )
 
 
+# Next-move advice that asks the user to lower the temperature. When it matches, replies
+# switch to calm tones and the prompt bans teasing (2026-11-05 live read: the advice said
+# "Stop escalating" while the Playful reply was a jab).
+_DEESCALATE = _re.compile(
+    r"\b(stop|quit) (escalating|pushing|arguing|chasing|pressing|debating)\b"
+    r"|\b(drop|let go of|leave) (it|this|the topic|the subject)\b"
+    r"|\blet it (go|rest|drop)\b|\bback off\b|\bstep back\b|\bcool (it|off|down)\b"
+    r"|\bdon'?t (push|escalate|argue|press|chase)\b|\bstop trying to (convince|win)\b"
+    r"|\bgive (them|her|him|it) (some )?space\b|\bless intensity\b|\blower the temperature\b",
+    _re.I,
+)
+
+
+def needs_deescalation(next_move: str) -> bool:
+    return bool(_DEESCALATE.search(next_move or ""))
+
+
 _SCRAMBLED = ("out of order", "reverse", "scrambled", "chopped up", "chunks", "timeline is fuzzy")
 
 
@@ -157,15 +175,22 @@ def _build_user_prompt(
         "- Every suggestion must follow YOUR NEXT MOVE. If it says to drop a topic, no suggestion mentions it.\n"
         "- If it says to stop pitching or inviting, no suggestion pitches or invites.\n"
         "- If it recommends one specific ask, at most one suggestion makes that ask.\n"
-        "- Speak as the user. Never answer a question the user asked; never repeat the other person's line as the user's own.\n\n"
-        f"Generate 3 reply suggestions. Raw JSON array only."
+        "- Speak as the user. Never answer a question the user asked; never repeat the other person's line as the user's own.\n"
+        + (
+            "- DE-ESCALATE: YOUR NEXT MOVE asks the user to lower the temperature. No teasing, sarcasm, digs, "
+            "jokes at their expense, or points scored. Every suggestion is calmer than the user's last message. "
+            "Use tones \"warm\", \"direct\", \"cautious\" only (no \"playful\").\n"
+            if needs_deescalation(next_move) else ""
+        )
+        + "\nGenerate 3 reply suggestions. Raw JSON array only."
     )
 
 
-def _validate_suggestions(suggestions: list) -> List[dict]:
-    """Enforce constraints on LLM output. Drop malformed items."""
+def _validate_suggestions(suggestions: list, deescalate: bool = False) -> List[dict]:
+    """Enforce constraints on LLM output. Drop malformed items.
+    deescalate=True: a 'playful' item is dropped (the advice said to lower the temperature)."""
     valid = []
-    allowed_tones = {"playful", "direct", "cautious"}
+    allowed_tones = {"playful", "direct", "cautious", "warm"}
     for item in suggestions:
         if not isinstance(item, dict):
             continue
@@ -175,6 +200,8 @@ def _validate_suggestions(suggestions: list) -> List[dict]:
             continue
         if tone not in allowed_tones:
             tone = "direct"
+        if deescalate and tone == "playful":
+            continue
         # Enforce 25-word cap — truncate if over
         words = text.split()
         if len(words) > 25:
@@ -228,7 +255,8 @@ def _call_llm(
         if not isinstance(parsed, list):
             logger.warning("reply_engine: LLM returned non-array JSON")
             return []
-        return _validate_suggestions(parsed)
+        return _validate_suggestions(
+            parsed, deescalate=needs_deescalation(str(payload.get("practical_next_steps") or "")))
 
     except json.JSONDecodeError as e:
         logger.warning(f"reply_engine: JSON parse failed: {e}")

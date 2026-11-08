@@ -252,6 +252,31 @@
 </head>
 <body>
   <div class="rl-swipe" id="rlSwipe">
+{% macro reply_block() %}
+{#- Normal suggestions never render on a gated lane or a physical-harm read, even if the
+    reply engine ran before a later lane change. Suppressed safety replies still render. -#}
+{%- set _rb_gated = (lane or '')|string|upper in ['FRAUD', 'COERCION_RISK'] or primary_label == 'physical_harm_disclosed' -%}
+{%- if suggested_replies and suggested_replies|length > 0 and (replies_suppressed or not _rb_gated) %}
+    <div class="section">
+      <h3>What to say back</h3>
+      {% if replies_suppressed %}
+      <div class="chips"><span class="chip warn">{{ suggested_replies[0].text }}</span></div>
+      {% else %}
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        {% for reply in suggested_replies %}
+        <div class="reply-card" onclick="navigator.clipboard.writeText(this.querySelector('.reply-text').textContent);this.querySelector('.copy-label').textContent='Copied!';">
+          <div>
+            <div class="reply-tone">{{ reply.tone }}</div>
+            <div class="reply-text">{{ reply.text }}</div>
+          </div>
+          <div class="copy-label">Tap to copy</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+{%- endif %}
+{% endmacro %}
   <section class="rl-panel" data-tab="overview">
   <div class="page">
     {% set risk_text = (risk_level or risk_label or 'LOW')|string|upper %}
@@ -378,64 +403,22 @@
         </div>
       </div>
     </div>
-    {% if turn_analysis and turn_analysis.turn_count and turn_analysis.turn_count > 1 %}
-    <div class="arc-section">
-      <div class="arc-header">
-        <div>
-          <div class="arc-eyebrow">Conversation arc — {{ turn_analysis.turn_count }} screenshots</div>
-          {% set _vl_arc_map = {
-            "flat_low": "Steady and easy — the tone held the whole way through",
-            "de_escalating": "Things eased up as the conversation went on",
-            "volatile": "The energy kept shifting from screenshot to screenshot",
-            "escalating": "Things got more intense toward the end — worth a closer look"
-          } %}
-          <div class="arc-label">{{ _vl_arc_map.get(turn_analysis.arc, turn_analysis.arc_label) }}</div>
-        </div>
-        {% set _vl_dir_map = {"improving": "Warming up", "neutral": "Steady", "mixed": "Shifting", "worsening": "Worth a look", "concerning": "Worth a look"} %}
-        <div class="arc-direction-pill {{ turn_analysis.direction or 'neutral' }}">{{ _vl_dir_map.get(turn_analysis.direction or 'neutral', 'Steady') }}</div>
-      </div>
-      <div class="turn-timeline">
-        {% set _vl_mood_map = {
-          "warm receptivity": "Warm", "casual flirtation": "Flirty", "playful reengagement": "Playful",
-          "light sexual reciprocity": "Heating up", "confusion then repair": "Back on track",
-          "high intent mutual": "All in", "routine message": "Easygoing", "low information neutral": "Low-key",
-          "relationship context": "Familiar ground", "mixed intent genuine": "Mixed energy",
-          "mixed intent": "Mixed energy", "fear driven urgency": "Rushed"
-        } %}
-        {% for turn in turn_analysis.turns %}
-          <div class="turn-item">
-            <div class="turn-dot {{ turn.color }}">{{ turn.turn_number }}</div>
-            <div class="turn-meta">
-              <div class="turn-num">Screenshot {{ turn.turn_number }}</div>
-              {% if turn.color == 'low' %}
-              <div class="turn-verdict">{{ _vl_mood_map.get((turn.label or '')|lower, 'Easygoing') }}</div>
-              {% else %}
-              <div class="turn-verdict">{{ 'Worth a closer look' if turn.color == 'medium' else turn.verdict }}</div>
-              <div class="turn-label-text">{{ turn.label }}</div>
-              {% endif %}
-            </div>
-          </div>
-          {% if not loop.last %}<div class="arc-connector"><div class="arc-connector-line"></div></div>{% endif %}
-        {% endfor %}
-      </div>
+    {# 2026-11-05 order: read -> next move -> what to say back -> real talk -> detail -> arc. #}
+    {% if mixed_signals_note %}<div class="section connection-section"><p class="subtle">{{ mixed_signals_note }}</p></div>{% endif %}
+    <div class="section connection-section next-steps">
+      <h3>Your next move</h3>
+      <p>{{ practical_next_steps or recommended_action or "No next steps available." }}</p>
     </div>
-    {% endif %}
-    <div class="grid-2">
-      <div class="section connection-section next-steps">
-        <h3>Your next move</h3>
-        <p>{{ practical_next_steps or recommended_action or "No next steps available." }}</p>
-      </div>
-      <div class="section connection-section honest-check">
-        <h3>Real talk</h3>
-        <p>{{ accountability or "No accountability guidance available." }}</p>
-      </div>
+    {{ reply_block() }}
+    <div class="section connection-section honest-check">
+      <h3>Real talk</h3>
+      <p>{{ accountability or "No accountability guidance available." }}</p>
     </div>
     {# Suppress positive signals when set explicitly empty by analyzer (CRITICAL/HIGH risk fired)
        OR when accountability copy contradicts positive framing #}
     {% set score_val = (risk_score if risk_score is not none else 0)|int %}
     {% set has_positives = positive_signals and positive_signals|length > 0 %}
     {# Pattern literacy check removed 2026-11-01 (owner decision). #}
-    {% if mixed_signals_note %}<div class="section connection-section"><p class="subtle">{{ mixed_signals_note }}</p></div>{% endif %}
     {# Healthy patterns (app/healthy_patterns.py): what's going right, quote-backed. #}
     {% if healthy_patterns and healthy_patterns.voice == 'connection' and healthy_patterns.patterns %}
     <div class="section connection-section" id="healthyCard">
@@ -518,6 +501,48 @@
         <p class="subtle">{% if a.speaker == 'you' %}You wrote{% elif a.speaker == 'them' %}They wrote{% else %}In the chat{% endif %}: &ldquo;{{ a.quote }}&rdquo;</p>
       </div>
       {% endfor %}
+    </div>
+    {% endif %}
+    {% if turn_analysis and turn_analysis.turn_count and turn_analysis.turn_count > 1 %}
+    <div class="arc-section">
+      <div class="arc-header">
+        <div>
+          <div class="arc-eyebrow">Conversation arc — {{ turn_analysis.turn_count }} screenshots</div>
+          {% set _vl_arc_map = {
+            "flat_low": "Steady and easy — the tone held the whole way through",
+            "de_escalating": "Things eased up as the conversation went on",
+            "volatile": "The energy kept shifting from screenshot to screenshot",
+            "escalating": "Things got more intense toward the end — worth a closer look"
+          } %}
+          <div class="arc-label">{{ _vl_arc_map.get(turn_analysis.arc, turn_analysis.arc_label) }}</div>
+        </div>
+        {% set _vl_dir_map = {"improving": "Warming up", "neutral": "Steady", "mixed": "Shifting", "worsening": "Worth a look", "concerning": "Worth a look"} %}
+        <div class="arc-direction-pill {{ turn_analysis.direction or 'neutral' }}">{{ _vl_dir_map.get(turn_analysis.direction or 'neutral', 'Steady') }}</div>
+      </div>
+      <div class="turn-timeline">
+        {% set _vl_mood_map = {
+          "warm receptivity": "Warm", "casual flirtation": "Flirty", "playful reengagement": "Playful",
+          "light sexual reciprocity": "Heating up", "confusion then repair": "Back on track",
+          "high intent mutual": "All in", "routine message": "Easygoing", "low information neutral": "Low-key",
+          "relationship context": "Familiar ground", "mixed intent genuine": "Mixed energy",
+          "mixed intent": "Mixed energy", "fear driven urgency": "Rushed"
+        } %}
+        {% for turn in turn_analysis.turns %}
+          <div class="turn-item">
+            <div class="turn-dot {{ turn.color }}">{{ turn.turn_number }}</div>
+            <div class="turn-meta">
+              <div class="turn-num">Screenshot {{ turn.turn_number }}</div>
+              {% if turn.color == 'low' %}
+              <div class="turn-verdict">{{ _vl_mood_map.get((turn.label or '')|lower, 'Easygoing') }}</div>
+              {% else %}
+              <div class="turn-verdict">{{ 'Worth a closer look' if turn.color == 'medium' else turn.verdict }}</div>
+              <div class="turn-label-text">{{ turn.label }}</div>
+              {% endif %}
+            </div>
+          </div>
+          {% if not loop.last %}<div class="arc-connector"><div class="arc-connector-line"></div></div>{% endif %}
+        {% endfor %}
+      </div>
     </div>
     {% endif %}
     </div><!-- /vl-conn-region -->
@@ -744,26 +769,7 @@
       <p style="margin-top:12px;font-size:13px;color:var(--muted);">The search runs on your device — the photo never touches VibeLenz servers. The same photo under different names is a strong catfish indicator.</p>
     </div>
     {% endif %}
-    {% if suggested_replies and suggested_replies|length > 0 %}
-    <div class="section">
-      <h3>What to say back</h3>
-      {% if replies_suppressed %}
-      <div class="chips"><span class="chip warn">{{ suggested_replies[0].text }}</span></div>
-      {% else %}
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        {% for reply in suggested_replies %}
-        <div class="reply-card" onclick="navigator.clipboard.writeText(this.querySelector('.reply-text').textContent);this.querySelector('.copy-label').textContent='Copied!';">
-          <div>
-            <div class="reply-tone">{{ reply.tone }}</div>
-            <div class="reply-text">{{ reply.text }}</div>
-          </div>
-          <div class="copy-label">Tap to copy</div>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
-    {% endif %}
+    {% if not (presentation_mode == "connection" and not is_withheld) %}{{ reply_block() }}{% endif %}
     {% if not is_withheld %}
     <div class="section" id="shareSection">
       <h3>Share this read</h3>
