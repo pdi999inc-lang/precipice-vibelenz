@@ -49,11 +49,25 @@ except Exception as _gottman_import_err:  # noqa: BLE001
     _gottman_shadow = None
     logger.warning(f"Gottman shadow disabled at import: {_gottman_import_err}")
 
-app = FastAPI(title="VibeLenz")
+# Baseline browser security headers (app/security_headers.py). Guarded import: a
+# hardening layer must never be able to stop the app booting.
+# Kill switch: VL_SECURITY_HEADERS_ENABLED=false (read per response).
+try:
+    from app.security_headers import security_headers_middleware as _security_headers_mw
+except Exception as _sec_import_err:  # noqa: BLE001
+    _security_headers_mw = None
+    logger.warning(f"Security headers disabled at import: {_sec_import_err}")
+
+# Interactive API docs and the OpenAPI schema are not served publicly (2026-11-11):
+# they listed every route to anyone who asked.
+app = FastAPI(title="VibeLenz", docs_url=None, redoc_url=None, openapi_url=None)
 app.middleware("http")(email_gate_middleware)
 # Registered after the email gate so it runs first: a rate-limited request
 # never reaches the gate and never counts as a use.
 app.middleware("http")(rate_limit_middleware)
+# Registered last so it is outermost: headers also land on 429s and gate responses.
+if _security_headers_mw is not None:
+    app.middleware("http")(_security_headers_mw)
 app.include_router(email_router)
 app.include_router(literacy_router)
 
@@ -180,7 +194,7 @@ async def home(request: Request):
         # PurPort (risk) page as its homepage. Same app, same engine, two brands.
         _host = (request.headers.get("host") or "").lower()
         _mode = "risk" if "purport" in _host else "connection"
-        return templates.TemplateResponse("index.html", {"request": request, "page_mode": _mode})
+        return templates.TemplateResponse(request, "index.html", {"request": request, "page_mode": _mode})
     return _simple_page("VibeLenz", "Home page template not found.")
 
 
@@ -189,7 +203,7 @@ async def scam_check(request: Request):
     """Dedicated risk-mode page. Same template, same engines — page_mode fixes the mode."""
     index_file = TEMPLATES_DIR / "index.html"
     if index_file.exists():
-        return templates.TemplateResponse("index.html", {"request": request, "page_mode": "risk"})
+        return templates.TemplateResponse(request, "index.html", {"request": request, "page_mode": "risk"})
     return _simple_page("Scam Check", "Template not found.")
 
 
@@ -197,7 +211,7 @@ async def scam_check(request: Request):
 async def pitch(request: Request):
     pitch_file = TEMPLATES_DIR / "pitch.html"
     if pitch_file.exists():
-        return templates.TemplateResponse("pitch.html", {"request": request})
+        return templates.TemplateResponse(request, "pitch.html", {"request": request})
     return _simple_page("Pitch", "Pitch page template not found.")
 
 
@@ -205,7 +219,7 @@ async def pitch(request: Request):
 async def about(request: Request):
     about_file = TEMPLATES_DIR / "about.html"
     if about_file.exists():
-        return templates.TemplateResponse("about.html", {"request": request})
+        return templates.TemplateResponse(request, "about.html", {"request": request})
     return _simple_page("About", "About page template not found.")
 
 
@@ -220,6 +234,7 @@ async def privacy(request: Request):
     privacy_file = TEMPLATES_DIR / "privacy.html"
     if privacy_file.exists():
         return templates.TemplateResponse(
+            request,
             "privacy.html",
             {"request": request, "contact_email": PRIVACY_CONTACT_EMAIL,
              "effective_date": PRIVACY_EFFECTIVE_DATE},
@@ -865,6 +880,8 @@ async def analyze_screenshots(
         gottman=_gottman_audit,
         consistency=_consistency_audit,
     )
+    # Audit-only key: recorded in the audit line above, never returned to the client.
+    payload.pop("injection_suspected", None)
 
     try:
         from app import llm_health
@@ -894,7 +911,7 @@ async def analyze_screenshots(
 
     result_file = TEMPLATES_DIR / "result.html"
     if result_file.exists():
-        _resp = templates.TemplateResponse("result.html", template_payload)
+        _resp = templates.TemplateResponse(request, "result.html", template_payload)
         _cid = payload.get("conversation_id")
         if _cid:
             _resp.headers["X-Conversation-Id"] = str(_cid)
@@ -1105,8 +1122,8 @@ async def followup(request: Request):
         _api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if not _api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
-        from app.llm_util import sdk_kwargs, sdk_text
-        _client = anthropic.Anthropic(api_key=_api_key)
+        from app.llm_util import client_kwargs, sdk_kwargs, sdk_text
+        _client = anthropic.Anthropic(api_key=_api_key, **client_kwargs())
         _fu_model = os.environ.get("VL_FOLLOWUP_MODEL", "claude-haiku-4-5-20251001")
         if not _followup_take(request_id):
             return JSONResponse(status_code=429, content={

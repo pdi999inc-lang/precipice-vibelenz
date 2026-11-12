@@ -1,13 +1,16 @@
-fastapi==0.111.0
+fastapi==0.162.4
+starlette==1.10.0
 uvicorn[standard]==0.29.0
-python-multipart==0.0.9
-jinja2==3.1.4
-pillow==10.3.0
+python-multipart==0.0.33
+jinja2==3.1.6
+pillow==13.0.0
 pytesseract==0.3.10
-pydantic==2.7.1
+pydantic==2.11.10
 anthropic==0.49.0
-# cache bust
-# bust2
+# 2026-11-11 security upgrade: fastapi, starlette (now pinned explicitly), python-multipart,
+# jinja2, pillow. pydantic moved only because fastapi 0.162 requires >=2.9. pip-audit reported
+# 101 advisories on the old set and none on this one. tests/test_batch3_hardening.py keeps a
+# floor under these pins. Undo just this file: git checkout 0ec57fd -- requirements.txt
 httpx>=0.27.0
 psycopg2-binary>=2.9.9
 numpy>=1.26.0

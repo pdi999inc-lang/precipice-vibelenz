@@ -229,8 +229,8 @@ def _call_llm(
 
     try:
         import anthropic
-        from app.llm_util import sdk_kwargs, sdk_text
-        client = anthropic.Anthropic(api_key=api_key)
+        from app.llm_util import client_kwargs, sdk_kwargs, sdk_text
+        client = anthropic.Anthropic(api_key=api_key, **client_kwargs())
         _model = (os.environ.get("VL_REPLY_MODEL") or os.environ.get("VL_ENRICH_MODEL")
                   or "claude-haiku-4-5-20251001")
         message = client.messages.create(

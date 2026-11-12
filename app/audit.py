@@ -97,6 +97,10 @@ def write_audit_record(
         record["gottman"] = gottman
     if consistency is not None:
         record["consistency"] = consistency
+    # FLAG-tier injection signal (analyzer_combined._check_injection_soft). Audit-only,
+    # additive key, absent when nothing matched; never affects the decision above.
+    if isinstance(result, dict) and result.get("injection_suspected") is not None:
+        record["injection_suspected"] = result.get("injection_suspected")
 
     logger.info(f"[AUDIT] {json.dumps(record)}")
 
