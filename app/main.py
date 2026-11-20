@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.concurrency import run_in_threadpool
 
@@ -209,10 +209,9 @@ async def scam_check(request: Request):
 
 @app.get("/pitch", response_class=HTMLResponse)
 async def pitch(request: Request):
-    pitch_file = TEMPLATES_DIR / "pitch.html"
-    if pitch_file.exists():
-        return templates.TemplateResponse(request, "pitch.html", {"request": request})
-    return _simple_page("Pitch", "Pitch page template not found.")
+    # Retired 2026-11-19: the old pitch copy contradicted the privacy policy and the code.
+    # templates/pitch.html is kept only as a two-line stub because a share-image test reads it.
+    return RedirectResponse(url="/", status_code=302)
 
 
 @app.get("/about", response_class=HTMLResponse)
@@ -361,6 +360,11 @@ async def analyze_screenshots(
     files = files or []
     pasted_text = (pasted_text or "").strip()
     use_paste = bool(pasted_text)
+    try:
+        from app.llm_util import set_llm_context
+        set_llm_context(request_id, path="paste" if use_paste else "screenshot", n_images=len(files))
+    except Exception:  # noqa: BLE001 - instrumentation must never break an analysis
+        pass
     if use_paste and files:
         raise HTTPException(
             status_code=422,
@@ -880,6 +884,11 @@ async def analyze_screenshots(
         gottman=_gottman_audit,
         consistency=_consistency_audit,
     )
+    try:
+        from app.llm_util import finalize_llm_context
+        finalize_llm_context(payload.get("lane"))
+    except Exception:  # noqa: BLE001
+        pass
     # Audit-only key: recorded in the audit line above, never returned to the client.
     payload.pop("injection_suspected", None)
 
@@ -908,6 +917,7 @@ async def analyze_screenshots(
     template_payload = dict(payload)
     template_payload["request"] = request
     template_payload.setdefault("final_risk_score", template_payload.get("risk_score", 0))
+    template_payload["followup_enabled"] = _followup_enabled()
 
     result_file = TEMPLATES_DIR / "result.html"
     if result_file.exists():
@@ -984,6 +994,13 @@ async def outcome(request: Request):
         return JSONResponse({"status": "ok", "recorded": False})
 
 
+def _followup_enabled() -> bool:
+    """/followup is OFF unless FOLLOWUP_ENABLED is truthy. Read per request so ops (and tests) can flip it
+    without a restart. Off because this is the one path where model prose reaches the user behind only a
+    phrase filter (audit 2026-11-16); the JSON-validated reply engine is unaffected."""
+    return os.environ.get("FOLLOWUP_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 @app.post("/followup")
 async def followup(request: Request):
     """
@@ -995,6 +1012,11 @@ async def followup(request: Request):
     reads get the casual voice. Fail-closed: any error returns a safe
     'unavailable' message — no unfiltered LLM output, no page breakage.
     """
+    if not _followup_enabled():
+        return JSONResponse(status_code=404, content={
+            "error": "followup_disabled",
+            "message": "Follow-up questions aren't available right now.",
+        })
     try:
         body = await request.json()
     except Exception:
@@ -1122,7 +1144,7 @@ async def followup(request: Request):
         _api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if not _api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
-        from app.llm_util import client_kwargs, sdk_kwargs, sdk_text
+        from app.llm_util import client_kwargs, logged_create, sdk_kwargs, sdk_text
         _client = anthropic.Anthropic(api_key=_api_key, **client_kwargs())
         _fu_model = os.environ.get("VL_FOLLOWUP_MODEL", "claude-haiku-4-5-20251001")
         if not _followup_take(request_id):
@@ -1132,7 +1154,7 @@ async def followup(request: Request):
             })
         # Blocking network call: run it off the event loop so other visitors aren't stalled.
         _msg = await run_in_threadpool(
-            _client.messages.create,
+            logged_create, _client, "followup",
             model=_fu_model,
             max_tokens=400,
             system=_fu_system + "\n\n" + _context_block,

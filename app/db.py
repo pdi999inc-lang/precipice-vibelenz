@@ -114,6 +114,27 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_predictions_conv
             ON predictions (conversation_id, created_at)
         """)
+        # WP2b: one row per AI call. No conversation content; joins to analyses by request_id.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS llm_call_log (
+                id            SERIAL PRIMARY KEY,
+                request_id    TEXT,
+                call_site     TEXT NOT NULL,
+                lane          TEXT,
+                path          TEXT,
+                n_images      INTEGER,
+                model         TEXT,
+                input_tokens  INTEGER,
+                output_tokens INTEGER,
+                latency_ms    INTEGER,
+                status        TEXT,
+                created_at    TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_llm_call_log_req
+            ON llm_call_log (request_id)
+        """)
         conn.commit()
         cur.close()
         logger.info("DB initialized")
@@ -121,6 +142,54 @@ def init_db():
         logger.warning(f"DB init failed: {e}")
     finally:
         conn.close()
+
+
+def log_llm_call(request_id: str, call_site: str, model=None, input_tokens=None, output_tokens=None,
+                 latency_ms=None, status: str = "ok", lane=None, path=None, n_images=None) -> None:
+    """One row per AI call (WP2b). Call site, model, token counts, latency, status: NO conversation
+    content, ever. Best-effort: logs a warning and returns on any failure; never raises."""
+    conn = get_conn()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO llm_call_log
+                (request_id, call_site, lane, path, n_images, model, input_tokens, output_tokens,
+                 latency_ms, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (str(request_id)[:64], str(call_site)[:20], lane, path, n_images,
+              (str(model)[:60] if model else None), input_tokens, output_tokens, latency_ms,
+              str(status)[:12]))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.warning(f"llm_call_log insert failed: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def set_llm_call_lane(request_id: str, lane: str) -> None:
+    """Backfill the lane on a request's rows once classification is known. Best-effort."""
+    conn = get_conn()
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE llm_call_log SET lane = %s WHERE request_id = %s AND lane IS NULL",
+                    (str(lane)[:40], str(request_id)[:64]))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        logger.warning(f"llm_call_log lane backfill failed: {e}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def log_analysis(payload: dict, conversation_text: str = "",

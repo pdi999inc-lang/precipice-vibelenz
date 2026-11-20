@@ -17,7 +17,10 @@ replies fall back to their deterministic copy, follow-up returns 'unavailable'.
 """
 from __future__ import annotations
 
+import contextvars
+import logging
 import os
+import time
 from typing import Any, Dict
 
 # Defaults. One live read observed on 2026-11-05 took about 51s end to end across
@@ -94,3 +97,93 @@ def json_text(data: Dict[str, Any]) -> str:
     if not text:
         raise ValueError("model returned no text block")
     return text
+
+
+# ---------------------------------------------------------------------------
+# Call instrumentation (WP2b). One row per AI call, keyed by request_id.
+# NO conversation content is ever logged: only call site, model, token counts, latency, status.
+# Logging is observability, not a safety gate: it is best-effort and never raises into an analysis.
+# ---------------------------------------------------------------------------
+_LOG = logging.getLogger(__name__)
+_CTX: "contextvars.ContextVar[Dict[str, Any] | None]" = contextvars.ContextVar("vl_llm_ctx", default=None)
+
+
+def set_llm_context(request_id: str, path: str | None = None, n_images: int | None = None) -> None:
+    """Mark the current request as one whose AI calls are logged. Stores a mutable dict, so worker
+    threads that received a copy of the context (Starlette run_in_threadpool) share the same dict.
+    Outside a request (evals, the health probe, scripts) no context is set and nothing is logged."""
+    _CTX.set({"request_id": str(request_id)[:64], "path": path, "n_images": n_images, "lane": None})
+
+
+def current_llm_context() -> Dict[str, Any] | None:
+    return _CTX.get()
+
+
+def _as_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _write_row(call_site: str, model: Any, input_tokens: int | None, output_tokens: int | None,
+               latency_ms: int, status: str) -> None:
+    ctx = _CTX.get()
+    if not ctx:
+        return
+    try:
+        from app.db import log_llm_call
+        log_llm_call(request_id=ctx["request_id"], call_site=call_site, model=model,
+                     input_tokens=input_tokens, output_tokens=output_tokens, latency_ms=latency_ms,
+                     status=status, lane=ctx.get("lane"), path=ctx.get("path"),
+                     n_images=ctx.get("n_images"))
+    except Exception as exc:  # noqa: BLE001 - logging must never break an analysis
+        _LOG.warning("llm_call_log write skipped: %s", type(exc).__name__)
+
+
+def logged_create(client: Any, call_site: str, **kwargs: Any) -> Any:
+    """client.messages.create(**kwargs) plus one log row. Same arguments, same result, same
+    exceptions as the bare call; the row is written whether the call succeeds or fails."""
+    start = time.monotonic()
+    message = None
+    status = "ok"
+    try:
+        message = client.messages.create(**kwargs)
+        return message
+    except Exception:
+        status = "error"
+        raise
+    finally:
+        try:
+            usage = getattr(message, "usage", None)
+            _write_row(call_site, kwargs.get("model"),
+                       _as_int(getattr(usage, "input_tokens", None)),
+                       _as_int(getattr(usage, "output_tokens", None)),
+                       int((time.monotonic() - start) * 1000), status)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def record_raw_call(call_site: str, model: Any, data: Any, latency_ms: int, status: str = "ok") -> None:
+    """Same row for the raw-HTTP vision OCR call, which does not go through the SDK."""
+    try:
+        usage = data.get("usage") if isinstance(data, dict) else None
+        usage = usage if isinstance(usage, dict) else {}
+        _write_row(call_site, model, _as_int(usage.get("input_tokens")),
+                   _as_int(usage.get("output_tokens")), int(latency_ms), status)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def finalize_llm_context(lane: Any) -> None:
+    """Backfill the lane on this request's rows once it is known (it is not known at call time)."""
+    ctx = _CTX.get()
+    if not ctx or not lane:
+        return
+    ctx["lane"] = str(lane)[:40]
+    try:
+        from app.db import set_llm_call_lane
+        set_llm_call_lane(ctx["request_id"], ctx["lane"])
+    except Exception as exc:  # noqa: BLE001
+        _LOG.warning("llm_call_log lane backfill skipped: %s", type(exc).__name__)
+

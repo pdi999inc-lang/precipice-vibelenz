@@ -264,19 +264,29 @@ def _extract_via_vision(image_bytes: bytes, idx: int, api_key: str, user_side: s
     from app.llm_util import payload_extras, json_text
     payload.update(payload_extras(VISION_MODEL))
 
-    response = httpx.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
-        json=payload,
-        timeout=VISION_TIMEOUT_S,
-    )
-    response.raise_for_status()
-
-    data = response.json()
+    import time as _time
+    from app.llm_util import record_raw_call
+    _t0 = _time.monotonic()
+    _status = "ok"
+    data = None
+    try:
+        response = httpx.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json=payload,
+            timeout=VISION_TIMEOUT_S,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        _status = "error"
+        raise
+    finally:
+        record_raw_call("ocr", VISION_MODEL, data, int((_time.monotonic() - _t0) * 1000), _status)
     raw = json_text(data)
     logger.debug(f"Image {idx}: vision raw output: {raw[:200]}")
     return raw

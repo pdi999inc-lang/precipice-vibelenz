@@ -559,10 +559,11 @@ def _llm_enrich(result, extracted_text, presentation_mode, diagnosis, reasoning,
             "general rather than aimed at one side. This overrides the YOU:/THEM: instruction above."
         )
     try:
-        from app.llm_util import client_kwargs, sdk_kwargs, sdk_text
+        from app.llm_util import client_kwargs, logged_create, sdk_kwargs, sdk_text
         client = _anthropic.Anthropic(api_key=api_key, **client_kwargs())
         _model = os.environ.get("VL_ENRICH_MODEL", "claude-haiku-4-5-20251001")
-        message = client.messages.create(
+        message = logged_create(
+            client, "narrative",
             model=_model,
             max_tokens=1600 if presentation_mode == "connection" else 1024,
             system=system_prompt,

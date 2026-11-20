@@ -60,7 +60,8 @@ def test_followup_take_caps_at_max():
     assert main._followup_take(rid) is False
 
 
-def test_followup_cap_holds_with_empty_client_history():
+def test_followup_cap_holds_with_empty_client_history(monkeypatch):
+    monkeypatch.setenv("FOLLOWUP_ENABLED", "1")  # route is off by default (WP2a)
     from fastapi.testclient import TestClient
     rid = "test-cap-2"
     main._FOLLOWUP_COUNTS[rid] = main.MAX_FOLLOWUP_QUESTIONS

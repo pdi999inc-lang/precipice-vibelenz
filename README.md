@@ -8,7 +8,6 @@ coercion, and a sensible next step.
 
 - **Product:** VibeLenz
 - **Engine:** Verified Interaction Engine (VIE)
-- **Operated as:** Precipice Social Intelligence (a trade name, not a registered company)
 - **Live:** https://app.appvibelenz.com
 
 ## How a read works

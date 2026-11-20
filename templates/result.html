@@ -917,6 +917,7 @@
       }, 'image/png');
     }
     </script>
+    {% if followup_enabled is not defined or followup_enabled %}
     <div class="section" id="askSection">
       <h3>Ask about this read</h3>
       <div id="chatLog" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;"></div>
@@ -974,6 +975,7 @@
       if (e.key === 'Enter') { e.preventDefault(); sendFollowup(); }
     });
     </script>
+    {% endif %}
     {% endif %}
     <details>
       <summary>Show machine detail</summary>

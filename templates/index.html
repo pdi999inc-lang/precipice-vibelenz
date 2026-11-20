@@ -188,8 +188,13 @@ body {
 <div class="hd">
 <div class="brand-wrap"><span class="bolt bolt-l">⚡</span><div class="brand">VibeLenz</div><span class="bolt bolt-r">⚡</span></div>
 <div class="brand-sub">Social Intelligence</div>
+{% if page_mode == 'risk' %}
+<h1 class="headline">Is this a scam, pressure, or just a real dynamic?</h1>
+<p class="choose-lbl">Upload or paste a conversation. VibeLenz reads the patterns in it and shows you what stands out, in plain language. It doesn't diagnose anyone, and it can be wrong.</p>
+{% else %}
 <h1 class="headline">What's really going on in this chat?</h1>
 <p class="choose-lbl">The read your group chat wishes it could give you.</p>
+{% endif %}
 </div>
 <div class="vl-samples">
   No screenshots handy? See how a read looks:
@@ -290,7 +295,6 @@ body {
 <p class="reassure">🔒 Your chats are never sold or posted.</p>
 <div class="privacy-block">
   <div class="pb-row"><span class="pb-i">✓</span>Screenshots are read by our AI provider to pull out the text</div>
-  <div class="pb-row"><span class="pb-i">✓</span>Chats you analyze help sharpen the lens — names and numbers removed first</div>
 </div>
 <p style="text-align:center;margin-top:10px;font-size:0.76rem;"><a href="/privacy" style="color:var(--ink-soft);text-decoration:underline;">Privacy Policy</a></p>
 </form>

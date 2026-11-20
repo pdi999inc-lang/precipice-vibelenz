@@ -216,7 +216,10 @@ def test_front_door_privacy_copy_is_truthful():
     html = ENV.get_template("index.html").render(page_mode="connection")
     for gone in ("Never used to train AI", "Never shared or sold", "expires automatically after 30 days", "never shared"):
         assert gone not in html, gone
-    assert "help sharpen the lens" in html
+    # Inverted 2026-11-19: the "help sharpen the lens ... names and numbers removed" claim was false
+    # (no de-identification step exists; the privacy policy says no improvement use).
+    assert "help sharpen the lens" not in html
+    assert "names and numbers removed" not in html
     assert "read by our AI provider" in html
 
 
