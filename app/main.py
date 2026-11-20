@@ -226,6 +226,9 @@ async def about(request: Request):
 # move to a branded mailbox without a code change.
 PRIVACY_CONTACT_EMAIL = os.environ.get("PRIVACY_CONTACT_EMAIL", "VibeLenz999@gmail.com")
 PRIVACY_EFFECTIVE_DATE = "September 30, 2026"
+# Terms of Service (templates/terms.html). Effective date is the PUBLISH date, never
+# backdated: bump it here if the deploy slips, and whenever the wording materially changes.
+TERMS_EFFECTIVE_DATE = "November 20, 2026"
 
 
 @app.get("/privacy", response_class=HTMLResponse)
@@ -239,6 +242,19 @@ async def privacy(request: Request):
              "effective_date": PRIVACY_EFFECTIVE_DATE},
         )
     return _simple_page("Privacy", "Privacy policy template not found.")
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms(request: Request):
+    terms_file = TEMPLATES_DIR / "terms.html"
+    if terms_file.exists():
+        return templates.TemplateResponse(
+            request,
+            "terms.html",
+            {"request": request, "contact_email": PRIVACY_CONTACT_EMAIL,
+             "effective_date": TERMS_EFFECTIVE_DATE},
+        )
+    return _simple_page("Terms", "Terms of service template not found.")
 
 
 @app.get("/static/og-image.svg")
