@@ -2227,6 +2227,19 @@ def _apply_physical_harm_override(result: Dict[str, Any], text: str) -> Dict[str
     return out
 
 
+def _deterministic_fallback(text: str, relationship_type: str, err: Exception) -> Dict[str, Any]:
+    """Backup engine after the LLM path is exhausted. The read is explicitly marked
+    degraded: the deterministic engine misses many scams, and the invariant is that
+    degraded mode must be visible rather than silent."""
+    result = _run_deterministic(text, relationship_type)
+    result = _apply_relationship_guardrails(result, relationship_type)
+    result = _sanitize_prohibited_claims(result)
+    result["degraded"] = True
+    result["degradation_reason"] = "llm_unavailable"
+    result["fallback_reason"] = str(err)
+    return result
+
+
 def analyze_text(
     text: str,
     relationship_type: str = "stranger",
@@ -2309,8 +2322,21 @@ def _analyze_text_core(
             "injection_blocked": True,
         }
 
+    # One retry on a malformed-JSON response before giving up on the LLM path.
+    # Measured 2026-11-20: roughly 1 read in 7 came back as unparseable JSON, each one
+    # silently demoted to the deterministic engine, which misses many scams. A parse
+    # failure is transient (the same input parses on a second attempt), unlike an auth
+    # or quota error, so ONLY ValueError is retried. Every other exception falls through
+    # to the backup immediately, and the fail-closed posture below is unchanged.
     try:
         return _run_llm_analysis(text, relationship_type, context_note)
+    except ValueError as e_parse:
+        logger.warning("LLM analysis returned unusable output (%s) — retrying once.", e_parse)
+        try:
+            return _run_llm_analysis(text, relationship_type, context_note)
+        except Exception as e:
+            logger.warning("LLM analysis failed on retry (%s) — falling back to deterministic engine.", e)
+            return _deterministic_fallback(text, relationship_type, e)
     except Exception as e:
         logger.warning("LLM analysis failed (%s) — falling back to deterministic engine.", e)
         try:
