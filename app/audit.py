@@ -58,6 +58,9 @@ def write_audit_record(
     degraded: bool = False,
     error: Optional[str] = None,
     vie_t: Optional[Dict[str, Any]] = None,
+    # Retained after the Gottman module moved to its own repo (2026-11-22) so
+    # existing callers and replayed records keep working. VibeLenz no longer
+    # passes it; records written before the move keep their "gottman" key.
     gottman: Optional[Dict[str, Any]] = None,
     consistency: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:

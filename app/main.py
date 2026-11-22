@@ -40,15 +40,6 @@ except Exception as _vie_t_import_err:  # noqa: BLE001
     logger.warning(f"VIE-T shadow disabled at import: {_vie_t_import_err}")
 _VIE_T_SHADOW_ENABLED = os.environ.get("VIE_T_SHADOW_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
 
-# Gottman/texting patterns, SHADOW MODE (audit-only; see app/gottman_patterns.py).
-# Guarded import: if it fails the app still boots. Kill switch GOTTMAN_SHADOW_ENABLED is
-# read per call inside the module; a Railway variable change restarts the service.
-try:
-    from app.gottman_patterns import build_gottman_patterns as _gottman_shadow
-except Exception as _gottman_import_err:  # noqa: BLE001
-    _gottman_shadow = None
-    logger.warning(f"Gottman shadow disabled at import: {_gottman_import_err}")
-
 # Baseline browser security headers (app/security_headers.py). Guarded import: a
 # hardening layer must never be able to stop the app booting.
 # Kill switch: VL_SECURITY_HEADERS_ENABLED=false (read per response).
@@ -190,11 +181,14 @@ def _build_response_payload(
 async def home(request: Request):
     index_file = TEMPLATES_DIR / "index.html"
     if index_file.exists():
-        # Sub-brand host routing: any domain containing "purport" serves the
-        # PurPort (risk) page as its homepage. Same app, same engine, two brands.
-        _host = (request.headers.get("host") or "").lower()
-        _mode = "risk" if "purport" in _host else "connection"
-        return templates.TemplateResponse(request, "index.html", {"request": request, "page_mode": _mode})
+        # The home page is always the connection front door. Risk mode has its own
+        # route at /scam-check. Sub-brand host routing was removed 2026-11-22: the
+        # PurPort brand is discontinued, and host-dependent behaviour on the home
+        # page was attack surface and positioning noise for a brand that no longer
+        # exists. Verified before removal that no domain on this service contains
+        # "purport" (web-production-3600cf.up.railway.app, app.appvibelenz.com).
+        return templates.TemplateResponse(
+            request, "index.html", {"request": request, "page_mode": "connection"})
     return _simple_page("VibeLenz", "Home page template not found.")
 
 
@@ -790,19 +784,6 @@ async def analyze_screenshots(
         logger.warning(f"[{request_id}] consistency gate skipped: {type(_cg_err).__name__}")
         _consistency_audit = None
 
-    # --- Gottman shadow patterns (audit-only) ---
-    # Reads the payload but is NEVER written into it. relationship_type comes from the
-    # form (the analysis payload does not carry it). Never raises; None means nothing fired.
-    _gottman_audit = None
-    if _gottman_shadow is not None:
-        try:
-            _gottman_audit = _gottman_shadow(payload, relationship_type)
-            if _gottman_audit:
-                logger.info(f"[{request_id}] gottman keys={_gottman_audit.get('keys')}")
-        except Exception as _gt_err:  # noqa: BLE001
-            logger.warning(f"[{request_id}] gottman skipped: {type(_gt_err).__name__}")
-            _gottman_audit = None
-
     # --- Phase 1 continuity: save this batch frozen + attach continuity fields ---
     # The per-batch score is written once and never updated by future visits.
     try:
@@ -897,7 +878,6 @@ async def analyze_screenshots(
         result=payload,
         degraded=bool(payload.get("degraded", False)),
         vie_t=_vie_t_audit,
-        gottman=_gottman_audit,
         consistency=_consistency_audit,
     )
     try:

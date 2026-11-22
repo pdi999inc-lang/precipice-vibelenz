@@ -26,7 +26,7 @@ coercion, and a sensible next step.
 6. **Record.** Every decision writes an `[AUDIT]` log line (`app/audit.py`) and a row in
    Postgres (`app/db.py`).
 
-Shadow modules (`app/vie_t.py`, `app/gottman_patterns.py`, `app/consistency_gate.py`) write
+Shadow modules (`app/vie_t.py`, `app/consistency_gate.py`) write
 to the audit log only. They never change what the user sees.
 
 ## Run locally
@@ -59,7 +59,7 @@ Secrets live in Railway only. Never put a value in this file, in chat, or in a c
 | `VL_RATE_LIMITS_ENABLED`, `VL_CLIENT_IP_MODE` | Per-visitor rate limits | on, `leftmost` |
 | `STATS_SECRET` | Unlocks `/audit/stats` and `/diag/client-ip` | unset: both return 403 |
 | `EMAIL_GATE_ENABLED`, `SENDGRID_API_KEY`, `EMAIL_FROM_ADDRESS`, `PUBLIC_BASE_URL` | Email gate and reminders | gate on; fails closed without SendGrid |
-| `VIE_T_SHADOW_ENABLED`, `GOTTMAN_SHADOW_ENABLED` | Shadow module kill switches | on |
+| `VIE_T_SHADOW_ENABLED` | Shadow module kill switch | on |
 | `PRIVACY_CONTACT_EMAIL` | Contact shown on `/privacy` | set in code |
 
 ## Deploy

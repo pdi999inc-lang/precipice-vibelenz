@@ -31,3 +31,5 @@ evals/report_*.md
 evals/results_*.jsonl
 scripts/_probe_fixtures/
 scripts/_probe_results.jsonl
+_gottman-extract/
+.claude/
