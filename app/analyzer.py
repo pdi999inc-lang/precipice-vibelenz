@@ -1,3 +1,21 @@
+"""app/analyzer.py - RETAINED DELIBERATELY. NOT WIRED IN.
+
+Nothing in app/ or tests/ imports this module. That is intentional, decided
+2026-11-22: it is kept as reference for the pipeline that
+app/analyzer_combined.py superseded. Last functional change 2026-06-04.
+
+DO NOT DELETE as part of a dead-code sweep. Two sibling modules with the same
+import profile (app/relationship_dynamics.py, app/behavior.py) were deleted in
+commit f6e126f after the same analysis; this one was reviewed at the same time
+and kept on purpose.
+
+Live analysis path, for anyone arriving here by mistake:
+    app/main.py -> app.analyzer_combined.analyze_text / analyze_turns
+    deterministic floors in app/safety_floors.py (raise-only)
+
+Copyright © 2026 Ricky Sessums. All rights reserved.
+"""
+
 from __future__ import annotations
 
 import re
