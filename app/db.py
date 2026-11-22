@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
 import uuid
 
 logger = logging.getLogger("vibelenz.db")
@@ -58,6 +59,23 @@ def init_db():
             "ALTER TABLE analyses ADD COLUMN IF NOT EXISTS utm_source TEXT",
             "ALTER TABLE analyses ADD COLUMN IF NOT EXISTS utm_medium TEXT",
             "ALTER TABLE analyses ADD COLUMN IF NOT EXISTS utm_campaign TEXT",
+            # --- WP3 save / retention (2026-11-22) ---
+            # retention_hold_at: set when the visitor saves. The retention sweep skips
+            # any row with it set, and that row's dependents. Holds do not expire
+            # (decided 2026-11-22); releasing one clears the column.
+            "ALTER TABLE analyses ADD COLUMN IF NOT EXISTS retention_hold_at TIMESTAMPTZ DEFAULT NULL",
+            # training_consent_at: a SEPARATE grant from saving. Saving means "keep this
+            # for me"; this column means "you may use it to improve VibeLenz". Never set
+            # by the save action alone.
+            "ALTER TABLE analyses ADD COLUMN IF NOT EXISTS training_consent_at TIMESTAMPTZ DEFAULT NULL",
+            # training_consent_terms: the ToS effective date in force when consent was
+            # given, so a later ToS revision cannot retroactively reinterpret it.
+            "ALTER TABLE analyses ADD COLUMN IF NOT EXISTS training_consent_terms TEXT DEFAULT NULL",
+            # save_token: per-row capability token, issued at insert and embedded in that
+            # analysis's own result page. It is what authorises POST /save.
+            # email_visitors is DELIBERATELY not joined to analyses (see its _SCHEMA note),
+            # so there is no visitor identity to authorise against and none is introduced.
+            "ALTER TABLE analyses ADD COLUMN IF NOT EXISTS save_token TEXT DEFAULT NULL",
         ]:
             try:
                 cur.execute(column_sql)
@@ -195,9 +213,13 @@ def set_llm_call_lane(request_id: str, lane: str) -> None:
 def log_analysis(payload: dict, conversation_text: str = "",
                  utm_source: str = "", utm_medium: str = "", utm_campaign: str = "",
                  analysis_mode: str = ""):
+    # Capability token for POST /save. Returned to the caller so main.py can embed it
+    # in this analysis's own result page. None means no save control is offered, which
+    # is the correct degraded behaviour: a dead button is worse than no button.
+    save_token = secrets.token_urlsafe(32)
     conn = get_conn()
     if not conn:
-        return
+        return None
     try:
         cur = conn.cursor()
         cur.execute("""
@@ -207,8 +229,9 @@ def log_analysis(payload: dict, conversation_text: str = "",
                 presentation_mode, flags, positive_signals, conversation_text,
                 analysis_mode, llm_enriched, llm_error, degraded,
                 user_side, other_gender,
-                utm_source, utm_medium, utm_campaign
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                utm_source, utm_medium, utm_campaign,
+                save_token
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (request_id) DO NOTHING
         """, (
             payload.get("request_id"),
@@ -231,11 +254,17 @@ def log_analysis(payload: dict, conversation_text: str = "",
             utm_source or None,
             utm_medium or None,
             utm_campaign or None,
+            save_token,
         ))
+        inserted = cur.rowcount
         conn.commit()
         cur.close()
+        # ON CONFLICT DO NOTHING: a replayed request_id inserts no row, so the token
+        # we generated was never stored and must not be handed out.
+        return save_token if inserted else None
     except Exception as e:
         logger.warning(f"DB log failed: {e}")
+        return None
     finally:
         conn.close()
 
@@ -260,6 +289,64 @@ def log_feedback(request_id: str, accurate: bool, note: str = ""):
             logger.warning(f"Feedback received for unknown request_id: {request_id}")
     except Exception as e:
         logger.warning(f"DB feedback failed: {e}")
+    finally:
+        conn.close()
+
+
+# ===========================================================================
+# WP3: save / retention hold (2026-11-22)
+#
+# Authorisation is by per-row capability token, NOT by visitor identity.
+# email_visitors is deliberately not joined to analyses (see its _SCHEMA note in
+# app/email_reminders.py) so that a dump of visitor emails reveals no conversation
+# content. Adding a visitor_id column here would reverse that, so the token the
+# result page already carries is used instead. A visitor can therefore hold only an
+# analysis whose own result page they were served, and no new linkage is created.
+#
+# Saving and granting training use are SEPARATE grants. set_retention_hold never
+# sets training_consent_at as a side effect of a save.
+# ===========================================================================
+
+def set_retention_hold(request_id: str, save_token: str, hold: bool,
+                       training_consent: bool = None,
+                       terms_version: str = "") -> str:
+    """Set or release the retention hold on one analysis.
+
+    Returns "ok", "not_found" or "error". "not_found" covers an unknown
+    request_id, a token mismatch and a missing token alike, so the endpoint
+    cannot be used to probe whether a request_id exists.
+
+    training_consent: None leaves the consent columns untouched. True records
+    consent with the ToS version in force. False withdraws it.
+    """
+    if not request_id or not save_token:
+        return "not_found"
+    conn = get_conn()
+    if not conn:
+        return "error"
+    try:
+        cur = conn.cursor()
+        sets = ["retention_hold_at = " + ("NOW()" if hold else "NULL")]
+        params = []
+        if training_consent is True:
+            sets.append("training_consent_at = NOW()")
+            sets.append("training_consent_terms = %s")
+            params.append((terms_version or "")[:64])
+        elif training_consent is False:
+            sets.append("training_consent_at = NULL")
+            sets.append("training_consent_terms = NULL")
+        params.extend([request_id, save_token])
+        cur.execute(
+            "UPDATE analyses SET " + ", ".join(sets) +
+            " WHERE request_id = %s AND save_token = %s AND save_token IS NOT NULL",
+            tuple(params))
+        rows = cur.rowcount
+        conn.commit()
+        cur.close()
+        return "ok" if rows else "not_found"
+    except Exception as e:
+        logger.warning(f"DB retention hold failed: {e}")
+        return "error"
     finally:
         conn.close()
 

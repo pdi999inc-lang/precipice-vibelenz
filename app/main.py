@@ -845,9 +845,13 @@ async def analyze_screenshots(
         logger.warning(f"[{request_id}] prediction store skipped: {_pred_err}")
 
     # --- DB log ---
+    # WP3: log_analysis returns this row's save token, or None if the row was not
+    # inserted (no DB, replayed request_id, write failure). None means no save control
+    # is rendered: a dead button is worse than no button.
+    _save_token = None
     try:
         from app.db import log_analysis
-        log_analysis(
+        _save_token = log_analysis(
             payload,
             conversation_text=extracted_text,
             utm_source=utm_source,
@@ -914,6 +918,10 @@ async def analyze_screenshots(
     template_payload["request"] = request
     template_payload.setdefault("final_risk_score", template_payload.get("risk_score", 0))
     template_payload["followup_enabled"] = _followup_enabled()
+    # WP3: the save control renders only when we hold a real token for this row.
+    template_payload["save_token"] = _save_token or ""
+    template_payload["save_enabled"] = bool(_save_token)
+    template_payload["terms_effective_date"] = TERMS_EFFECTIVE_DATE
 
     result_file = TEMPLATES_DIR / "result.html"
     if result_file.exists():
@@ -1187,6 +1195,53 @@ async def feedback(request: Request):
     except Exception as e:
         logger.warning(f"[feedback] parse error: {e}")
         return JSONResponse({"status": "ok"})
+
+
+@app.post("/save")
+async def save_analysis(request: Request):
+    """Set or release the retention hold on one analysis.
+
+    Authorised by the per-row save_token embedded in that analysis's own result
+    page, not by visitor identity. email_visitors is deliberately not joined to
+    analyses, and this endpoint does not introduce that link.
+
+    Body: {request_id, save_token, hold: bool, training_consent: bool|null}
+
+    "hold" is the retention flag. "training_consent" is a SEPARATE grant and is
+    only ever set from its own explicit opt-in; omit it or send null to leave it
+    untouched. Saving never implies consent to training use.
+
+    Unlike /feedback, this does NOT return ok on failure. The UI must not show an
+    item as saved unless it was. An unknown request_id, a bad token and a missing
+    token all return the same 404, so the endpoint cannot be used to probe whether
+    a request_id exists.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "bad_request"})
+    request_id = str(body.get("request_id") or "")
+    save_token = str(body.get("save_token") or "")
+    hold = bool(body.get("hold", True))
+    consent = body.get("training_consent", None)
+    if consent is not None:
+        consent = bool(consent)
+    try:
+        from app.db import set_retention_hold
+        outcome = set_retention_hold(request_id, save_token, hold,
+                                     training_consent=consent,
+                                     terms_version=TERMS_EFFECTIVE_DATE)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[save] failed: {type(e).__name__}")
+        outcome = "error"
+    # The token is never echoed back, and request_id is logged without it.
+    logger.info(f"[save] request_id={request_id} hold={hold} consent={consent} -> {outcome}")
+    if outcome == "ok":
+        return JSONResponse({"status": "ok", "held": hold,
+                             "training_consent": consent})
+    if outcome == "not_found":
+        return JSONResponse(status_code=404, content={"status": "not_found"})
+    return JSONResponse(status_code=503, content={"status": "unavailable"})
 
 
 @app.post("/log-session")

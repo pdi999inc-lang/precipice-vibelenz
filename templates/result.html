@@ -1009,6 +1009,66 @@
       </div>
       <pre>{{ extracted_text }}</pre>
     </details>
+    {% if save_enabled %}
+    <!-- WP3 save / retention hold. Two separate grants: keeping this read is not
+         consent to use it for training. The checkbox is unticked and independently
+         labelled, and the save button works whether or not it is ticked. -->
+    <div class="feedback-box" id="save-box">
+      <div class="feedback-label">Keep this read?</div>
+      <div class="feedback-form" id="save-form">
+        <p style="margin:0; font-size:14px; line-height:1.5; color:var(--muted);">
+          Reads are deleted after 90 days. Keep this one and we hold on to it until you
+          delete it.
+        </p>
+        <label style="display:flex; gap:10px; align-items:flex-start; font-size:14px; line-height:1.45; cursor:pointer;">
+          <input type="checkbox" id="save-consent" style="margin-top:3px; flex:0 0 auto;">
+          <span>Separately: you can use this conversation to improve VibeLenz. Optional &mdash;
+          keeping your read does not depend on it.</span>
+        </label>
+        <div class="feedback-buttons">
+          <button onclick="saveRead()" class="feedback-btn up" id="save-btn">Keep this read</button>
+        </div>
+      </div>
+      <div id="save-status" style="display:none; font-size:15px; font-weight:700; padding:8px 0;"></div>
+    </div>
+    <script>
+    async function saveRead() {
+      var btn = document.getElementById("save-btn");
+      var status = document.getElementById("save-status");
+      var consent = document.getElementById("save-consent").checked;
+      btn.disabled = true;
+      // No optimistic UI: nothing is reported as kept until the server says it is.
+      try {
+        var res = await fetch("/save", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            request_id: "{{ request_id }}",
+            save_token: "{{ save_token }}",
+            hold: true,
+            training_consent: consent ? true : null
+          })
+        });
+        if (res.ok) {
+          document.getElementById("save-form").style.display = "none";
+          status.style.color = "#5FCF92";
+          status.innerText = consent
+            ? "Kept. Thanks \u2014 you also agreed we can use it to improve VibeLenz."
+            : "Kept. We will hold on to this read until you delete it.";
+        } else {
+          btn.disabled = false;
+          status.style.color = "#FF7361";
+          status.innerText = "Could not keep this read. Try again in a moment.";
+        }
+      } catch (e) {
+        btn.disabled = false;
+        status.style.color = "#FF7361";
+        status.innerText = "Could not keep this read. Try again in a moment.";
+      }
+      status.style.display = "block";
+    }
+    </script>
+    {% endif %}
     <div class="feedback-box" id="feedback-box">
       <div class="feedback-label">Was this read accurate?</div>
       <div class="feedback-form" id="feedback-form">
