@@ -25,6 +25,9 @@ MVP SCOPE (only what the other party says; the user's own lines never trigger)
                                                                 -> COERCION_RISK, score >= 60
   F4 leverage_threat_floor   photos/screenshots + exposure threat -> COERCION_RISK, >= 75
   F5 money_mule_floor        reshipping packages / moving payments for them -> FRAUD, >= 60
+  F6 partner_isolation_floor ultimatum / prohibition / alienation aimed at the
+                             target's friends or family, no secrecy required
+                                                                -> COERCION_RISK, >= 60
   Family/friend reads: a plain "can you lend me $50" does NOT fire F1; it fires
   only with a classic scam tell (gift cards, codes, crypto, wire, new account).
   L1 lane correction        COERCION_RISK + a money/investment floor (and no coercion
@@ -147,6 +150,35 @@ F3_ISOLATE = re.compile(
     r"just\s+(?:the\s+two\s+of\s+us|us)\s+right\s+now|"
     r"you\s+don'?t\s+need\s+(?:them|anyone\s+else))\b", re.I)
 
+# F6: isolation in an intimate-partner context. The F3 pair above is built for
+# romance-scam isolation, where secrecy ("keep this between us") and dismissal of
+# outsiders ("they're just jealous") co-occur. Partner isolation carries no secrecy:
+# the other relationships are attacked in the open. Verified 2026-11-22 against the
+# coercion fixtures: F3 fired on none of three partner-isolation reads, including an
+# explicit "it's them or me".
+#
+# High precision on purpose. Every alternative is a phrase that is hard to say without
+# coercive intent. Early ambiguous framing ("i feel weird after you see her") is
+# deliberately NOT matched: that read needs context the analysis engine has and a regex
+# does not, and a floor that adjudicates ambiguity is the wrong instrument. The floor is
+# the deterministic backstop for the unambiguous cases, which is what a degraded read
+# (LLM unavailable) otherwise misses entirely.
+F6_PARTNER_ISOLATION = re.compile(
+    r"(?:"
+    # ultimatum: forcing a choice between the speaker and the target's people.
+    # A bare "me or her" is ordinary speech ("who is driving, me or her"), so the
+    # framing is required: the "it's X or Y" copula, or an explicit demand to choose.
+    r"\bit'?s\s+(?:me\s+or\s+(?:her|him|them|your\s+\w+)|(?:her|him|them|your\s+\w+)\s+or\s+me)\b|"
+    r"\b(?:me\s+or\s+(?:her|him|them|your\s+\w+)|(?:her|him|them|your\s+\w+)\s+or\s+me)\s*[,.!]?\s*(?:figure\s+it\s+out|choose|chose|pick\s+one|decide|your\s+call|thats\s+it)\b|"
+    r"\bchoos(?:e|ing)\s+between\s+me\s+and\b|"
+    # alienation framing: the third party is cast as an enemy of the relationship
+    r"\b(?:turning|turned|poisoning|poisoned)\s+you\s+against\s+me\b|"
+    # loyalty test attached to cutting contact
+    r"\bif\s+you\s+(?:actually\s+|really\s+|truly\s+)?cared\b[^.!?]{0,60}?\b(?:stop|stopped|quit)\s+(?:seeing|talking\s+to|speaking\s+to)\b|"
+    # explicit prohibition on contact
+    r"\bi\s+(?:forbid\s+you|don'?t\s+want\s+you)\s+(?:to\s+)?(?:see|seeing|talk\s+to|talking\s+to|around)\s+(?:her|him|them|your\s+\w+)\b"
+    r")", re.I)
+
 
 def detect(text: str, relationship_type: str = "") -> List[str]:
     """Return fired floor ids for the other party's lines."""
@@ -167,6 +199,8 @@ def detect(text: str, relationship_type: str = "") -> List[str]:
         fired.append("leverage_threat_floor")
     if F3_SECRECY.search(t) and F3_ISOLATE.search(t):
         fired.append("isolation_secrecy_floor")
+    if F6_PARTNER_ISOLATION.search(t):
+        fired.append("partner_isolation_floor")
     return fired
 
 
@@ -188,6 +222,7 @@ _FLOOR_TARGET: Dict[str, Tuple[str, int]] = {
     "money_request_floor": ("FRAUD", 60),
     "money_mule_floor": ("FRAUD", 60),
     "isolation_secrecy_floor": ("COERCION_RISK", 60),
+    "partner_isolation_floor": ("COERCION_RISK", 60),
 }
 
 
@@ -218,7 +253,8 @@ def apply_safety_floors(result: Dict[str, Any], text: str, relationship_type: st
         # floor means the AI's COERCION label is the wrong risk lane (eval: crypto pitch
         # came back COERCION 62-70). Still a risk read either way; FRAUD copy fits.
         _fraud_floors = {"investment_pitch_floor", "money_request_floor", "money_mule_floor"}
-        _coercion_floors = {"leverage_threat_floor", "isolation_secrecy_floor"}
+        _coercion_floors = {"leverage_threat_floor", "isolation_secrecy_floor",
+                            "partner_isolation_floor"}
         if lane == "COERCION_RISK" and (set(fired) & _fraud_floors) and not (set(fired) & _coercion_floors) \
                 and not out.get("physical_harm_override"):
             lane = "FRAUD"
