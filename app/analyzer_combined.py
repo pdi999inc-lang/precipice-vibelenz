@@ -2180,9 +2180,18 @@ _HARM_PATTERNS = [
                r"(?!\s+(?:up|back|with|on|in|off|at|by|to)\b)", re.I),
     re.compile(r"\bput\s+(?:his|her|their|your|my)\s+hands\s+on\s+(?:me|you|her|him|them)\b", re.I),
     re.compile(r"\b(?:domestic\s+(?:abuse|violence)|abusive\s+relationship|physically\s+abus\w*)\b", re.I),
-    re.compile(r"\bthreat\w*\s+to\s+(?:kill|hurt|beat|shoot|stab)\b", re.I),
-    re.compile(r"\b(?:i\s*'?ll|i\s+will|i\s*'?m\s+(?:going\s+to|gonna)|im\s+gonna)\s+(?:kill|beat|shoot|stab)\s+"
-               r"(?:you|her|him|them)\b", re.I),
+    re.compile(r"\bthreat\w*\s+to\s+(?:kill|hurt|harm|beat|shoot|stab|hit|choke|strangle)\b", re.I),
+    # Threats of harm in the first person. "hurt", "hit" and "touch" were missing:
+    # verified 2026-11-22 that "if you leave i will hurt you" produced no hit at all.
+    # The trailing guard keeps ordinary phrasing out ("ill hit you up later",
+    # "ill beat you at chess", "ill touch base with you").
+    re.compile(r"\b(?:i\s*'?ll|i\s+will|i\s*'?m\s+(?:going\s+to|gonna)|im\s+gonna)\s+"
+               r"(?:kill|beat|shoot|stab|hurt|harm|hit|slap|punch|choke|strangle|"
+               r"drag|smack|break)\s+(?:you|her|him|them)\b"
+               r"(?!\s+(?:up|back|at|to|with|in|on|off|by|a\b|an\b|the\b))", re.I),
+    re.compile(r"\b(?:i\s*'?ll|i\s+will|i\s*'?m\s+(?:going\s+to|gonna)|im\s+gonna)\s+"
+               r"(?:put\s+(?:you|her|him|them)\s+in\s+the\s+hospital|"
+               r"mess\s+(?:you|her|him|them)\s+up|end\s+(?:you|her|him|them))\b", re.I),
     re.compile(r"\b(?:block(?:ed|ing|s)?\s+(?:the\s+)?doors?(?:way)?|(?:won'?t|wouldn'?t|didn'?t)\s+let\s+me\s+leave)\b", re.I),
     re.compile(r"\b(?:follow(?:s|ed|ing)?\s+me\s+(?:from\s+)?room\s+to\s+room|stand(?:s|ing)?\s+over\s+me|pinned\s+me)\b", re.I),
 ]

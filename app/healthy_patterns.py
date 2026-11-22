@@ -127,7 +127,7 @@ COPY: Dict[str, Dict[str, Dict[str, str]]] = {
                      "body": "You shared good news and they got into it with you. Research on couples finds how people respond to good news predicts closeness even more than how they handle bad news."}},
     "appreciation": {
         CONNECTION: {"title": "They say thank you",
-                     "body": "They notice and name what you do for them. Small appreciation said out loud is one of the habits that keeps things warm long-term."}},
+                     "body": "They named something and said thanks for it out loud. Worth noticing what the thanks was for, and whether it shows up again."}},
 }
 
 COEXIST_NOTE = "Both showed up here: {pos} and {neg}. Mixed is normal. Notice which one keeps happening."

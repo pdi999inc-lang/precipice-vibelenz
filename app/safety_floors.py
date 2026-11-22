@@ -25,6 +25,10 @@ MVP SCOPE (only what the other party says; the user's own lines never trigger)
                                                                 -> COERCION_RISK, score >= 60
   F4 leverage_threat_floor   photos/screenshots + exposure threat -> COERCION_RISK, >= 75
   F5 money_mule_floor        reshipping packages / moving payments for them -> FRAUD, >= 60
+  F7 surveillance_floor      covert access to a phone or messages, a demand for a
+                             passcode, location used as an accusation -> COERCION_RISK, >= 60
+  F8 financial_control_floor cutting off access to money, seizing an account, or a
+                             one-way permission structure -> COERCION_RISK, >= 60
   F6 partner_isolation_floor ultimatum / prohibition / alienation aimed at the
                              target's friends or family, no secrecy required
                                                                 -> COERCION_RISK, >= 60
@@ -179,6 +183,68 @@ F6_PARTNER_ISOLATION = re.compile(
     r"\bi\s+(?:forbid\s+you|don'?t\s+want\s+you)\s+(?:to\s+)?(?:see|seeing|talk\s+to|talking\s+to|around)\s+(?:her|him|them|your\s+\w+)\b"
     r")", re.I)
 
+# F7: surveillance and device control in a partner context. Verified 2026-11-22 that
+# no floor fired on monitoring reads at any intensity, including an admitted read of
+# private messages and a demand for the phone passcode.
+#
+# Only covert access and demands are matched. Ordinary visibility between partners
+# ("i saw your story", "whats the wifi password", "did you get home") is not
+# surveillance and must not fire: the discriminator is going through something, or
+# demanding access to it, rather than being shown it.
+F7_SURVEILLANCE = re.compile(
+    r"(?:"
+    # covert access, already carried out
+    r"\b(?:went|going|go)\s+through\s+your\s+(?:phone|messages|texts?|dms?|emails?|chats?|things)\b|"
+    r"\bi\s+(?:read|checked|looked\s+at|saw)\s+your\s+(?:dms?|private\s+messages?|texts?\s+with|messages?\s+with|search\s+history|call\s+log)\b|"
+    # demanding the keys to a device or account
+    r"\b(?:send|give|tell)\s+me\s+your\s+(?:passcode|pin|phone\s+password|unlock\s+code)\b|"
+    r"\bunlock\s+your\s+phone\s+(?:for\s+me|and\s+(?:show|give|hand))\b|"
+    r"\bnothing\s+to\s+hide\b[^.!?]{0,40}?\b(?:passcode|password|phone|show\s+me)\b|"
+    r"\b(?:passcode|password|phone)\b[^.!?]{0,40}?\bnothing\s+to\s+hide\b|"
+    # location tracking used as an accusation
+    r"\byour\s+location\s+(?:stopped|was\s+off|showed|says|said|hasn'?t)\b|"
+    r"\bi\s+(?:track|check)\s+your\s+location\b|"
+    # dictating custody of the device
+    r"\byour\s+phone\s+(?:stays|goes|on\s+the\s+counter|in\s+the\s+kitchen)\b"
+    r")", re.I)
+
+# F8: financial control in a partner context. Verified 2026-11-22 that no floor fired,
+# including on a read where a card was frozen while the other person needed a
+# prescription.
+#
+# Only one-directional control is matched. Shared budgeting between partners
+# ("lets check with each other on big purchases", "can we talk before we spend") is
+# ordinary and must not fire: the discriminator is one party holding the access.
+F8_FINANCIAL_CONTROL = re.compile(
+    r"(?:"
+    # cutting off access
+    r"\bi\s+(?:froze|cancelled|canceled|blocked|closed|cut\s+off)\s+(?:your|the)\s+(?:card|account|cards|access)\b|"
+    r"\bi\s+took\s+you\s+off\s+(?:the|our)\s+account\b|"
+    # seizing control of shared money
+    r"\b(?:im|i\s+am|ill|i\s+will)\s+moving\s+the\s+account\s+to\s+my\s+name\b|"
+    r"\b(?:your|the)\s+(?:paycheck|wages|salary)\s+goes?\s+(?:in)?to\s+(?:my|our)\s+account\b[^.!?]{0,40}?\bi\s+manage\b|"
+    # permission structure over the other party's spending
+    r"\byou(?:'?ll|\s+will)?\s+(?:just\s+)?ask\s+me\s+when\s+you\s+need\s+(?:money|anything|something)\b|"
+    r"\bask\s+me\s+(?:first\s+)?before\s+you\s+(?:spend|buy|order|withdraw)\b|"
+    r"\byou\s+(?:need|have\s+to\s+get)\s+my\s+permission\s+to\s+(?:spend|buy|withdraw)\b|"
+    r"\bi\s*'?ll\s+give\s+you\s+an\s+allowance\b|"
+    r"\byou\s+run\s+(?:things|everything|it)\s+past\s+me\s+first\b"
+    r")", re.I)
+
+# Tier B for F8. Neither half is coercive on its own - partners do divide the
+# bookkeeping, and "ask me first" is ordinary about plans - so they are required
+# together: a money context AND a one-way permission structure over it.
+F8_MONEY_CTX = re.compile(
+    r"\b(?:account|accounts|card|cards|spending|money|paycheck|wages|salary|allowance|finances|funds)\b", re.I)
+F8_PERMISSION = re.compile(
+    r"(?:"
+    r"\bask\s+me\s+(?:first|next\s+time|when\s+you\s+need)\b|"
+    r"\bwhich\s+i\s+manage\b|\bi\s+manage\s+(?:it|them|that)\b|"
+    r"\bi\s+handle\s+(?:it|the\s+money|that)\b|"
+    r"\bmy\s+permission\b|"
+    r"\buntil\s+we\s+(?:talk|discuss)\b"
+    r")", re.I)
+
 
 def detect(text: str, relationship_type: str = "") -> List[str]:
     """Return fired floor ids for the other party's lines."""
@@ -201,6 +267,10 @@ def detect(text: str, relationship_type: str = "") -> List[str]:
         fired.append("isolation_secrecy_floor")
     if F6_PARTNER_ISOLATION.search(t):
         fired.append("partner_isolation_floor")
+    if F7_SURVEILLANCE.search(t):
+        fired.append("surveillance_floor")
+    if F8_FINANCIAL_CONTROL.search(t) or (F8_MONEY_CTX.search(t) and F8_PERMISSION.search(t)):
+        fired.append("financial_control_floor")
     return fired
 
 
@@ -223,6 +293,8 @@ _FLOOR_TARGET: Dict[str, Tuple[str, int]] = {
     "money_mule_floor": ("FRAUD", 60),
     "isolation_secrecy_floor": ("COERCION_RISK", 60),
     "partner_isolation_floor": ("COERCION_RISK", 60),
+    "surveillance_floor": ("COERCION_RISK", 60),
+    "financial_control_floor": ("COERCION_RISK", 60),
 }
 
 
@@ -254,7 +326,8 @@ def apply_safety_floors(result: Dict[str, Any], text: str, relationship_type: st
         # came back COERCION 62-70). Still a risk read either way; FRAUD copy fits.
         _fraud_floors = {"investment_pitch_floor", "money_request_floor", "money_mule_floor"}
         _coercion_floors = {"leverage_threat_floor", "isolation_secrecy_floor",
-                            "partner_isolation_floor"}
+                            "partner_isolation_floor", "surveillance_floor",
+                            "financial_control_floor"}
         if lane == "COERCION_RISK" and (set(fired) & _fraud_floors) and not (set(fired) & _coercion_floors) \
                 and not out.get("physical_harm_override"):
             lane = "FRAUD"
