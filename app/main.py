@@ -497,6 +497,17 @@ async def analyze_screenshots(
     # path both reach the completion log, and a NameError there would break a read
     # that had otherwise succeeded.
     _ocr_ms = 0
+    # Per-stage timings. Added 2026-11-23 after the first real breakdown of a
+    # 5-screenshot read showed OCR at 5.5s and total wall at 36s: nearly half the
+    # time was outside both OCR and the AI calls, and nothing measured it.
+    # monotonic, not time.time(), because these are durations.
+    _stage = {}
+    _sm = {"last": time.monotonic()}
+
+    def _mark(key: str) -> None:
+        now = time.monotonic()
+        _stage[key] = int((now - _sm["last"]) * 1000)
+        _sm["last"] = now
 
     if use_paste:
         text_chunks = [pasted_text]
@@ -655,6 +666,10 @@ async def analyze_screenshots(
         import asyncio as _asyncio
         await _asyncio.sleep(_loadtest.simulated_latency_seconds(len(files)))
 
+    # Input acquisition: OCR (or paste), file validation, continuity fetch.
+    # _ocr_ms isolates the OCR share of it.
+    _mark("input")
+
     # --- Analysis ---
     analysis_error: str | None = None
 
@@ -710,6 +725,8 @@ async def analyze_screenshots(
             },
         )
 
+    _mark("analysis")
+
     # --- Reply suggestions ---
     try:
         from app.reply_engine import generate_replies
@@ -722,6 +739,8 @@ async def analyze_screenshots(
     except Exception as _reply_err:
         logger.warning(f"[{request_id}] reply generation failed: {_reply_err}")
         _reply_data = {"suggested_replies": [], "reply_mode": "error", "replies_suppressed": False, "replies_suppressed_reason": "Reply generation unavailable"}
+
+    _mark("replies")
 
     # --- Degradation assessment ---
     processing_time_ms = int((time.time() - timestamp_start) * 1000)
@@ -842,6 +861,8 @@ async def analyze_screenshots(
         logger.warning(f"[{request_id}] consistency gate skipped: {type(_cg_err).__name__}")
         _consistency_audit = None
 
+    _mark("enrich")
+
     # --- Phase 1 continuity: save this batch frozen + attach continuity fields ---
     # The per-batch score is written once and never updated by future visits.
     try:
@@ -920,6 +941,11 @@ async def analyze_screenshots(
     except Exception as _db_err:
         logger.warning(f"DB log skipped: {_db_err}")
 
+    # Five Postgres round trips live above this line (save_batch,
+    # get_conversation_batches, build_trajectory, save_prediction, log_analysis),
+    # and the database is in a different Railway project.
+    _mark("db")
+
     # --- VIE-T shadow trajectory (audit-only) ---
     # Computed AFTER every decision above is final. Never added to the payload,
     # never alters a score/lane/action. run_shadow() never raises; the outer guard
@@ -930,6 +956,8 @@ async def analyze_screenshots(
             _vie_t_audit = await run_in_threadpool(_vie_t_shadow, extracted_text, relationship_type)
         except Exception as _vt_err:  # noqa: BLE001
             _vie_t_audit = {"vie_t_status": "ERROR", "vie_t_error": f"{type(_vt_err).__name__}: {_vt_err}"[:200]}
+
+    _mark("shadow")
 
     # --- Audit record ---
     write_audit_record(
@@ -962,6 +990,7 @@ async def analyze_screenshots(
         f"Arc={turn_analysis.get('arc', 'n/a')} "
         f"Degraded={payload.get('degraded', False)} DegState={assessment.state.value} "
         f"TookMs={processing_time_ms} OcrMs={_ocr_ms} Imgs={len(files)} "
+        f"Stages={','.join(f'{k}:{v}' for k, v in _stage.items())} "
         f"OcrConc={0 if use_paste else _ocr_concurrency()}"
     )
 
@@ -984,7 +1013,15 @@ async def analyze_screenshots(
 
     result_file = TEMPLATES_DIR / "result.html"
     if result_file.exists():
+        # Audit write plus template-payload assembly.
+        _mark("post")
         _resp = templates.TemplateResponse(request, "result.html", template_payload)
+        _mark("render")
+        # Separate line: the completion log above runs before the template does.
+        logger.info(
+            f"[{request_id}] StagesFinal="
+            f"{','.join(f'{k}:{v}' for k, v in _stage.items())} "
+            f"TotalMs={int((time.time() - timestamp_start) * 1000)}")
         _cid = payload.get("conversation_id")
         if _cid:
             _resp.headers["X-Conversation-Id"] = str(_cid)
