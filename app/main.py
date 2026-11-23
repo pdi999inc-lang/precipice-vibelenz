@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -467,6 +468,10 @@ async def analyze_screenshots(
 
     # --- Input text acquisition: paste path skips OCR entirely ---
     ocr_char_count = 0
+    # Initialised here, not inside the OCR block: the paste path and the OCR-failure
+    # path both reach the completion log, and a NameError there would break a read
+    # that had otherwise succeeded.
+    _ocr_ms = 0
 
     if use_paste:
         text_chunks = [pasted_text]
@@ -490,11 +495,35 @@ async def analyze_screenshots(
                     status_code=422,
                     detail=f"File {idx + 1} failed format validation. Only PNG and JPEG are accepted.",
                 )
-        text_chunks = []
-        for img_bytes in image_bytes_list:
-            # Blocking network call (vision OCR): keep it off the event loop.
-            chunk = await run_in_threadpool(extract_text_from_images, [img_bytes], user_side=user_side)
-            text_chunks.append(chunk)
+        # Per-image vision OCR. The calls are independent of each other, so they run
+        # concurrently rather than one after another. Measured before this change: a
+        # 1-image read ~30s, a 3-image read ~52s - roughly one extra vision call of
+        # latency per screenshot, serially. Concurrency is bounded by
+        # VL_OCR_CONCURRENCY (default 4, clamped 1-8).
+        #
+        # Order is preserved by index, NOT by completion: screenshot_merge.merge_chunks
+        # removes repeated boundary bubbles between ADJACENT screenshots, so shuffling
+        # the chunks would corrupt the transcript.
+        #
+        # Fail-closed is unchanged. extract_text_from_images still raises on an
+        # unrecoverable image; asyncio.gather propagates the first such error (it is not
+        # called with return_exceptions), and the surrounding handler turns it into the
+        # same response it produced before. A partial transcript is never analysed.
+        _ocr_started = time.time()
+        _ocr_sem = asyncio.Semaphore(_ocr_concurrency())
+
+        async def _ocr_chunk(_idx: int, _img: bytes):
+            async with _ocr_sem:
+                # Blocking network call (vision OCR): keep it off the event loop.
+                return _idx, await run_in_threadpool(
+                    extract_text_from_images, [_img], user_side=user_side)
+
+        if image_bytes_list:
+            _ocr_pairs = await asyncio.gather(
+                *[_ocr_chunk(_i, _b) for _i, _b in enumerate(image_bytes_list)])
+            text_chunks = [c for _, c in sorted(_ocr_pairs, key=lambda pair: pair[0])]
+        else:
+            text_chunks = []
         # Overlapping screenshots repeat their boundary bubbles; drop the repeats so the
         # analysis never blames the user for "asking twice" (app/screenshot_merge.py).
         if len(text_chunks) > 1:
@@ -504,6 +533,10 @@ async def analyze_screenshots(
                 logger.info(f"[{request_id}] screenshot overlap removed={_merge_info['overlaps_removed']} pairs={_merge_info['pairs']}")
         extracted_text = "\n\n".join(t for t in text_chunks if t.strip())
         ocr_char_count = len(extracted_text)
+        # Reported in the completion log so the OCR share of total latency is
+        # measurable from logs alone. Before concurrency this was the dominant term
+        # on any multi-screenshot read.
+        _ocr_ms = int((time.time() - _ocr_started) * 1000)
       except Exception as e:
         err_str = str(e)
         # [OCR-3] Quality gate fires when mean word confidence is too low — this is a
@@ -903,7 +936,8 @@ async def analyze_screenshots(
         f"Mode={requested_mode} Turns={turn_analysis.get('turn_count', 0)} "
         f"Arc={turn_analysis.get('arc', 'n/a')} "
         f"Degraded={payload.get('degraded', False)} DegState={assessment.state.value} "
-        f"TookMs={processing_time_ms}"
+        f"TookMs={processing_time_ms} OcrMs={_ocr_ms} Imgs={len(files)} "
+        f"OcrConc={0 if use_paste else _ocr_concurrency()}"
     )
 
     accept = request.headers.get("accept", "")
@@ -996,6 +1030,18 @@ async def outcome(request: Request):
     except Exception as e:
         logger.warning(f"[outcome] error: {e}")
         return JSONResponse({"status": "ok", "recorded": False})
+
+
+# Per-image vision OCR concurrency. Each screenshot costs one vision call, and before
+# 2026-11-22 those ran one after another: a 5-screenshot read made 5 serial calls and
+# took about a minute. Bounded so a large upload cannot burst the API into rate
+# limiting. 1 restores the old serial behaviour without a redeploy.
+def _ocr_concurrency() -> int:
+    try:
+        n = int(os.environ.get("VL_OCR_CONCURRENCY", "4") or 4)
+    except (TypeError, ValueError):
+        return 4
+    return max(1, min(n, 8))
 
 
 def _followup_enabled() -> bool:
