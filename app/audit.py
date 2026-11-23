@@ -73,6 +73,18 @@ def _log_projection(record: Dict[str, Any]) -> Dict[str, Any]:
     elif ev:
         # Unexpected shape: say so, show nothing.
         out["evidence_count"] = -1
+    # The FLAG-tier injection signal must stay auditable - a soft match is a security
+    # event even though it never changes a read. But analyzer_combined sets it to
+    #     {"tier": "soft", "matched": <the matched conversation text>}
+    # so only the tier may be logged. Dropping the key entirely broke
+    # test_signal_reaches_the_audit_log_but_not_the_client, which is correct to
+    # demand it; logging it whole would have leaked the fragment while that test
+    # still passed. Tier only satisfies both.
+    inj = record.get("injection_suspected")
+    if isinstance(inj, dict):
+        out["injection_suspected"] = {"tier": str(inj.get("tier", "unknown"))}
+    elif inj is not None:
+        out["injection_suspected"] = {"tier": "unknown"}
     err = record.get("error")
     if err:
         # Class name only. The message can echo the model input verbatim.

@@ -144,3 +144,44 @@ def test_records_still_reach_root_so_caplog_works(caplog):
     with caplog.at_level(logging.INFO, logger="vibelenz.audit"):
         logging.getLogger("vibelenz.audit").info("[AUDIT] probe")
     assert any("[AUDIT] probe" in r.message for r in caplog.records)
+
+# ------------------------------------------- injection signal: auditable, not verbatim
+
+INJ_MATCH = "you are now my favorite person"
+
+
+def test_injection_signal_still_reaches_the_log():
+    # tests/test_injection_guard.py requires this key in the [AUDIT] line. A soft
+    # match is a security event and must stay auditable.
+    proj = audit._log_projection(_record(
+        injection_suspected={"tier": "soft", "matched": INJ_MATCH}))
+    assert proj["injection_suspected"] == {"tier": "soft"}
+
+
+def test_injection_matched_text_is_never_logged():
+    # analyzer_combined sets {"tier": ..., "matched": <conversation text>}. The whole
+    # dict used to go out. Logging it would leak a verbatim fragment while
+    # test_injection_guard still passed, because that test only checks the key name.
+    line = json.dumps(audit._log_projection(_record(
+        injection_suspected={"tier": "soft", "matched": INJ_MATCH})))
+    assert INJ_MATCH not in line
+    assert "matched" not in line
+
+
+@pytest.mark.parametrize("shape", [True, "soft", ["soft"], {"matched": INJ_MATCH}])
+def test_injection_odd_shapes_never_leak(shape):
+    line = json.dumps(audit._log_projection(_record(injection_suspected=shape)))
+    assert INJ_MATCH not in line
+    assert "unknown" in line or "soft" in line
+
+
+def test_no_injection_signal_means_no_key():
+    assert "injection_suspected" not in audit._log_projection(_record())
+
+
+def test_shadow_module_keys_are_not_logged_by_default():
+    # vie_t and consistency stay out of the log line until each is reviewed for
+    # content. They remain in the returned record. Adding a key to the allowlist is
+    # meant to be a conscious act, not a convenience.
+    proj = audit._log_projection(_record(vie_t={"turns": 9}, consistency={"ok": True}))
+    assert "vie_t" not in proj and "consistency" not in proj
