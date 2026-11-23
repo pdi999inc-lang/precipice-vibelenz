@@ -33,3 +33,4 @@ scripts/_probe_fixtures/
 scripts/_probe_results.jsonl
 .gottman-extract/
 .claude/
+Claude outputs/
