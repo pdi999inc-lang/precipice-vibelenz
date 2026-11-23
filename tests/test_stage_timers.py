@@ -27,7 +27,7 @@ def _png(i: int) -> bytes:
     return MAGIC + b"\x00" * 63 + bytes([i])
 
 
-def _run(monkeypatch, caplog, n_images=2):
+def _run(monkeypatch, caplog, n_images=2, accept="*/*"):
     monkeypatch.setenv("VL_RATE_LIMITS_ENABLED", "false")
 
     def ocr(image_bytes_list, user_side="right"):
@@ -42,7 +42,8 @@ def _run(monkeypatch, caplog, n_images=2):
     files = [("files", (f"s{i}.png", _png(i), "image/png")) for i in range(n_images)]
     with caplog.at_level(logging.INFO, logger="vibelenz.main"):
         r = TestClient(app_main.app).post("/analyze-screenshots", files=files,
-                                          data={"user_side": "right"})
+                                          data={"user_side": "right"},
+                                          headers={"accept": accept})
     return r, caplog.messages
 
 
@@ -92,16 +93,36 @@ def test_ocr_is_reported_separately_from_input(monkeypatch, caplog):
     assert "OcrMs=" in line and "Imgs=" in line and "OcrConc=" in line
 
 
-def test_the_final_line_includes_render_and_a_total(monkeypatch, caplog):
-    # The completion line is emitted before the template runs, so render time can only
-    # appear on a second line. Without it, the gap between the audit write and the
-    # response is invisible - which is exactly how it stayed hidden until now.
-    _, messages = _run(monkeypatch, caplog)
+def test_the_html_path_reports_payload_and_render(monkeypatch, caplog):
+    # The completion line is emitted before the template runs, so render time
+    # can only appear on the StagesFinal line.
+    _, messages = _run(monkeypatch, caplog, accept="text/html")
     final = next((m for m in messages if "StagesFinal=" in m), None)
-    assert final is not None, "no StagesFinal= line"
+    assert final is not None, "no StagesFinal= line on the html path"
     stages = _stages_from(messages, key="StagesFinal=")
-    assert "render" in stages and "post" in stages
+    assert "payload" in stages and "render" in stages and "audit" in stages
+    assert "Path=html" in final
     assert re.search(r"TotalMs=\d+", final)
+
+
+def test_the_json_path_also_reports_a_final_line(monkeypatch, caplog):
+    # The JSON branch returns before the template block, so a final line placed
+    # only in that block measured nothing for API clients - which is how the
+    # first version of this instrument shipped blind to its own probe.
+    _, messages = _run(monkeypatch, caplog, accept="application/json")
+    final = next((m for m in messages if "StagesFinal=" in m), None)
+    assert final is not None, "no StagesFinal= line on the json path"
+    stages = _stages_from(messages, key="StagesFinal=")
+    assert "serialize" in stages and "audit" in stages
+    assert "Path=json" in final
+
+
+def test_the_default_accept_header_takes_the_json_path(monkeypatch, caplog):
+    # accept "*/*" contains neither "application/json" nor "text/html", and the
+    # handler treats that as JSON. Pinned because it decides which stages exist.
+    _, messages = _run(monkeypatch, caplog, accept="*/*")
+    final = next((m for m in messages if "StagesFinal=" in m), "")
+    assert "Path=json" in final
 
 
 def test_paste_path_also_reports_stages(monkeypatch, caplog):

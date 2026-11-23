@@ -509,6 +509,15 @@ async def analyze_screenshots(
         _stage[key] = int((now - _sm["last"]) * 1000)
         _sm["last"] = now
 
+    def _log_stages(path: str) -> None:
+        # Emitted on BOTH response paths. The JSON branch returns before the
+        # template block, so a final line placed only there measured nothing for
+        # API clients - including the probe used to measure this very thing.
+        logger.info(
+            f"[{request_id}] StagesFinal="
+            f"{','.join(f'{k}:{v}' for k, v in _stage.items())} "
+            f"Path={path} TotalMs={int((time.time() - timestamp_start) * 1000)}")
+
     if use_paste:
         text_chunks = [pasted_text]
         extracted_text = pasted_text
@@ -994,12 +1003,18 @@ async def analyze_screenshots(
         f"OcrConc={0 if use_paste else _ocr_concurrency()}"
     )
 
+    # The audit write, finalize_llm_context and llm_health.record_read sit above
+    # this line and belonged to no stage, so they were unmeasured.
+    _mark("audit")
+
     accept = request.headers.get("accept", "")
     if "application/json" in accept or "text/html" not in accept:
         _json_resp = JSONResponse(content=payload)
         _cid = payload.get("conversation_id")
         if _cid:
             _json_resp.headers["X-Conversation-Id"] = str(_cid)
+        _mark("serialize")
+        _log_stages("json")
         return _json_resp
 
     template_payload = dict(payload)
@@ -1013,15 +1028,11 @@ async def analyze_screenshots(
 
     result_file = TEMPLATES_DIR / "result.html"
     if result_file.exists():
-        # Audit write plus template-payload assembly.
-        _mark("post")
+        # Template-payload assembly only; the audit write is its own stage now.
+        _mark("payload")
         _resp = templates.TemplateResponse(request, "result.html", template_payload)
         _mark("render")
-        # Separate line: the completion log above runs before the template does.
-        logger.info(
-            f"[{request_id}] StagesFinal="
-            f"{','.join(f'{k}:{v}' for k, v in _stage.items())} "
-            f"TotalMs={int((time.time() - timestamp_start) * 1000)}")
+        _log_stages("html")
         _cid = payload.get("conversation_id")
         if _cid:
             _resp.headers["X-Conversation-Id"] = str(_cid)
