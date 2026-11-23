@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import os
 import time
 import uuid
@@ -26,6 +27,57 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger("vibelenz.audit")
+
+# Keys permitted in the [AUDIT] LOG LINE. The full record still goes to the audit
+# file and to the caller untouched; this governs only what reaches the platform log
+# stream, whose retention we do not control.
+#
+# An ALLOWLIST, not a denylist, deliberately: result["evidence"] maps signal ids to
+# "<exact quote from conversation>" (see the schema in app/analyzer_combined.py), so
+# a field carrying user text must never reach the log by default. With a denylist,
+# any key added to the record later would leak until someone remembered to exclude
+# it. Adding a key here is a conscious act.
+_LOG_SAFE_KEYS = (
+    "event", "session_id", "request_id", "timestamp", "processing_time_ms",
+    "image_count", "ocr_char_count", "risk_score", "lane", "vie_action",
+    "confidence", "signal_count", "signals", "active_combos", "degraded",
+)
+# Only an exception CLASS name may be logged, never the message. Truncating the
+# message does not work: an LLM parse failure reads
+#   "ValueError: unparseable model output near <the user's sentence>"
+# so the quote lands inside the first 200 characters. Caught by
+# tests/test_audit_log_redaction.py before this shipped.
+#
+# A class name has no spaces and ends in a known suffix, so prose cannot satisfy
+# it. Anything else is reported as "unclassified" and the real message stays in the
+# returned record, the audit file and Postgres.
+_ERROR_CLASS_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.]{0,60}(?:Error|Exception|Warning|Timeout)$")
+
+
+def _error_class(err: Any) -> str:
+    head = str(err).split(":", 1)[0].strip()
+    return head if _ERROR_CLASS_RE.match(head) else "unclassified"
+
+def _log_projection(record: Dict[str, Any]) -> Dict[str, Any]:
+    """The log-safe view of an audit record.
+
+    Signal ids and counts are kept: they are the diagnostic value and carry no
+    conversation content. The quotes behind them are dropped - evidence becomes a
+    list of WHICH signals had evidence, never what it said.
+    """
+    out = {k: record[k] for k in _LOG_SAFE_KEYS if k in record}
+    ev = record.get("evidence")
+    if isinstance(ev, dict):
+        out["evidence_signals"] = sorted(str(k) for k in ev.keys())
+        out["evidence_count"] = len(ev)
+    elif ev:
+        # Unexpected shape: say so, show nothing.
+        out["evidence_count"] = -1
+    err = record.get("error")
+    if err:
+        # Class name only. The message can echo the model input verbatim.
+        out["error_class"] = _error_class(err)
+    return out
 
 SESSION_ID = str(uuid.uuid4())[:8]
 AUDIT_FILE = f"/tmp/vibelenz_audit_{SESSION_ID}.jsonl"
@@ -105,7 +157,9 @@ def write_audit_record(
     if isinstance(result, dict) and result.get("injection_suspected") is not None:
         record["injection_suspected"] = result.get("injection_suspected")
 
-    logger.info(f"[AUDIT] {json.dumps(record)}")
+    # Redacted projection only - see _log_projection and _LOG_SAFE_KEYS. The full
+    # record is returned to the caller and written to the audit file below.
+    logger.info(f"[AUDIT] {json.dumps(_log_projection(record))}")
 
     try:
         with open(AUDIT_FILE, "a") as f:

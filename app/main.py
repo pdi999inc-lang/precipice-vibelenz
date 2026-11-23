@@ -3,12 +3,37 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sys
 import time
 import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
+
+# ---------------------------------------------------------------------------
+# Application logging. Nothing configured a handler before 2026-11-23, so every
+# logger.info() in app/ was discarded in production: Python emits WARNING and
+# above through its last-resort handler and drops the rest. That silently took
+# the "[AUDIT]" line in app/audit.py with it, along with TookMs, request ids and
+# every lane decision. Only Postgres was recording anything.
+#
+# A handler is attached to the "vibelenz" parent rather than via basicConfig, so
+# this never interacts with the handlers uvicorn installs on its own loggers.
+#
+# propagate is deliberately LEFT ON. Setting it False broke pytest's caplog in
+# tests/test_injection_guard.py and tests/test_literacy.py, which capture at the
+# root. It is not needed either: logging.callHandlers only falls back to the
+# last-resort handler when NO handler was found in the chain, and ours is found,
+# so nothing double-emits while the root has no handler of its own.
+#
+# Set VL_LOG_LEVEL=WARNING to go back to the old volume without a code change.
+_vl_logs = logging.getLogger("vibelenz")
+if not _vl_logs.handlers:
+    _vl_handler = logging.StreamHandler(sys.stdout)
+    _vl_handler.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
+    _vl_logs.addHandler(_vl_handler)
+_vl_logs.setLevel(getattr(logging, os.environ.get("VL_LOG_LEVEL", "INFO").strip().upper(), logging.INFO))
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
