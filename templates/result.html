@@ -129,6 +129,7 @@
     .turn-num { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
     .turn-verdict { font-size: 13px; font-weight: 700; color: var(--muted); }
     .turn-label-text { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .arc-note { font-size: 12px; line-height: 1.5; color: var(--muted); margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
     .arc-connector { flex: 0 0 40px; display: flex; align-items: center; justify-content: center; padding-bottom: 40px; }
     .arc-connector-line { width: 100%; height: 2px; background: rgba(255,255,255,0.1); }
     details { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 16px 18px; margin-bottom: 18px; box-shadow: 0 8px 24px -18px rgba(0,0,0,0.3); }
@@ -557,6 +558,7 @@
           {% if not loop.last %}<div class="arc-connector"><div class="arc-connector-line"></div></div>{% endif %}
         {% endfor %}
       </div>
+      <p class="arc-note">These are read one screenshot at a time. The take up top weighs the whole conversation, so the two can land differently.</p>
     </div>
     {% endif %}
     </div><!-- /vl-conn-region -->
@@ -635,6 +637,7 @@
           {% if not loop.last %}<div class="arc-connector"><div class="arc-connector-line"></div></div>{% endif %}
         {% endfor %}
       </div>
+      <p class="arc-note">Each screenshot is assessed on its own. The analysis above weighs the full conversation and may differ.</p>
     </div>
     {% endif %}
     <div class="grid-2">

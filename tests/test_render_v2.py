@@ -326,3 +326,36 @@ def test_llm_unavailable_banner_warns_backup_can_miss_scams():
     text = _visible_text(html)
     assert "can miss scams" in text
     assert "all-clear" in text
+
+
+# R9: one request runs two engines and shows both. The overall verdict comes from
+# analyze_text (LLM-primary, whole conversation in context); the per-screenshot dots come
+# from analyze_turns, which is "always deterministic per-turn" and scores each chunk in
+# isolation. They can legitimately disagree, and the page used to present them as one
+# reading. These tests pin the disclosure so a later edit cannot quietly drop it.
+# Verified against HEAD 2026-11-26; see claude/RISK_R5_R9_VERIFICATION.md.
+
+def test_connection_arc_discloses_the_dots_are_read_per_screenshot():
+    text = _visible_region(_render_result(**dict(CONNECTION, turn_analysis=LOW_TURNS)))
+    assert "one screenshot at a time" in text
+    # Must also say the overall read is computed differently, or the disclosure is half a fact.
+    assert "whole conversation" in text
+    assert "land differently" in text
+
+
+def test_risk_arc_discloses_the_dots_are_read_per_screenshot():
+    text = _visible_text(_render_result(**dict(
+        presentation_mode="risk", lane="FRAUD", risk_level="HIGH", risk_score=81,
+        turn_analysis=LOW_TURNS)))
+    assert "assessed on its own" in text
+    assert "full conversation" in text
+    assert "may differ" in text
+
+
+def test_arc_disclosure_stays_out_of_scanner_vocabulary_on_connection():
+    # The connection surface bans flag/signal/risk/pattern/danger/pressure. A footnote
+    # explaining engine provenance is exactly where that vocabulary tends to leak back in.
+    text = _visible_region(_render_result(**dict(CONNECTION, turn_analysis=LOW_TURNS)))
+    note = text[text.index("one screenshot at a time"):]
+    for word in BANNED_CONNECTION_WORDS:
+        assert word not in note.lower(), f"{word!r} leaked into the connection arc note"
