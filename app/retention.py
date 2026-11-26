@@ -199,6 +199,11 @@ def _inspect(cur, spec: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any
         + (f" WHERE NOT ({spec['where']})" if spec["sweep"] else ""),
         params)
     out["oldest_surviving"] = oldest_kept.isoformat() if oldest_kept else None
+    # What survives. The "total" above is the count BEFORE this run, so a report
+    # showing total 147 / deleted 100 never actually printed 47 anywhere - easy to
+    # misread at a glance, and this job's output is the record of an irreversible
+    # action. In a dry run this is what WOULD remain.
+    out["remaining"] = max(0, (out.get("total") or 0) - (out.get("would_delete") or 0))
     return out
 
 
@@ -285,8 +290,8 @@ def _render(report: Dict[str, Any]) -> str:
         f"  cutoff          {report.get('cutoff')}",
         "",
         f"  {'table':<22} {'total':>7} {'older':>7} {'held':>6} "
-        f"{'delete':>7}  oldest surviving",
-        f"  {'-' * 22} {'-' * 7} {'-' * 7} {'-' * 6} {'-' * 7}  {'-' * 25}",
+        f"{'delete':>7} {'keep':>7}  oldest surviving",
+        f"  {'-' * 22} {'-' * 7} {'-' * 7} {'-' * 6} {'-' * 7} {'-' * 7}  {'-' * 25}",
     ]
     for t in report.get("tables", []):
         if t.get("status") == "absent":
@@ -294,9 +299,11 @@ def _render(report: Dict[str, Any]) -> str:
             continue
         verb = t.get("deleted", t.get("would_delete", 0))
         mark = "" if t.get("sweep") else "  [report only]"
+        keep = t.get("remaining", t.get("total", 0))
         lines.append(
             f"  {t['table']:<22} {t.get('total', 0):>7} {t.get('older_than_cutoff', 0):>7} "
-            f"{t.get('held', '-'):>6} {verb:>7}  {t.get('oldest_surviving') or '-'}{mark}")
+            f"{t.get('held', '-'):>6} {verb:>7} {keep:>7}  "
+            f"{t.get('oldest_surviving') or '-'}{mark}")
     lines += ["", f"  duration {report.get('duration_ms')}ms", ""]
     if report["mode"] == "dry_run":
         lines += ["  Nothing was deleted. Re-run with --execute to delete.", ""]
