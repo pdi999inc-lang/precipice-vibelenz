@@ -319,7 +319,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--json", action="store_true", help="print the report as JSON")
     args = ap.parse_args(argv)
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    # stream=sys.stdout, NOT the logging default of stderr. Observed on the first
+    # scheduled run 2026-11-26: Railway tags anything on stderr as an `error` line, so
+    # the nightly [RETENTION] audit record - the successful one - was rendered red,
+    # alongside a report that said status dry_run_rolled_back and exit 0.
+    #
+    # This is the fail-closed problem pointed the other way. A sweep that silently does
+    # nothing must not look like success (hence the audit record on every run), and a
+    # sweep that succeeded must not look like a failure - because an operator who learns
+    # that this job's red lines are normal is an operator who will miss the real one.
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout,
+                        format="%(levelname)s %(name)s %(message)s")
     try:
         report = sweep(execute=args.execute)
     except RetentionAbort as exc:

@@ -380,8 +380,23 @@ def _extract_via_tesseract(image_bytes: bytes, idx: int, user_side: str = "right
         return text
 
     except Exception as layout_err:
+        # The flat retry is guarded. It was not, and the unguarded form double-faulted:
+        # when image_to_data raised TesseractNotFoundError, this handler logged "trying
+        # flat OCR" and then image_to_string raised the SAME error with nothing to catch
+        # it. The log therefore claimed a second attempt that could never have run, which
+        # is the kind of line that costs an hour when you are reading it at 3am.
+        #
+        # Anything that stops image_to_data for an environmental reason - no binary, bad
+        # permissions, a corrupt install - stops image_to_string identically. Only a
+        # layout/parse failure is genuinely worth retrying flat.
         logger.warning(f"Image {idx}: Tesseract layout failed ({layout_err}), trying flat OCR")
-        text = pytesseract.image_to_string(processed, config=config)
+        try:
+            text = pytesseract.image_to_string(processed, config=config)
+        except Exception as flat_err:
+            logger.error(
+                f"Image {idx}: Tesseract flat OCR also failed "
+                f"({type(flat_err).__name__}: {flat_err})")
+            raise
         logger.info(f"Image {idx}: Tesseract flat fallback {len(text)} chars")
         return text
 
