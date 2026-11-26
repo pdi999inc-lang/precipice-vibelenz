@@ -246,6 +246,93 @@ F8_PERMISSION = re.compile(
     r")", re.I)
 
 
+# --------------------------------------------------------- F9 degradation (2026-11-25)
+# Stark's degradation / humiliation. The discriminator is NOT the insult - couples
+# insult each other - it is devaluation PLUS the claim that no alternative exists:
+# you are worth less than you think, and only I will tolerate you.
+#
+# "youre lucky I put up with you" is ordinary affectionate needling and must never
+# fire. "youre lucky ANYONE puts up with you" generalises to every other person and
+# is a different statement. That generalisation is required by every pattern here.
+F9_DEGRADATION = re.compile(
+    r"(?:"
+    # No-alternatives framing. Two guards, both added after the negative controls
+    # caught the patterns firing on ordinary speech:
+    #   - the subject must be YOU. "im lucky anyone puts up with me" is
+    #     self-deprecation and fired before "you'?re" was required.
+    #   - a transitive verb must take a second-person object. "nobody else would
+    #     HAVE DONE that for me" is gratitude; "nobody else would HAVE YOU" is not.
+    #     "stay" is intransitive and needs no object.
+    r"\byou'?re\s+lucky\s+(?:that\s+)?(?:any\s?one|anybody)\s+"
+    r"(?:puts?\s+up\s+with|wants?|would\s+want|stays?|tolerates?)\b|"
+    r"\b(?:nobody|no\s?one)\s+(?:else\s+)?(?:would|will|could)\s+"
+    r"(?:stay\b|(?:want|have)\s+you\b|"
+    r"(?:put\s+up\s+with|tolerate|deal\s+with)\s+(?:you|it|this)\b)|"
+    r"\bwho\s+else\s+(?:would|will)\s+(?:want|have|put\s+up\s+with|stay\s+with)\b|"
+    # "only I see you truly" - devaluation that also isolates
+    r"\bi'?m\s+the\s+only\s+one\s+who\s+"
+    r"(?:tells\s+you\s+the\s+truth|is\s+honest\s+with\s+you|actually\s+cares)\b|"
+    # direct contempt. "useless" needs the guard: "useless at parking" is banter.
+    r"\byou'?re\s+(?:pathetic|worthless|disgusting|an\s+embarrassment)\b|"
+    r"\byou'?re\s+useless\b(?!\s+at\b)"
+    r")", re.I)
+
+# ---------------------------------------------------------- F10 gaslighting (2026-11-25)
+# A denial is NOT gaslighting. People genuinely misremember, and "i never said that"
+# is one of the commonest true sentences in an ordinary argument. Firing on it would
+# flag every couple who disagree about what was said.
+#
+# Tier A fires alone: the other party attacks the target's PERCEPTION, not the facts.
+# Deliberately excluded: "youre crazy". It is far more often an affectionate
+# exclamation ("youre crazy, thats amazing") than a denial of reality, and no guard
+# separates the two reliably at this level.
+F10_GASLIGHT_A = re.compile(
+    r"(?:"
+    r"\bthat\s+never\s+happened\b|"
+    r"\byou'?re\s+imagining\s+(?:it|that|this|things)\b|"
+    r"\byou'?re\s+making\s+(?:it|that|this)\s+up\b|"
+    r"\byou'?re\s+remembering\s+(?:it|that)\s+wrong\b|"
+    r"\byou'?re\s+(?:delusional|paranoid|unhinged)\b|"
+    r"\bbuilding\s+a\s+case\s+against\s+me\b"
+    r")", re.I)
+# Tier B: a denial becomes gaslighting when it is paired with making the ASKING the
+# offence. Neither half is coercive alone.
+F10_DENIAL = re.compile(
+    r"(?:\bi\s+never\s+said\s+that\b|\bi\s+did\s?n'?t\s+say\s+that\b|"
+    r"\bthat'?s\s+not\s+what\s+i\s+said\b)", re.I)
+F10_DEFLECT = re.compile(
+    r"(?:\byou\s+always\s+do\s+this\b|\byou'?re\s+exhausting\b|"
+    r"\bthis\s+is\s+why\s+i\s+don'?t\s+tell\s+you\b|\byou'?re\s+twisting\b|"
+    r"\byou'?re\s+impossible\b)", re.I)
+
+# ------------------------------------------------------ F11 micro-regulation (2026-11-25)
+# WEAKEST OF THE THREE, and said plainly: the overt tier of micro-regulation is thin.
+# "change before we go" is something partners say about a stained shirt, and no regex
+# separates care from control on that sentence alone. So Tier A is confined to an
+# explicit permission or prohibition structure over movement or dress - the same
+# shape F8 already recognises for money - and Tier B needs a shame frame beside the
+# directive.
+#
+# Note what is absent: no pattern matches "i don't want you going out in this",
+# because that is how care is phrased about weather, illness and late hours.
+F11_MICRO_A = re.compile(
+    r"(?:"
+    r"\byou'?re\s+not\s+(?:wearing|going\s+out\s+in|leaving\s+in)\s+that\b|"
+    r"\byou'?re\s+not\s+going\s+out\s+(?:like|dressed\s+like)\s+that\b|"
+    r"\byou\s+(?:need|have\s+to\s+get)\s+my\s+permission\s+to\b|"
+    r"\byou\s+(?:ask|check\s+with)\s+me\s+before\s+you\s+"
+    r"(?:go|leave|make\s+plans|see\s+any\s?one)\b|"
+    r"\byou\s+don'?t\s+go\s+any\s?where\s+without\s+(?:telling|asking)\s+me\b"
+    r")", re.I)
+F11_APPEARANCE = re.compile(
+    r"(?:\b(?:go\s+)?change\s+(?:before|first)\b|\btake\s+that\s+off\b|"
+    r"\bchange\s+what\s+you'?re\s+wearing\b|\byou'?re\s+wearing\s+that\b)", re.I)
+F11_SHAME = re.compile(
+    r"(?:\bevery\s?one\s+(?:there\s+)?will\s+be\s+looking\b|"
+    r"\bis\s+that\s+what\s+you\s+want\b|\bpeople\s+will\s+talk\b|"
+    r"\byou'?re\s+embarrassing\s+me\b|\bthinking\s+for\s+both\s+of\s+us\b)", re.I)
+
+
 def detect(text: str, relationship_type: str = "") -> List[str]:
     """Return fired floor ids for the other party's lines."""
     t = other_party_text(text)
@@ -271,6 +358,12 @@ def detect(text: str, relationship_type: str = "") -> List[str]:
         fired.append("surveillance_floor")
     if F8_FINANCIAL_CONTROL.search(t) or (F8_MONEY_CTX.search(t) and F8_PERMISSION.search(t)):
         fired.append("financial_control_floor")
+    if F9_DEGRADATION.search(t):
+        fired.append("degradation_floor")
+    if F10_GASLIGHT_A.search(t) or (F10_DENIAL.search(t) and F10_DEFLECT.search(t)):
+        fired.append("gaslighting_floor")
+    if F11_MICRO_A.search(t) or (F11_APPEARANCE.search(t) and F11_SHAME.search(t)):
+        fired.append("micro_regulation_floor")
     return fired
 
 
@@ -295,6 +388,9 @@ _FLOOR_TARGET: Dict[str, Tuple[str, int]] = {
     "partner_isolation_floor": ("COERCION_RISK", 60),
     "surveillance_floor": ("COERCION_RISK", 60),
     "financial_control_floor": ("COERCION_RISK", 60),
+    "degradation_floor": ("COERCION_RISK", 60),
+    "gaslighting_floor": ("COERCION_RISK", 60),
+    "micro_regulation_floor": ("COERCION_RISK", 60),
 }
 
 
@@ -327,7 +423,8 @@ def apply_safety_floors(result: Dict[str, Any], text: str, relationship_type: st
         _fraud_floors = {"investment_pitch_floor", "money_request_floor", "money_mule_floor"}
         _coercion_floors = {"leverage_threat_floor", "isolation_secrecy_floor",
                             "partner_isolation_floor", "surveillance_floor",
-                            "financial_control_floor"}
+                            "financial_control_floor", "degradation_floor",
+                            "gaslighting_floor", "micro_regulation_floor"}
         if lane == "COERCION_RISK" and (set(fired) & _fraud_floors) and not (set(fired) & _coercion_floors) \
                 and not out.get("physical_harm_override"):
             lane = "FRAUD"
