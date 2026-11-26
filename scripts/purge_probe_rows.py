@@ -72,19 +72,71 @@ _STEPS = [
      " SELECT 1 FROM analyses a WHERE a.request_id = b.request_id AND a.utm_source = %(tag)s)",
      "DELETE FROM conversation_batches b WHERE EXISTS ("
      " SELECT 1 FROM analyses a WHERE a.request_id = b.request_id AND a.utm_source = %(tag)s)"),
+    # Reads the SNAPSHOT, not conversation_batches. See _snapshot() for why: the
+    # live predicate requires a conversation to still have batches, and step 3 above
+    # has just deleted them, so the live form silently matched nothing.
     ("conversations (probe-only)",
-     f"SELECT COUNT(*) FROM ({_PROBE_CONVERSATIONS}) q",
-     f"DELETE FROM conversations WHERE conversation_id IN ({_PROBE_CONVERSATIONS})"),
+     "SELECT COUNT(*) FROM probe_convs",
+     "DELETE FROM conversations WHERE conversation_id IN"
+     " (SELECT conversation_id FROM probe_convs)"),
     ("analyses",
      "SELECT COUNT(*) FROM analyses WHERE utm_source = %(tag)s",
      "DELETE FROM analyses WHERE utm_source = %(tag)s"),
 ]
 
 
+# Conversations my own purge stranded: they HAD batches (batch_count was incremented
+# when those batches were written) but have none now. Nothing else deletes batches -
+# the retention sweep has never run - so this identifies the orphans exactly rather
+# than guessing from timestamps. A conversation that never had a batch keeps
+# batch_count 0 and is left alone, because that is a real read that failed before its
+# first save and is not mine to delete.
+_ORPHANS = """
+    SELECT c.conversation_id FROM conversations c
+     WHERE COALESCE(c.batch_count, 0) > 0
+       AND NOT EXISTS (SELECT 1 FROM conversation_batches b
+                        WHERE b.conversation_id = c.conversation_id)
+"""
+
+
+def _orphans(cur, execute: bool) -> int:
+    cur.execute(f"SELECT COUNT(*) FROM ({_ORPHANS}) q")
+    n = cur.fetchone()[0]
+    print(f"\n  conversations with batch_count > 0 and no surviving batches: {n}")
+    print("  (orphans left by the ordering bug fixed in this same commit)")
+    if not execute:
+        print("\n  Nothing was deleted. Re-run with --execute to delete.\n")
+        return n
+    cur.execute(f"DELETE FROM conversations WHERE conversation_id IN ({_ORPHANS})")
+    print(f"  DELETED {cur.rowcount}\n")
+    return n
+
+
+def _snapshot(cur, params) -> int:
+    """Freeze the probe-owned conversation ids BEFORE any deletion.
+
+    This exists because of a real bug, shipped 2026-11-26 and caught on the live
+    run. _PROBE_CONVERSATIONS requires that a conversation still HAVE at least one
+    batch - a guard added so that conversations which cannot be attributed are left
+    alone. But the delete order is children first, so conversation_batches was
+    emptied two steps earlier and the predicate then matched zero rows. The dry run
+    reported 12 and the execute deleted 0, which is the worst shape of failure: it
+    looked like success.
+
+    A temp table is dropped with the connection, so there is nothing to clean up.
+    """
+    cur.execute(f"CREATE TEMP TABLE probe_convs AS {_PROBE_CONVERSATIONS}", params)
+    cur.execute("SELECT COUNT(*) FROM probe_convs")
+    return cur.fetchone()[0]
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
         description="Remove synthetic probe rows. Dry run unless --execute.")
     ap.add_argument("--execute", action="store_true", help="actually delete")
+    ap.add_argument("--orphans", action="store_true",
+                    help="clean up conversations stranded by the 2026-11-26 ordering "
+                         "bug: batch_count > 0 but no surviving batches")
     args = ap.parse_args(argv)
 
     url = os.environ.get("DATABASE_URL", "")
@@ -103,6 +155,12 @@ def main(argv=None) -> int:
     try:
         cur = conn.cursor()
 
+        if args.orphans:
+            _orphans(cur, args.execute)
+            conn.commit() if args.execute else conn.rollback()
+            cur.close()
+            return 0
+
         # Campaigns present, so the operator can see WHAT is being removed before
         # anything is. Campaign names are probe run ids, not conversation content.
         cur.execute(
@@ -119,6 +177,10 @@ def main(argv=None) -> int:
         print(f"    {'-' * 34} {'-' * 5}  {'-' * 25}")
         for camp, n, lo, hi in rows:
             print(f"    {str(camp)[:34]:<34} {n:>5}  {lo}")
+
+        # Must happen before the count loop so dry run and execute agree, and before
+        # any delete so the batch-dependent predicate can still resolve.
+        _snapshot(cur, params)
 
         print(f"\n  {'table':<28} {'rows':>6}")
         print(f"  {'-' * 28} {'-' * 6}")
